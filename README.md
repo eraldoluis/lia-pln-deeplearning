@@ -1,4 +1,4 @@
-# README
+# PLN Theano
 
 Este repositório contém algoritmos baseados no conceito de Deep Learning para solucionar o problema de Named Entity Recognition.
 Mais que isto, estes algoritmos podem ser aplicados, potencialmente, em diversos problemas de Processamento de Linguagem Natural.

@@ -18,15 +18,9 @@ class MacMorphoReader:
         labels = data[1]
         
         f = open(filename, 'r')
-        a = 0
         prefWord = 'word='
         
         for line in f:
-            a +=1
-            
-            if a == 1000:
-                break
-            
             line_split = line.split()
             # Ignore empty lines.
             if len(line_split) < 2:

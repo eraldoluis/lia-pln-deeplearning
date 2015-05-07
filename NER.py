@@ -5,12 +5,12 @@ import argparse
 import sys, os
 import time
 
-from Data.FeatureFactory import *
+from DataOperation.FeatureFactory import *
 from Datum import *
 from WindowModelByWord import *
 import cPickle as pickle
 from Evaluate.EvaluatePrecisionRecallF1 import EvaluatePrecisionRecallF1
-from Data.WordVector import WordVector
+from DataOperation.WordVector import WordVector
 
 
 def main():

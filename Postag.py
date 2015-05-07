@@ -4,12 +4,12 @@
 import argparse
 import time
 
-from Data.MacMophorReader import MacMorphoReader
-from Data.WordVector import WordVector
+from DataOperation.MacMophorReader import MacMorphoReader
+from DataOperation.WordVector import WordVector
 from Evaluate.EvaluateAccuracy import EvaluateAccuracy
 from WindowModelBySentence import WindowModelBySentence
 import cPickle as pickle
-from Data.Lexicon import Lexicon
+from DataOperation.Lexicon import Lexicon
 from WindowModelByWord import WindowModelByWord
 
 

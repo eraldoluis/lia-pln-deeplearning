@@ -3,7 +3,7 @@
 
 '''
 '''
-from Data.Lexicon import Lexicon
+from DataOperation.Lexicon import Lexicon
 
 
 class FeatureFactory:
@@ -27,7 +27,7 @@ class FeatureFactory:
             
             lexiconIndex = lexicon.getLexiconIndex(word)
             
-            if addWordUnkown and lexiconIndex == 0:
+            if addWordUnkown and lexicon.isUnknownIndex(lexiconIndex):
                 lexiconIndex = lexicon.put(word)
                 wordVecs.append(None)
             

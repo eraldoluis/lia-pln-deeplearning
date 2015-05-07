@@ -5,16 +5,33 @@
 '''
 
 class Lexicon:
+    
+    UNKNOWN_INDEX = -1
 
-    def __init__(self):
+    def __init__(self,filePath=''):
         self.__lexicon = []
         self.__lexiconDict = {}
+    
+        
+        if filePath:
+            self.putUsingFile(filePath)
 
     def getLen(self):
         '''
         Return the number of words in the lexicon.
         '''
         return len(self.__lexicon)
+    
+    def putUsingFile(self,vocabfilename):
+        # Read the vocabulary file (one word per line).
+        fVoc = open(vocabfilename, 'r')
+        for line in fVoc:
+            word = line.strip()
+            # Ignore empty lines.
+            if len(word) == 0:
+                continue
+            self.put(word)
+        fVoc.close()
 
     def put(self, word):
         '''
@@ -43,4 +60,7 @@ class Lexicon:
         the return 0 (the unknown lexicon).
         '''
         word = word.lower()
-        return self.__lexiconDict.get(word, 0)
+        return self.__lexiconDict.get(word, self.UNKNOWN_INDEX)
+    
+    def isUnknownIndex(self,index):
+        return index == self.UNKNOWN_INDEX

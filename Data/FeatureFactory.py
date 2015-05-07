@@ -3,45 +3,12 @@
 
 '''
 '''
-from Data.WordVector import WordVector
 from Data.Lexicon import Lexicon
 
 
 class FeatureFactory:
-
-    def __init__(self,wordVectorSize):
-        self.__lexicon = Lexicon(); 
-        self.__lexiconOfLabel = Lexicon();
-        self.__wordVecs = WordVector(wordVectorSize);
-        
-    def readWordVectors(self, vecfilename, vocabfilename):
-        '''
-        Load a dictionary from vocabfilename and the vector (embedding)
-        for each word from vecfilename.
-        '''
-        # Read the vocabulary file (one word per line).
-        fVoc = open(vocabfilename, 'r')
-        for line in fVoc:
-            word = line.strip()
-            # Ignore empty lines.
-            if len(word) == 0:
-                continue
-            self.__lexicon.put(word)
-        fVoc.close()
-
-        # Read the vector file (one word vector per line).
-        # Each vector represents a word from the vocabulary.
-        # The vectors must be in the same order as in the vocabulary.
-        fVec = open(vecfilename, 'r')
-        for line in fVec:
-            self.__wordVecs.append([float(num) for num in line.split()])
-        fVec.close()
-        
-        self.__wordVecs.setLenWordVectorAuto()
-
-        assert (self.__wordVecs.getLength() == self.__lexicon.getLen())
-
-    def readData(self, filename,addWordUnkown=False):
+ 
+    def readData(self, filename,lexicon,lexiconOfLabel, wordVecs, addWordUnkown=False):
         '''
         Read the data from a file and return a matrix which the first row is the words indexes  and second row is the labels values
         '''
@@ -58,14 +25,14 @@ class FeatureFactory:
             word = line_split[0]
             label = line_split[1]
             
-            lexiconIndex = self.__lexicon.getLexiconIndex(word)
+            lexiconIndex = lexicon.getLexiconIndex(word)
             
             if addWordUnkown and lexiconIndex == 0:
-                lexiconIndex = self.__lexicon.put(word)
-                self.__wordVecs.append(None)
+                lexiconIndex = lexicon.put(word)
+                wordVecs.append(None)
             
             indexes.append(lexiconIndex)
-            labels.append(self.__lexiconOfLabel.put(label))
+            labels.append(lexiconOfLabel.put(label))
         
         f.close()
 

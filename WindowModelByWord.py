@@ -42,21 +42,6 @@ class WindowModelByWord(WindowModelBasic):
             allWindowIndexes.append(self.getWindowIndexes(idxWord, data))
             
         return np.array(allWindowIndexes);
-
-    def getWindowIndexes(self, idxWord, data):
-        lenData = len(data)
-        windowNums = []
-        contextSize = int(np.floor((self.windowSize - 1) / 2))
-        i = idxWord - contextSize
-        while (i <= idxWord + contextSize):
-            if(i < 0):
-                windowNums.append(self.startSymbol)
-            elif (i >= lenData):
-                windowNums.append(self.endSymbol)
-            else:
-                windowNums.append(data[i])
-            i += 1
-        return windowNums
     
     def confBatchSize(self,numWordsInTrain):
         # Configura o batch size

@@ -2,30 +2,33 @@
 # -*- coding: utf-8 -*-
 
 import argparse
-import sys, os
 import time
 
-from Data.FeatureFactory import *
-from Datum import *
-from WindowModelByWord import *
-import cPickle as pickle
-from Evaluate.EvaluatePrecisionRecallF1 import EvaluatePrecisionRecallF1
+from Data.MacMophorReader import MacMorphoReader
 from Data.WordVector import WordVector
+from Evaluate.EvaluateAccuracy import EvaluateAccuracy
+from WindowModelBySentence import WindowModelBySentence
+import cPickle as pickle
+from Data.Lexicon import Lexicon
+from WindowModelByWord import WindowModelByWord
 
 
 def main():
     
     parser = argparse.ArgumentParser();
     
-    
     parser.add_argument('--train', dest='train', action='store',
                        help='Training File Path',required=True)
     
     parser.add_argument('--test', dest='test', action='store',
-                       help='TypeTest File Path',required=True)
-    
+                       help='TypeTest File Path',required=True)    
     parser.add_argument('--numepochs', dest='numepochs', action='store', type=int, required=True,
                        help='Number of epochs: how many iterations over the training set.')
+    
+    algTypeChoices= ["window_word","window_sentence"]
+    
+    parser.add_argument('--alg', dest='alg', action='store', default="window_sentence", choices=algTypeChoices,
+                       help='O algorithm use to train and test')
     
     parser.add_argument('--hiddenlayersize', dest='hiddenSize', action='store', type=int,
                        help='The number of neurons in the hidden layer',default=100)
@@ -33,15 +36,14 @@ def main():
     parser.add_argument('--windowsize', dest='windowSize', action='store', type=int,
                        help='The number of neurons in the hidden layer',default=5)
 
-    parser.add_argument('--batchsize', dest='batchSize', action='store', type=int,
+    parser.add_argument('--batchSize', dest='batchSize', action='store', type=int,
                        help='The size of the batch in the train',default=1)
     
     parser.add_argument('--lr', dest='lr', action='store', type=float , default=0.001,
                        help='The value of the learning rate')
 
     parser.add_argument('--c', dest='c', action='store', type=float , default=0.0,
-                       help='The larger C is the more the regularization pushes the weights of all our parameters to zero.')
-    
+                       help='The larger C is the more the regularization pushes the weights of all our parameters to zero.')    
     parser.add_argument('--wordvecsize', dest='wordVecSize', action='store', type=int,
                        help='Word vector size',default=50)
 
@@ -50,8 +52,6 @@ def main():
     
     parser.add_argument('--wordvectors', dest='wordVectors', action='store',
                        help='word Vectors File Path')
-    
-    
     parser.add_argument('--savemodel', dest='saveModel', action='store',
                        help='The file path where the model will be saved')
     
@@ -83,13 +83,12 @@ def main():
         addUnkownWord = True
         
     
-    featureFactory = FeatureFactory()
+    datasetReader = MacMorphoReader()
 
     print 'Loading train data...'
     
     lexiconOfLabel = Lexicon()
     
-    trainData = featureFactory.readData(args.train,lexicon,lexiconOfLabel,wordVector,addUnkownWord)
     
     numClasses = lexiconOfLabel.getLen()
     
@@ -97,10 +96,26 @@ def main():
         print 'Loading model in ' + args.loadModel + ' ...'
         f = open(args.loadModel, "rb");
         model = pickle.load(f)
+        
+        if type(model) is WindowModelByWord:
+            separeSentence = False
+        elif type(model) is WindowModelBySentence: 
+            separeSentence = True
+            
         f.close()
     else:
-        model = WindowModelByWord(lexicon,wordVector, 
+        if args.alg == algTypeChoices[0]:
+            separeSentence = False
+            trainData = datasetReader.readData(args.train,lexicon,lexiconOfLabel,wordVector,separeSentence,addUnkownWord)
+            model = WindowModelByWord(lexicon,wordVector, 
                             args.windowSize, args.hiddenSize, args.lr,numClasses,args.numepochs,args.batchSize, args.c);
+        
+        elif args.alg == algTypeChoices[1]:
+            separeSentence = True
+            trainData = datasetReader.readData(args.train,lexicon,lexiconOfLabel,wordVector,separeSentence,addUnkownWord)
+            model = WindowModelBySentence(lexicon,wordVector, 
+                            args.windowSize, args.hiddenSize, args.lr,numClasses,args.numepochs,args.batchSize, args.c)
+        
         print 'Training...'
         model.train(trainData[0],trainData[1]);
         
@@ -116,10 +131,10 @@ def main():
     print ("Train time: %s seconds" % (str(t1 - t0)))
 
     print 'Loading test data...'
-    testData = featureFactory.readData(args.test,lexicon,lexiconOfLabel,wordVector)
+    testData = datasetReader.readData(args.test,lexicon,lexiconOfLabel,wordVector,separeSentence)
     print 'Testing...'
     predicts = model.predict(testData[0]);
-    eval = EvaluatePrecisionRecallF1(numClasses)
+    eval = EvaluateAccuracy(numClasses)
     
     eval.evaluate(predicts,testData[1]);
     
@@ -127,7 +142,6 @@ def main():
     t2 = time.time()
     print ("TypeTest  time: %s seconds" % (str(t2 - t1)))
     print ("Total time: %s seconds" % (str(t2 - t0)))
-    
     
 if __name__ == '__main__':
     main()

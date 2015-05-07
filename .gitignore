@@ -2,3 +2,8 @@
 .pydevproject
 .settings/
 data/
+
+.classpath
+*.pyc
+*.txt
+*.p

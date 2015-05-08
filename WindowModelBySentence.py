@@ -5,6 +5,7 @@ from NNet.SentenceSoftmaxLayer import SentenceSoftmaxLayer
 from NNet.Util import regularizationSquareSumParamaters
 from WindowModelBasic import WindowModelBasic
 import numpy as np
+from itertools import chain
 
 
 class WindowModelBySentence(WindowModelBasic):
@@ -34,6 +35,8 @@ class WindowModelBySentence(WindowModelBasic):
         self.setCost(cost)
         self.setUpdates(updates)
         
+    def reshapeCorrectData(self,correctData):
+        return np.fromiter(chain.from_iterable(correctData),dtype=int)
     
     def getAllWindowIndexes(self, data):
         allWindowIndexes = [];

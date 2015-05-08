@@ -29,9 +29,9 @@ class SentenceSoftmaxLayer(object):
             borrow=True
         )
         
-        self.emissionValues = T.dot(input.getOutput(), self.W) + self.b
+        self.emissionValues = T.dot(input, self.W) + self.b
         self.transitionValues = theano.shared(NNet.Util.WeightTanhGenerator().generateWeight(numberClasses, numberClasses + 1))
-        self.numberClasses = numberClasses;
+        self.numClasses = numberClasses;
 
         # parameters of the model
         self.params = [self.W, self.b, self.transitionValues]
@@ -52,7 +52,11 @@ class SentenceSoftmaxLayer(object):
             n_steps = numWords-1)
         
         self.sumValueAllPaths = T.log(T.sum(T.exp(result[-1])))
-        self.updatesSumValue = updates
+
+#       Neste scan não é necessário passar o updates para o function
+#       , pois nenhuma shared variable será alterada durante o scan
+#       
+#        self.updatesSumValue = updates
         
         
         # Implementação do viterbi
@@ -116,7 +120,7 @@ class SentenceSoftmaxLayer(object):
     def getUpdate(self, cost, learningRate):
         up = defaultGradParameters(cost, self.params, learningRate)
         
-        up.append(self.updatesSumValue)
+#        up.append(self.updatesSumValue)
         
         return up;
     

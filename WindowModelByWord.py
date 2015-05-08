@@ -34,6 +34,8 @@ class WindowModelByWord(WindowModelBasic):
         self.setCost(cost)
         self.setUpdates(updates)
     
+    def reshapeCorrectData(self,correctData):
+        return np.asarray(correctData)
     
     def getAllWindowIndexes(self, data):
         allWindowIndexes = [];

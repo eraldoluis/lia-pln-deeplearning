@@ -53,6 +53,9 @@ class WindowModelBasic:
     
     def getAllWindowIndexes(self, data):
         raise NotImplementedError();
+    
+    def reshapeCorrectData(self,correctData):
+        raise NotImplementedError();
 
     def getWindowIndexes(self, idxWord, data):
         lenData = len(data)
@@ -75,9 +78,11 @@ class WindowModelBasic:
 
     def train(self, inputData, correctData):
         numWordsInTrain = len(inputData)
-                
+        
+        theano.config.exception_verbosity='high' 
+               
         # Label
-        self.y.set_value(np.asarray(correctData),borrow=True)
+        self.y.set_value(self.reshapeCorrectData(correctData),borrow=True)
         
         # Camada: word window.
         self.windowIdxs.set_value(self.getAllWindowIndexes(inputData),borrow=True)

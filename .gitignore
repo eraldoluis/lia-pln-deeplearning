@@ -7,3 +7,4 @@ dataset/
 *.pyc
 *.txt
 *.p
+*.model

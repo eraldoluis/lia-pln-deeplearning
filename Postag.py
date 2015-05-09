@@ -136,9 +136,7 @@ def main():
     print 'Testing...'
     predicts = model.predict(testData[0]);
     
-    numClasses = lexiconOfLabel.getLen()
-    
-    eval = EvaluateAccuracy(numClasses)
+    eval = EvaluateAccuracy()
     
     eval.evaluate(predicts,testData[1]);
     

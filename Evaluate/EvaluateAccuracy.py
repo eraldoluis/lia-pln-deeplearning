@@ -6,7 +6,6 @@ from timeit import itertools
 
 class EvaluateAccuracy:
     
-    
     def evaluate(self,predicts,corrects):
             
         if len(predicts) != len(corrects):

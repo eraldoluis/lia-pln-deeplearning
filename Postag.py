@@ -94,9 +94,9 @@ def main():
         f = open(args.loadModel, "rb");
         model = pickle.load(f)
         
-        if type(model) is WindowModelByWord:
+        if isinstance(model,WindowModelByWord):
             separeSentence = False
-        elif type(model) is WindowModelBySentence: 
+        elif isinstance(model,WindowModelBySentence): 
             separeSentence = True
             
         f.close()

@@ -55,14 +55,17 @@ class WindowModelBySentence(WindowModelBasic):
         return np.asarray(self.setencesSize)
         
     def predict(self, inputData):
-        sentences = self.getAllWindowIndexes(inputData);
+        windowSetences = self.getAllWindowIndexes(inputData);
         
         predicts = []
-               
-        for windowSetence in sentences:
-            self.windowIdxs.set_value(windowSetence,borrow=True)
+        index = 0
+        indexSentence = 0
+        while index < len(windowSetences):
+            self.windowIdxs.set_value(windowSetences[index:index + self.setencesSize[indexSentence]],borrow=True)
             
-            predicts.append(self.sentenceSoftmax.predict(len(windowSetence)))
-    
+            predicts.append(self.sentenceSoftmax.predict(self.setencesSize[indexSentence]))
+            
+            index += self.setencesSize[indexSentence]
+            indexSentence += 1
         
         return np.asarray(predicts);

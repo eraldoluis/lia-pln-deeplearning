@@ -30,7 +30,7 @@ class SentenceSoftmaxLayer(object):
         )
         
         self.emissionValues = T.dot(input, self.W) + self.b
-        self.transitionValues = theano.shared(NNet.Util.WeightTanhGenerator().generateWeight(numberClasses, numberClasses + 1))
+        self.transitionValues = theano.shared(NNet.Util.WeightTanhGenerator().generateWeight(numberClasses, numberClasses + 1),name="transitionValues")
         self.numClasses = numberClasses;
 
         # parameters of the model

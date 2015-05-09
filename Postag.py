@@ -89,9 +89,6 @@ def main():
     
     lexiconOfLabel = Lexicon()
     
-    
-    numClasses = lexiconOfLabel.getLen()
-    
     if args.loadModel is not None:
         print 'Loading model in ' + args.loadModel + ' ...'
         f = open(args.loadModel, "rb");
@@ -107,12 +104,16 @@ def main():
         if args.alg == algTypeChoices[0]:
             separeSentence = False
             trainData = datasetReader.readData(args.train,lexicon,lexiconOfLabel,wordVector,separeSentence,addUnkownWord)
+            
+            numClasses = lexiconOfLabel.getLen()
             model = WindowModelByWord(lexicon,wordVector, 
                             args.windowSize, args.hiddenSize, args.lr,numClasses,args.numepochs,args.batchSize, args.c);
         
         elif args.alg == algTypeChoices[1]:
             separeSentence = True
             trainData = datasetReader.readData(args.train,lexicon,lexiconOfLabel,wordVector,separeSentence,addUnkownWord)
+            
+            numClasses = lexiconOfLabel.getLen()
             model = WindowModelBySentence(lexicon,wordVector, 
                             args.windowSize, args.hiddenSize, args.lr,numClasses,args.numepochs,args.batchSize, args.c)
         

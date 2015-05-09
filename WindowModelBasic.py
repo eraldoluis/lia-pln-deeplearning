@@ -78,8 +78,6 @@ class WindowModelBasic:
 
     def train(self, inputData, correctData):
         numWordsInTrain = len(inputData)
-        
-        theano.config.exception_verbosity='high' 
                
         # Label
         self.y.set_value(self.reshapeCorrectData(correctData),borrow=True)

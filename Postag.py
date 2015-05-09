@@ -126,7 +126,7 @@ def main():
             pickle.dump(model, f, pickle.HIGHEST_PROTOCOL)
             f.close()
             
-            print 'Model save with sucess in ' + args.saveModel,
+            print 'Model save with sucess in ' + args.saveModel
 
     t1 = time.time()
     print ("Train time: %s seconds" % (str(t1 - t0)))

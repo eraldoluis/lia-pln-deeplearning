@@ -79,6 +79,10 @@ class SentenceSoftmaxLayer(object):
         lastClass = T.argmax(max[-1])
              
         self.viterbi = theano.function(inputs=[],outputs=[lastClass,argMax[-1]] , updates=updates)
+        
+        # Calcula o viterbi para uma frase com um word
+        argmaxDelta = T.argmax(delta)
+        self.viterbiSentenceOneWord = theano.function(inputs=[],outputs = argmaxDelta)
     
     def getSumPathY(self, y):
         # yl guardará a classe anterior a palavra i , enquanto
@@ -99,18 +103,23 @@ class SentenceSoftmaxLayer(object):
         return self.params
     
     def predict(self,numWords):
-        resultadoViterbi =  self.viterbi()
-        lastClass = int(resultadoViterbi[0])
-        classesByWord = resultadoViterbi[1]
+        sequencia = deque()
         
-        sequencia = deque([lastClass])
-        
-        i = len(classesByWord) -1
-        
-        while i > -1:
-            lastClass = int(classesByWord[i][lastClass])
+        if numWords == 1:
+            sequencia.appendleft(int(self.viterbiSentenceOneWord()))
+        else:
+            resultadoViterbi =  self.viterbi()
+            lastClass = int(resultadoViterbi[0])
+            classesByWord = resultadoViterbi[1]
+            
             sequencia.appendleft(lastClass)
-            i-=1
+            
+            i = len(classesByWord) -1
+            
+            while i > -1:
+                lastClass = int(classesByWord[i][lastClass])
+                sequencia.appendleft(lastClass)
+                i-=1
         
         return tuple(sequencia)
     

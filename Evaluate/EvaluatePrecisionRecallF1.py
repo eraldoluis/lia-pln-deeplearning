@@ -25,4 +25,4 @@ class EvaluatePrecisionRecallF1:
         
         rec,prec,f1 = f();
         
-        print "TypeTest: Precision = ", prec , ", Recall = ", rec, ", F1=", f1
+        return (rec,prec,f1)

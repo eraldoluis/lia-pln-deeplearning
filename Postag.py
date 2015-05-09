@@ -138,11 +138,12 @@ def main():
     
     eval = EvaluateAccuracy()
     
-    eval.evaluate(predicts,testData[1]);
+    acc = eval.evaluate(predicts,testData[1]);
     
+    print "Accuracy Test:  ", acc
 
     t2 = time.time()
-    print ("TypeTest  time: %s seconds" % (str(t2 - t1)))
+    print ("Test  time: %s seconds" % (str(t2 - t1)))
     print ("Total time: %s seconds" % (str(t2 - t0)))
     
 if __name__ == '__main__':

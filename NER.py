@@ -121,11 +121,12 @@ def main():
     predicts = model.predict(testData[0]);
     eval = EvaluatePrecisionRecallF1(numClasses)
     
-    eval.evaluate(predicts,testData[1]);
+    prec,rec,f1 = eval.evaluate(predicts,testData[1]);
     
+    print "Test Result: Precision = ", prec , ", Recall = ", rec, ", F1=", f1
 
     t2 = time.time()
-    print ("TypeTest  time: %s seconds" % (str(t2 - t1)))
+    print ("Test  time: %s seconds" % (str(t2 - t1)))
     print ("Total time: %s seconds" % (str(t2 - t0)))
     
     

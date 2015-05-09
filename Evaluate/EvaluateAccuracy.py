@@ -13,7 +13,7 @@ class EvaluateAccuracy:
         
         sum = 0.
         
-        for p,c in itertools.izip(p,c):
+        for p,c in itertools.izip(predicts,corrects):
             if p == c:
                 sum +=1.
         

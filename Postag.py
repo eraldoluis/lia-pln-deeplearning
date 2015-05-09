@@ -135,6 +135,9 @@ def main():
     testData = datasetReader.readData(args.test,lexicon,lexiconOfLabel,wordVector,separeSentence)
     print 'Testing...'
     predicts = model.predict(testData[0]);
+    
+    numClasses = lexiconOfLabel.getLen()
+    
     eval = EvaluateAccuracy(numClasses)
     
     eval.evaluate(predicts,testData[1]);

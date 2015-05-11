@@ -11,7 +11,7 @@ from WindowModelBySentence import WindowModelBySentence
 import cPickle as pickle
 from DataOperation.Lexicon import Lexicon
 from WindowModelByWord import WindowModelByWord
-
+import sys
 
 def main():
     
@@ -58,7 +58,15 @@ def main():
     parser.add_argument('--loadmodel', dest='loadModel', action='store',
                        help='The file path where the model is stored')
     
-    args = parser.parse_args();
+    
+    
+    try:
+        args = parser.parse_args();
+        
+        print args
+    except:
+        parser.print_help()
+        sys.exit(0)
     
         
     t0 = time.time()

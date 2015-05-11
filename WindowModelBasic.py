@@ -100,6 +100,7 @@ class WindowModelBasic:
                                 })
         
         for ite in range(self.numEpochs):
+            print 'Epoch ' + str(ite)
             minibatch_index = 0
             i = 0
             

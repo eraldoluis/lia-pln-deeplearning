@@ -121,7 +121,7 @@ class SentenceSoftmaxLayer(object):
                 sequencia.appendleft(lastClass)
                 i-=1
         
-        return tuple(sequencia)
+        return list(sequencia)
     
     def getPrediction(self):
         raise  NotImplemented("Esta classe não implementa este método")

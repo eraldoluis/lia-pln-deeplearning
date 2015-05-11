@@ -59,7 +59,7 @@ class WindowModelByWord(WindowModelBasic):
         
         y_pred = self.softmax.getPrediction();
           
-        f = theano.function([],[y_pred]);
+        f = theano.function([],y_pred);
         
         return f();
     

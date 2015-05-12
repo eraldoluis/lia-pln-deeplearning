@@ -11,6 +11,8 @@ from NNet.SoftmaxLayer import SoftmaxLayer
 from NNet.Util import negative_log_likelihood, regularizationSquareSumParamaters
 
 class WindowModelBasic:
+    startSymbolStr = "<s>"
+    endSymbolStr = "</s>"
 
     def __init__(self, lexicon, wordVectors , windowSize, hiddenSize, _lr,numClasses,numEpochs, batchSize=1.0, c=0.0):
         self.Wv = theano.shared(name='wordVecs',
@@ -21,8 +23,8 @@ class WindowModelBasic:
         self.hiddenSize = hiddenSize;
         self.windowSize = windowSize
         self.regularizationFactor = c;
-        self.startSymbol = lexicon.getLexiconIndex("<s>")
-        self.endSymbol = lexicon.getLexiconIndex("</s>")
+        self.startSymbol = lexicon.getLexiconIndex(WindowModelBasic.startSymbolStr)
+        self.endSymbol = lexicon.getLexiconIndex(WindowModelBasic.endSymbolStr)
         self.numClasses = numClasses
         self.numEpochs = numEpochs
         self.batchSize = batchSize
@@ -89,6 +91,9 @@ class WindowModelBasic:
         
         batchSize = theano.shared(0, "batchSize"); 
         index = T.iscalar("index")
+        
+        theano.printing.pprint(self.cost)
+        theano.printing.debugprint(self.cost)
         
         # Train function.
         train = theano.function(inputs=[index],

@@ -43,7 +43,7 @@ class WindowModelBySentence(WindowModelBasic):
         self.setencesSize = [];
         
         for idxSentence in range(len(data)):
-            for idxWord in data[idxSentence]:
+            for idxWord in range(len(data[idxSentence])):
                 allWindowIndexes.append(self.getWindowIndexes(idxWord, data[idxSentence]))
             
             self.setencesSize.append(len(data[idxSentence]))

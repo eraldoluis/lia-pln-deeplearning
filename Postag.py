@@ -156,7 +156,7 @@ def main():
                 
         if args.numPerEpoch is not None and len(args.numPerEpoch) != 0 :
             print 'Loading test data...'
-            testData = datasetReader.readTestData(args.test,lexicon,lexiconOfLabel)
+            testData = datasetReader.readTestData(args.test,lexicon,lexiconOfLabel,separeSentence)
             
             evalListener = EvaluateEveryNumEpoch(args.numepochs,args.numPerEpoch,EvaluateAccuracy(),model,testData[0],testData[1])
             
@@ -175,6 +175,11 @@ def main():
 
     t1 = time.time()
     print ("Train time: %s seconds" % (str(t1 - t0)))
+    
+    print 'Loading test data...'
+    
+    if testData is None:
+        testData = datasetReader.readTestData(args.test,lexicon,lexiconOfLabel,separeSentence)
     
     print 'Testing...'
     predicts = model.predict(testData[0]);

@@ -7,8 +7,13 @@ from DataOperation.Lexicon import Lexicon
 
 
 class FeatureFactory:
- 
-    def readData(self, filename,lexicon,lexiconOfLabel, wordVecs, addWordUnkown=False):
+    def readTrainData(self, filename,lexicon,lexiconOfLabel, wordVecs, addWordUnkown=False):
+        return self.readData(filename, lexicon, lexiconOfLabel, wordVecs, addWordUnkown)
+    
+    def readTestData(self, filename,lexicon,lexiconOfLabel):
+        return self.readData(filename, lexicon, lexiconOfLabel)
+        
+    def readData(self, filename,lexicon,lexiconOfLabel, wordVecs=None, addWordUnkown=False):
         '''
         Read the data from a file and return a matrix which the first row is the words indexes  and second row is the labels values
         '''

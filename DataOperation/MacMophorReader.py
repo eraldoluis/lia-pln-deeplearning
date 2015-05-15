@@ -8,8 +8,10 @@ import time
 
 
 class MacMorphoReader:    
-        
-    def readData(self, filename,lexicon,lexiconOfLabel, wordVecs, separateSentences= True, addWordUnkown=False):
+    def readTestData(self, filename,lexicon,lexiconOfLabel,separateSentences=True):
+        return self.readData(filename, lexicon, lexiconOfLabel,None,separateSentences)
+    
+    def readData(self, filename,lexicon,lexiconOfLabel, wordVecs=None, separateSentences= True, addWordUnkown=False):
         '''
         Read the data from a file and return a matrix which the first row is the words indexes  and second row is the labels values
         '''
@@ -22,6 +24,11 @@ class MacMorphoReader:
         prefWord = 'word='
         
         for line in f:
+            a +=1
+               
+            if a ==100:
+                break;
+            
             line_split = line.split()
             # Ignore empty lines.
             if len(line_split) < 2:
@@ -53,6 +60,14 @@ class MacMorphoReader:
                 labels.append(labelsBySentence)
             
         f.close()
-
+        
+#         list = []
+#         i = 0
+#         for l in data[0]:
+#             if len(l) < 5:
+#                 list.append((i,len(l)))
+#             i+=1
+# 
+#         print list
         return data
  

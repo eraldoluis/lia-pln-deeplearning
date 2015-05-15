@@ -12,6 +12,10 @@ import cPickle as pickle
 from DataOperation.Lexicon import Lexicon
 from WindowModelByWord import WindowModelByWord
 import sys
+from sphinx.ext.todo import Todo
+import numpy
+from WindowModelBasic import WindowModelBasic
+from Evaluate.EvaluateEveryNumEpoch import EvaluateEveryNumEpoch
 
 def main():
     
@@ -35,6 +39,12 @@ def main():
     
     parser.add_argument('--windowsize', dest='windowSize', action='store', type=int,
                        help='The number of neurons in the hidden layer',default=5)
+    
+    parser.add_argument('--numperepoch', dest='numPerEpoch', action='store', nargs='*', type=int,
+                       help="The evaluation on the test corpus will "
+                            + "be performed after a certain number of training epoch."
+                            + "If the value is an integer, so the evalution will be performed after this value of training epoch "
+                            + "If the value is a list of integer, than the evaluation will be performed when the epoch is equal to one of list elements.  ",default=None)
 
     parser.add_argument('--batchSize', dest='batchSize', action='store', type=int,
                        help='The size of the batch in the train',default=1)
@@ -44,6 +54,7 @@ def main():
 
     parser.add_argument('--c', dest='c', action='store', type=float , default=0.0,
                        help='The larger C is the more the regularization pushes the weights of all our parameters to zero.')    
+    
     parser.add_argument('--wordvecsize', dest='wordVecSize', action='store', type=int,
                        help='Word vector size',default=50)
 
@@ -59,6 +70,8 @@ def main():
                        help='The file path where the model is stored')
     
     
+    #Todo: delete
+    numpy.random.seed(10)
     
     try:
         args = parser.parse_args();
@@ -70,37 +83,14 @@ def main():
     
         
     t0 = time.time()
-
-    print 'Loading dictionary...'
-
-    if args.vocab is not None or args.wordVectors is not None:
-        
-        if args.vocab is None or args.wordVectors is None:
-            raise ValueError("The vocabulary file path and wordVector file path has to be set together")
-        
-        wordVector = WordVector(args.wordVectors)
-        lexicon = Lexicon(args.vocab)
-        
-        if lexicon.getLen() != wordVector.getLength():
-            raise Exception("O número de palavras no vacabulário é diferente do número de palavras do word Vector")
-        
-        addUnkownWord = False
-    else:
-        wordVector = WordVector(wordSize=args.wordVecSize)
-        lexicon = Lexicon()
-        addUnkownWord = True
-        
-    
+ 
     datasetReader = MacMorphoReader()
-
-    print 'Loading train data...'
-    
-    lexiconOfLabel = Lexicon()
-    
+    testData = None
+        
     if args.loadModel is not None:
         print 'Loading model in ' + args.loadModel + ' ...'
         f = open(args.loadModel, "rb");
-        model = pickle.load(f)
+        lexicon,lexiconOfLabel,model = pickle.load(f)
         
         if isinstance(model,WindowModelByWord):
             separeSentence = False
@@ -108,9 +98,45 @@ def main():
             separeSentence = True
             
         f.close()
-    else:
+    else:        
+        print 'Loading dictionary...'
+
+        if args.vocab is not None or args.wordVectors is not None:
+            
+            if args.vocab is None or args.wordVectors is None:
+                raise ValueError("The vocabulary file path and wordVector file path has to be set together")
+            
+            wordVector = WordVector(args.wordVectors)
+            lexicon = Lexicon(args.vocab)
+            
+            if lexicon.isUnknownIndex(lexicon.getLexiconIndex(WindowModelBasic.startSymbolStr)):
+                raise Exception("O vocabulário não possui o símbolo de começo\"<s>)\"")
+            
+            if lexicon.isUnknownIndex(lexicon.getLexiconIndex(WindowModelBasic.endSymbolStr)):
+                raise Exception("O vocabulário não possui o símbolo de final\"<s>)\"")
+            
+            if lexicon.getLen() != wordVector.getLength():
+                raise Exception("O número de palavras no vacabulário é diferente do número de palavras do word Vector")
+            
+            addUnkownWord = False
+        else:
+            wordVector = WordVector(wordSize=args.wordVecSize)
+            lexicon = Lexicon()
+            
+            lexicon.put(WindowModelBasic.startSymbolStr)
+            wordVector.append(None)
+            
+            lexicon.put(WindowModelBasic.endSymbolStr)
+            wordVector.append(None)
+            
+            addUnkownWord = True
+            
+        
+        lexiconOfLabel = Lexicon()
+
         if args.alg == algTypeChoices[0]:
             separeSentence = False
+            print 'Loading train data...'
             trainData = datasetReader.readData(args.train,lexicon,lexiconOfLabel,wordVector,separeSentence,addUnkownWord)
             
             numClasses = lexiconOfLabel.getLen()
@@ -119,36 +145,44 @@ def main():
         
         elif args.alg == algTypeChoices[1]:
             separeSentence = True
+            print 'Loading train data...'
             trainData = datasetReader.readData(args.train,lexicon,lexiconOfLabel,wordVector,separeSentence,addUnkownWord)
             
             numClasses = lexiconOfLabel.getLen()
             model = WindowModelBySentence(lexicon,wordVector, 
                             args.windowSize, args.hiddenSize, args.lr,numClasses,args.numepochs,args.batchSize, args.c)
         
+        
+                
+        if args.numPerEpoch is not None and len(args.numPerEpoch) != 0 :
+            print 'Loading test data...'
+            testData = datasetReader.readTestData(args.test,lexicon,lexiconOfLabel)
+            
+            evalListener = EvaluateEveryNumEpoch(args.numepochs,args.numPerEpoch,EvaluateAccuracy(),model,testData[0],testData[1])
+            
+            model.addListener(evalListener)
+            
         print 'Training...'
         model.train(trainData[0],trainData[1]);
         
         if args.saveModel is not None:
             print 'Saving Model...'
             f = open(args.saveModel, "wb");
-            pickle.dump(model, f, pickle.HIGHEST_PROTOCOL)
+            pickle.dump([lexicon,lexiconOfLabel,model], f, pickle.HIGHEST_PROTOCOL)
             f.close()
             
             print 'Model save with sucess in ' + args.saveModel
 
     t1 = time.time()
     print ("Train time: %s seconds" % (str(t1 - t0)))
-
-    print 'Loading test data...'
-    testData = datasetReader.readData(args.test,lexicon,lexiconOfLabel,wordVector,separeSentence)
+    
     print 'Testing...'
     predicts = model.predict(testData[0]);
     
     eval = EvaluateAccuracy()
+    acc = eval.evaluateWithPrint(predicts,testData[1]);
     
-    acc = eval.evaluate(predicts,testData[1]);
     
-    print "Accuracy Test:  ", acc
 
     t2 = time.time()
     print ("Test  time: %s seconds" % (str(t2 - t1)))

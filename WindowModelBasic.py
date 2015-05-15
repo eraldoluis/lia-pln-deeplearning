@@ -6,9 +6,7 @@ import theano
 import theano.tensor as T
 from NNet.HiddenLayer import HiddenLayer
 from NNet.WortToVectorLayer import WordToVectorLayer
-from theano.tensor.nnet.nnet import softmax
-from NNet.SoftmaxLayer import SoftmaxLayer
-from NNet.Util import negative_log_likelihood, regularizationSquareSumParamaters
+import math
 
 class WindowModelBasic:
     startSymbolStr = "<s>"
@@ -33,7 +31,19 @@ class WindowModelBasic:
         self.regularizationFactor = theano.shared(c)
         self.y = theano.shared(np.asarray([0]),"y",borrow=True)
         
+        # Nós casos em que é feita a predição a cada certo número de épocas de um treinamento,
+        # ocorre uma concorrência no uso do atributo windowIdxs pelos métodos predict e train. O problema
+        # é que o método predict sobrescreve o valor do windowIdxs, que contém os valores da janela do train.
+        # Assim, o atributo reloadWindowIds é verdadeiro toda vez que o método predict é chamado.
+        # Se o método train estiver sendo executado e se  o reloadWindowIds for verdadeiro, então o valor do windowsIdx
+        # é configurado com os valores da janelas do treinamento. Esta solução só foi pensadam para rodar em ambientes não paralelos
+        self.reloadWindowIds = False
+        
         self.initWithBasicLayers()
+        self.listeners = []
+        
+    def addListener(self,listener):
+        self.listeners.append(listener)
         
     def setCost(self,cost):
         self.cost = cost
@@ -80,20 +90,20 @@ class WindowModelBasic:
 
     def train(self, inputData, correctData):
         numWordsInTrain = len(inputData)
-               
+        self.reloadWindowIds = False
+        
         # Label
         self.y.set_value(self.reshapeCorrectData(correctData),borrow=True)
         
         # Camada: word window.
-        self.windowIdxs.set_value(self.getAllWindowIndexes(inputData),borrow=True)
+        windowIdxs = self.getAllWindowIndexes(inputData)
+        
+        self.windowIdxs.set_value(windowIdxs,borrow=True)
         
         batchesSize = self.confBatchSize(numWordsInTrain)
         
         batchSize = theano.shared(0, "batchSize"); 
         index = T.iscalar("index")
-        
-        theano.printing.pprint(self.cost)
-        theano.printing.debugprint(self.cost)
         
         # Train function.
         train = theano.function(inputs=[index],
@@ -104,7 +114,7 @@ class WindowModelBasic:
                                         self.y: self.y[index : index + batchSize]
                                 })
         
-        for ite in range(self.numEpochs):
+        for ite in range(1,self.numEpochs + 1):
             print 'Epoch ' + str(ite)
             minibatch_index = 0
             i = 0
@@ -116,7 +126,21 @@ class WindowModelBasic:
                 
                 minibatch_index += batchesSize[i]
                 i+=1
-        
+            
+            for l in self.listeners:
+                l.afterEpoch(ite)
+                
+            if self.reloadWindowIds:
+                self.windowIdxs.set_value(windowIdxs,borrow=True)
+                self.reloadWindowIds = False
+            
+            a = 0
+            for i in self.hiddenLayer.W.get_value():
+                for j in i:
+                    if math.isnan(j):
+                        raise Exception('Deu nan ' + str(a) + ' ' + str(i))
+                a+=1   
+            
     def predict(self, inputData):
         raise NotImplementedError();
     

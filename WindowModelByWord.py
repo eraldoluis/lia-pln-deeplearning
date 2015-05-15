@@ -54,12 +54,12 @@ class WindowModelByWord(WindowModelBasic):
         
         return np.full(numWordsInTrain/self.batchSize + 1,self.batchSize)
         
-    def predict(self, inputData):
+    def predict(self, inputData):    
+        self.reloadWindowIds = True
+
         self.windowIdxs.set_value(self.getAllWindowIndexes(inputData),borrow=True)
-        
         y_pred = self.softmax.getPrediction();
           
         f = theano.function([],y_pred);
         
         return f();
-    

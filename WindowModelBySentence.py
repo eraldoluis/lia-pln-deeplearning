@@ -21,7 +21,7 @@ class WindowModelBySentence(WindowModelBasic):
         
         numWords = self.windowIdxs.shape[0]
         
-        logOfSumAllPath = self.sentenceSoftmax.getLogOfSumAllPathY(numWords)
+        logOfSumAllPath = self.sentenceSoftmax.getLogOfSumAllPathY()
         
         negativeLogLikehood = -(self.sentenceSoftmax.getSumPathY(self.y) - logOfSumAllPath)
         cost =   negativeLogLikehood + regularizationSquareSumParamaters(parameters, self.regularizationFactor, self.y.shape[0]);
@@ -53,13 +53,15 @@ class WindowModelBySentence(WindowModelBasic):
     def confBatchSize(self,numWordsInTrain):
         # Configura o batch size
         return np.asarray(self.setencesSize)
-        
+    
     def predict(self, inputData):
         windowSetences = self.getAllWindowIndexes(inputData);
         
         predicts = []
         index = 0
         indexSentence = 0
+        self.reloadWindowIds = True
+        
         while index < len(windowSetences):
             self.windowIdxs.set_value(windowSetences[index:index + self.setencesSize[indexSentence]],borrow=True)
             

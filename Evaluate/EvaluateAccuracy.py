@@ -15,6 +15,9 @@ class EvaluateAccuracy:
         
         return numpy.fromiter(chain.from_iterable(v))
     
+    def evaluateWithPrint(self,predicts,corrects):
+        print "Accuracy Test:  ",self.evaluate(predicts,corrects)
+        
     def evaluate(self,predicts,corrects):
         predict = numpy.asarray(predicts)
         correct = numpy.asarray(corrects)

@@ -11,6 +11,14 @@ import math
 class WindowModelBasic:
     startSymbolStr = "<s>"
     endSymbolStr = "</s>"
+    
+    @staticmethod
+    def setStartSymbol(startSymbol):
+        WindowModelBasic.startSymbol = startSymbol
+        
+    @staticmethod
+    def setEndSymbol(endSymbol):
+        WindowModelBasic.endSymbol = endSymbol
 
     def __init__(self, lexicon, wordVectors , windowSize, hiddenSize, _lr,numClasses,numEpochs, batchSize=1.0, c=0.0):
         self.Wv = theano.shared(name='wordVecs',

@@ -70,6 +70,12 @@ def main():
     parser.add_argument('--loadmodel', dest='loadModel', action='store',
                        help='The file path where the model is stored')
     
+    parser.add_argument('--beginsymbol', dest='beginSymbol', action='store', default="<s>",
+                       help='The symbol that represents the begin a setence')
+    
+    parser.add_argument('--endsymbol', dest='endSymbol', action='store',default="<\s>",
+                       help='The symbol that represents the end a setence')
+    
     
     #Todo: delete
 #     numpy.random.seed(10)
@@ -101,14 +107,15 @@ def main():
         f.close()
     else:        
         print 'Loading dictionary...'
+        
+        WindowModelBasic.setStartSymbol(args.startSymbol)
+        WindowModelBasic.setEndSymbol(args.endSymbol)
 
         if args.vocab is not None or args.wordVectors is not None:
             
-            if args.vocab is not None or args.wordVectors is None:
-                raise ValueError("The wordVector file path has to be set together if the vocabulary file is set")
-            
-            if args.vocab == args.wordVectors or (args.vocab is None and args.wordVectors is not None):
-                wordVector,lexicon =  ReaderLexiconAndWordVec().readData(args.wordVectors)
+            if args.vocab == args.wordVectors or args.vocab is not None or args.wordVectors is not None:
+                f = args.wordVectors if args.wordVectors is None else args.vocab
+                wordVector,lexicon =  ReaderLexiconAndWordVec().readData(f)
             else:
                 wordVector = WordVector(args.wordVectors)
                 lexicon = Lexicon(args.vocab)

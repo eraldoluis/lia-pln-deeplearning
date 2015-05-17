@@ -16,6 +16,7 @@ from sphinx.ext.todo import Todo
 import numpy
 from WindowModelBasic import WindowModelBasic
 from Evaluate.EvaluateEveryNumEpoch import EvaluateEveryNumEpoch
+from DataOperation.ReaderLexiconAndWordVec import ReaderLexiconAndWordVec
 
 def main():
     
@@ -103,12 +104,15 @@ def main():
 
         if args.vocab is not None or args.wordVectors is not None:
             
-            if args.vocab is None or args.wordVectors is None:
-                raise ValueError("The vocabulary file path and wordVector file path has to be set together")
+            if args.vocab is not None or args.wordVectors is None:
+                raise ValueError("The wordVector file path has to be set together if the vocabulary file is set")
             
-            wordVector = WordVector(args.wordVectors)
-            lexicon = Lexicon(args.vocab)
-            
+            if args.vocab == args.wordVectors or (args.vocab is None and args.wordVectors is not None):
+                wordVector,lexicon =  ReaderLexiconAndWordVec().readData(args.wordVectors)
+            else:
+                wordVector = WordVector(args.wordVectors)
+                lexicon = Lexicon(args.vocab)
+                
             if lexicon.isUnknownIndex(lexicon.getLexiconIndex(WindowModelBasic.startSymbolStr)):
                 raise Exception("O vocabulário não possui o símbolo de começo\"<s>)\"")
             

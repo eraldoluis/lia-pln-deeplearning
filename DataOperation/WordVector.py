@@ -27,9 +27,12 @@ class WordVector:
     def putUsingFile(self,vecfilename):
         fVec = open(vecfilename, 'r')
         for line in fVec:
-            self.append([float(num) for num in line.split()])
+            self.putWordVecStr(line)
         fVec.close()
         
+    def putWordVecStr(self,str):
+        return self.append([float(num) for num in str.split()])
+    
     def setLenWordVectorAuto(self):
         self.__wordSize = len(self.__wordVecs[0])
         

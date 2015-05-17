@@ -71,7 +71,7 @@ def main():
     
     
     #Todo: delete
-    numpy.random.seed(10)
+#     numpy.random.seed(10)
     
     try:
         args = parser.parse_args();
@@ -178,7 +178,7 @@ def main():
     
     print 'Loading test data...'
     
-    if testData is None:
+    if testData is None:          
         testData = datasetReader.readTestData(args.test,lexicon,lexiconOfLabel,separeSentence)
     
     print 'Testing...'

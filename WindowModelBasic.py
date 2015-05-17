@@ -84,12 +84,11 @@ class WindowModelBasic:
             i += 1
         return windowNums
     
-    def confBatchSize(self,numWordsInTrain):
+    def confBatchSize(self,inputData):
         raise NotImplementedError();
      
 
     def train(self, inputData, correctData):
-        numWordsInTrain = len(inputData)
         self.reloadWindowIds = False
         
         # Label
@@ -100,7 +99,7 @@ class WindowModelBasic:
         
         self.windowIdxs.set_value(windowIdxs,borrow=True)
         
-        batchesSize = self.confBatchSize(numWordsInTrain)
+        batchesSize = self.confBatchSize(inputData)
         
         batchSize = theano.shared(0, "batchSize"); 
         index = T.iscalar("index")
@@ -119,7 +118,7 @@ class WindowModelBasic:
             minibatch_index = 0
             i = 0
             
-            while minibatch_index < numWordsInTrain:
+            while minibatch_index < len(windowIdxs):
                 batchSize.set_value(batchesSize[i])
                 
                 train(minibatch_index)
@@ -133,13 +132,6 @@ class WindowModelBasic:
             if self.reloadWindowIds:
                 self.windowIdxs.set_value(windowIdxs,borrow=True)
                 self.reloadWindowIds = False
-            
-            a = 0
-            for i in self.hiddenLayer.W.get_value():
-                for j in i:
-                    if math.isnan(j):
-                        raise Exception('Deu nan ' + str(a) + ' ' + str(i))
-                a+=1   
             
     def predict(self, inputData):
         raise NotImplementedError();

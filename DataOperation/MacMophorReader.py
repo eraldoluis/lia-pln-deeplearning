@@ -4,7 +4,6 @@
 '''
 '''
 import re
-import time
 
 
 class MacMorphoReader:    
@@ -20,15 +19,9 @@ class MacMorphoReader:
         labels = data[1]
         
         f = open(filename, 'r')
-        a = 0
         prefWord = 'word='
         
         for line in f:
-            a +=1
-               
-            if a ==100:
-                break;
-            
             line_split = line.split()
             # Ignore empty lines.
             if len(line_split) < 2:
@@ -61,13 +54,5 @@ class MacMorphoReader:
             
         f.close()
         
-#         list = []
-#         i = 0
-#         for l in data[0]:
-#             if len(l) < 5:
-#                 list.append((i,len(l)))
-#             i+=1
-# 
-#         print list
         return data
  

@@ -7,7 +7,6 @@ from WindowModelBasic import WindowModelBasic
 import numpy as np
 from itertools import chain
 
-
 class WindowModelBySentence(WindowModelBasic):
 
     def __init__(self, lexicon, wordVectors , windowSize, hiddenSize, _lr,numClasses,numEpochs, batchSize=1, c=0.0,):
@@ -19,10 +18,7 @@ class WindowModelBySentence(WindowModelBasic):
         # Custo
         parameters = self.sentenceSoftmax.getParameters() + self.hiddenLayer.getParameters()
         
-        numWords = self.windowIdxs.shape[0]
-        
         logOfSumAllPath = self.sentenceSoftmax.getLogOfSumAllPathY()
-        
         negativeLogLikehood = -(self.sentenceSoftmax.getSumPathY(self.y) - logOfSumAllPath)
         cost =   negativeLogLikehood + regularizationSquareSumParamaters(parameters, self.regularizationFactor, self.y.shape[0]);
                     
@@ -50,7 +46,7 @@ class WindowModelBySentence(WindowModelBasic):
         
         return np.array(allWindowIndexes);
     
-    def confBatchSize(self,numWordsInTrain):
+    def confBatchSize(self,inputData):
         # Configura o batch size
         return np.asarray(self.setencesSize)
     

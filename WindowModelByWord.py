@@ -3,10 +3,6 @@
 
 import numpy as np
 import theano
-import theano.tensor as T
-from NNet.HiddenLayer import HiddenLayer
-from NNet.WortToVectorLayer import WordToVectorLayer
-from theano.tensor.nnet.nnet import softmax
 from NNet.SoftmaxLayer import SoftmaxLayer
 from NNet.Util import negative_log_likelihood, regularizationSquareSumParamaters
 from WindowModelBasic import WindowModelBasic
@@ -45,14 +41,14 @@ class WindowModelByWord(WindowModelBasic):
             
         return np.array(allWindowIndexes);
     
-    def confBatchSize(self,numWordsInTrain):
+    def confBatchSize(self,inputData):
+        numWords = len(inputData)
+        
         # Configura o batch size
         if isinstance(self.batchSize, list):
             return np.asarray(self.batchSize);
         
-        
-        
-        return np.full(numWordsInTrain/self.batchSize + 1,self.batchSize)
+        return np.full(numWords/self.batchSize + 1,self.batchSize)
         
     def predict(self, inputData):    
         self.reloadWindowIds = True

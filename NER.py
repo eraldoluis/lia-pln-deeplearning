@@ -62,43 +62,41 @@ def main():
     
         
     t0 = time.time()
-
-    print 'Loading dictionary...'
-
-    if args.vocab is not None or args.wordVectors is not None:
-        
-        if args.vocab is None or args.wordVectors is None:
-            raise ValueError("The vocabulary file path and wordVector file path has to be set together")
-        
-        wordVector = WordVector(args.wordVectors)
-        lexicon = Lexicon(args.vocab)
-        
-        if lexicon.getLen() != wordVector.getLength():
-            raise Exception("O número de palavras no vacabulário é diferente do número de palavras do word Vector")
-        
-        addUnkownWord = False
-    else:
-        wordVector = WordVector(wordSize=args.wordVecSize)
-        lexicon = Lexicon()
-        addUnkownWord = True
-        
     
     featureFactory = FeatureFactory()
-
-    print 'Loading train data...'
-    
-    lexiconOfLabel = Lexicon()
-    
-    trainData = featureFactory.readData(args.train,lexicon,lexiconOfLabel,wordVector,addUnkownWord)
-    
-    numClasses = lexiconOfLabel.getLen()
     
     if args.loadModel is not None:
         print 'Loading model in ' + args.loadModel + ' ...'
         f = open(args.loadModel, "rb");
-        model = pickle.load(f)
+        lexicon,lexiconOfLabel,model = pickle.load(f)
         f.close()
     else:
+        print 'Loading dictionary...'
+
+        if args.vocab is not None or args.wordVectors is not None:
+            
+            if args.vocab is None or args.wordVectors is None:
+                raise ValueError("The vocabulary file path and wordVector file path has to be set together")
+            
+            wordVector = WordVector(args.wordVectors)
+            lexicon = Lexicon(args.vocab)
+            
+            if lexicon.getLen() != wordVector.getLength():
+                raise Exception("O número de palavras no vacabulário é diferente do número de palavras do word Vector")
+            
+            addUnkownWord = False
+        else:
+            wordVector = WordVector(wordSize=args.wordVecSize)
+            lexicon = Lexicon()
+            addUnkownWord = True
+            
+        lexiconOfLabel = Lexicon()
+    
+        print 'Loading train data...'
+        trainData = featureFactory.readTrainData(args.train,lexicon,lexiconOfLabel,wordVector,addUnkownWord)
+        
+        numClasses = lexiconOfLabel.getLen()
+
         model = WindowModelByWord(lexicon,wordVector, 
                             args.windowSize, args.hiddenSize, args.lr,numClasses,args.numepochs,args.batchSize, args.c);
         print 'Training...'
@@ -107,16 +105,16 @@ def main():
         if args.saveModel is not None:
             print 'Saving Model...'
             f = open(args.saveModel, "wb");
-            pickle.dump(model, f, pickle.HIGHEST_PROTOCOL)
+            pickle.dump([lexicon,lexiconOfLabel,model], f, pickle.HIGHEST_PROTOCOL)
             f.close()
             
             print 'Model save with sucess in ' + args.saveModel,
 
-    t1 = time.time()
-    print ("Train time: %s seconds" % (str(t1 - t0)))
+        t1 = time.time()
+        print ("Train time: %s seconds" % (str(t1 - t0)))
 
     print 'Loading test data...'
-    testData = featureFactory.readData(args.test,lexicon,lexiconOfLabel,wordVector)
+    testData = featureFactory.readTestData(args.test,lexicon,lexiconOfLabel)
     print 'Testing...'
     predicts = model.predict(testData[0]);
     eval = EvaluatePrecisionRecallF1(numClasses)

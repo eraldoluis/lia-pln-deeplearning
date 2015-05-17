@@ -5,7 +5,6 @@ import theano.tensor as T
 import numpy
 import theano
 from NNet.Util import defaultGradParameters
-import NNet
 from _collections import deque
 
 class SentenceSoftmaxLayer(object):
@@ -30,7 +29,10 @@ class SentenceSoftmaxLayer(object):
         )
         
         self.emissionValues = T.dot(input, self.W) + self.b
-        self.transitionValues = theano.shared(NNet.Util.WeightTanhGenerator().generateWeight(numberClasses, numberClasses + 1),name="transitionValues")
+        self.transitionValues = theano.shared(
+                                    numpy.zeros((numberClasses, numberClasses + 1),dtype=theano.config.floatX),
+                                    name="transitionValues",
+                                    borrow=True)
         self.numClasses = numberClasses;
 
         # parameters of the model
@@ -39,19 +41,40 @@ class SentenceSoftmaxLayer(object):
         # Implementação para calcular o valor de todos caminhos
         numWords = self.emissionValues.shape[0]
         
+        # Calculando delta 0 
+        x = self.transitionValues[:,0]
+        k = T.max(x)
+        x = x - k  
+         
+        delta = self.emissionValues[0] + T.log(T.exp(x)) + k
+         
+        """
+        A primeira execução do scan é totalmente inútil. 
+        Foi necessário fazer deste jeito, pois as frases com uma só palavra fazem com que o n_steps do scan fosse igual 0,
+        já que no código anterior n_steps = numWords - 1. Porém, o scan,na versão 0.7, não suporta n_steps igual a zero.
+        """
         def stepToCalculateAllPath(posWord,delta):
-            transitionValuesWithoutStarting = self.transitionValues[ T.arange(self.numClasses) , 1:]
-    
-            return self.emissionValues[posWord] + T.log(T.sum(T.exp(transitionValuesWithoutStarting.T + delta),axis=1))
+            transitionValuesWithoutStarting = self.transitionValues[ : , 1:]
+             
+            x = transitionValuesWithoutStarting.T + delta
+            k = T.max(x, axis=1,keepdims=True)
+            x = x - k
+             
+            newDelta =  self.emissionValues[posWord] + T.log(T.sum(T.exp(x),axis=1)) + T.flatten(k)
+             
+            return T.switch(T.eq(posWord, 0),delta,newDelta),
+             
+        result, updates =  theano.scan(fn=stepToCalculateAllPath ,
+                    sequences= T.arange(0,numWords),
+                    outputs_info= delta,
+                    n_steps = numWords)
+                
         
-        delta = self.emissionValues[0] + T.log(T.exp(self.transitionValues[:,0]))
+        x = result[-1]
+        k = T.max(x)
+        x = x - k
         
-        result , updates = theano.scan(fn=stepToCalculateAllPath ,
-            sequences= T.arange(1,numWords),
-            outputs_info= delta,
-            n_steps = numWords-1)
-        
-        self.sumValueAllPaths = T.log(T.sum(T.exp(result[-1])))
+        self.sumValueAllPaths = T.log(T.sum(T.exp(x))) + k
 
 #       Neste scan não é necessário passar o updates para o function
 #       , pois nenhuma shared variable será alterada durante o scan
@@ -93,7 +116,7 @@ class SentenceSoftmaxLayer(object):
         
         return T.sum(self.emissionValues[T.arange(self.emissionValues.shape[0]), y]) + self.transitionValues[y[0]][0] + T.sum(self.transitionValues[ymod, yl]);
     
-    def getLogOfSumAllPathY(self, numWords):
+    def getLogOfSumAllPathY(self):
         return self.sumValueAllPaths 
     
     def getOutput(self):

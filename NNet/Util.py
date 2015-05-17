@@ -4,7 +4,6 @@ import numpy
 
 
 ################################ FUNCTIONS ########################
-
 def defaultGradParameters(cost, parameters, learningRate):
     gparams = [T.grad(cost, param) for param in parameters]
 

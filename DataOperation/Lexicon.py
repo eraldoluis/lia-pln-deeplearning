@@ -7,7 +7,7 @@
 class Lexicon:
     
     UNKNOWN_INDEX = 0
-    UNKNOWN_VALUE = 'u*uu+n+kk*k'
+    UNKNOWN_VALUE = 'UUUNKKK'
 
     def __init__(self,filePath=''):
         self.__lexicon = []

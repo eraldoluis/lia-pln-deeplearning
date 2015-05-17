@@ -32,11 +32,7 @@ class ReaderLexiconAndWordVec:
             lexicon.put(line_split[0]);
             wordVector.putWordVecStr(line_split[1])
             
-            break;
-            
         f.close()
-        
-        wordVector.setLenWordVectorAuto()
         
         return [lexicon,wordVector]
  

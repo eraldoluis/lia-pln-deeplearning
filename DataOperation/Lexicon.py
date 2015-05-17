@@ -6,12 +6,14 @@
 
 class Lexicon:
     
-    UNKNOWN_INDEX = -1
+    UNKNOWN_INDEX = 0
+    UNKNOWN_VALUE = 'u*uu+n+kk*k'
 
     def __init__(self,filePath=''):
         self.__lexicon = []
         self.__lexiconDict = {}
-    
+        
+        self.put(Lexicon.UNKNOWN_VALUE)
         
         if filePath:
             self.putUsingFile(filePath)

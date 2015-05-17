@@ -70,10 +70,10 @@ def main():
     parser.add_argument('--loadmodel', dest='loadModel', action='store',
                        help='The file path where the model is stored')
     
-    parser.add_argument('--beginsymbol', dest='beginSymbol', action='store', default="<s>",
+    parser.add_argument('--startsymbol', dest='startSymbol', action='store', default="<s>",
                        help='The symbol that represents the begin a setence')
     
-    parser.add_argument('--endsymbol', dest='endSymbol', action='store',default="<\s>",
+    parser.add_argument('--endsymbol', dest='endSymbol', action='store',default="</s>",
                        help='The symbol that represents the end a setence')
     
     
@@ -114,8 +114,8 @@ def main():
         if args.vocab is not None or args.wordVectors is not None:
             
             if args.vocab == args.wordVectors or args.vocab is not None or args.wordVectors is not None:
-                f = args.wordVectors if args.wordVectors is None else args.vocab
-                wordVector,lexicon =  ReaderLexiconAndWordVec().readData(f)
+                f = args.wordVectors if args.wordVectors is not None else args.vocab
+                lexicon,wordVector =  ReaderLexiconAndWordVec().readData(f)
             else:
                 wordVector = WordVector(args.wordVectors)
                 lexicon = Lexicon(args.vocab)

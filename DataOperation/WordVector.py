@@ -25,14 +25,14 @@ class WordVector:
         if self.__wordSize < 0:
             self.__wordSize = len(wordVector)
             self.__wordVecs[0] = self.__generatorWeight.generateVector(self.__wordSize)
-        
-        if self.__wordSize != len(wordVector):
-            raise Exception("O vetor a ser adicionado tem um tamanho de" + str(len(wordVector)) +  " que " + 
-                            "é diferente do tamanho dos outros vetores " + str(self.__wordSize) + " index " + str(self.getLength()))
-        
+            
         if  wordVector is None:
             wordVector = self.__generatorWeight.generateVector(self.__wordSize)
-            
+        else:
+            if self.__wordSize != len(wordVector):
+                raise Exception("O vetor a ser adicionado tem um tamanho de" + str(len(wordVector)) +  " que " + 
+                            "é diferente do tamanho dos outros vetores " + str(self.__wordSize) + " index " + str(self.getLength()))
+        
         self.__wordVecs.append(wordVector)
     
     def putUsingFile(self,vecfilename):

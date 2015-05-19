@@ -17,6 +17,7 @@ import numpy
 from WindowModelBasic import WindowModelBasic
 from Evaluate.EvaluateEveryNumEpoch import EvaluateEveryNumEpoch
 from DataOperation.ReaderLexiconAndWordVec import ReaderLexiconAndWordVec
+import importlib
 
 def main():
     
@@ -76,10 +77,13 @@ def main():
     parser.add_argument('--endsymbol', dest='endSymbol', action='store',default="</s>",
                        help='The symbol that represents the end a setence')
     
+    parser.add_argument('--filters', dest='filters', action='store',default=[],nargs='*',
+                       help='The filters which will be apply in the data. You have to pass the module and class name.'+
+                       ' Ex: modulename1 classname1 modulename2 classname2')
+    
     
     #Todo: delete
 #     numpy.random.seed(10)
-    
     try:
         args = parser.parse_args();
         
@@ -87,7 +91,16 @@ def main():
     except:
         parser.print_help()
         sys.exit(0)
+        
     
+    filters = []
+    
+    a = 0
+    
+    while a < len(args.filters):
+        module_ = importlib.import_module(args.filters[a])
+        filters.append(getattr(module_, args.filters[a+1])())
+        a+=2
         
     t0 = time.time()
  
@@ -148,7 +161,7 @@ def main():
         if args.alg == algTypeChoices[0]:
             separeSentence = False
             print 'Loading train data...'
-            trainData = datasetReader.readData(args.train,lexicon,lexiconOfLabel,wordVector,separeSentence,addUnkownWord)
+            trainData = datasetReader.readData(args.train,lexicon,lexiconOfLabel,wordVector,separeSentence,addUnkownWord,filters)
             
             numClasses = lexiconOfLabel.getLen()
             model = WindowModelByWord(lexicon,wordVector, 
@@ -157,7 +170,7 @@ def main():
         elif args.alg == algTypeChoices[1]:
             separeSentence = True
             print 'Loading train data...'
-            trainData = datasetReader.readData(args.train,lexicon,lexiconOfLabel,wordVector,separeSentence,addUnkownWord)
+            trainData = datasetReader.readData(args.train,lexicon,lexiconOfLabel,wordVector,separeSentence,addUnkownWord,filters)
             
             numClasses = lexiconOfLabel.getLen()
             model = WindowModelBySentence(lexicon,wordVector, 
@@ -190,7 +203,7 @@ def main():
     print 'Loading test data...'
     
     if testData is None:          
-        testData = datasetReader.readTestData(args.test,lexicon,lexiconOfLabel,separeSentence)
+        testData = datasetReader.readTestData(args.test,lexicon,lexiconOfLabel,separeSentence,filters)
     
     print 'Testing...'
     predicts = model.predict(testData[0]);

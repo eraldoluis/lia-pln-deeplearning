@@ -12,7 +12,6 @@ import cPickle as pickle
 from DataOperation.Lexicon import Lexicon
 from WindowModelByWord import WindowModelByWord
 import sys
-from sphinx.ext.todo import Todo
 import numpy
 from WindowModelBasic import WindowModelBasic
 from Evaluate.EvaluateEveryNumEpoch import EvaluateEveryNumEpoch

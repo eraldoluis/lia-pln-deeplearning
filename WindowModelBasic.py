@@ -7,6 +7,8 @@ import theano.tensor as T
 from NNet.HiddenLayer import HiddenLayer
 from NNet.WortToVectorLayer import WordToVectorLayer
 import math
+from NNet.Util import LearningRateUpdNormalStrategy
+import time
 
 class WindowModelBasic:
     startSymbolStr = "<s>"
@@ -20,12 +22,15 @@ class WindowModelBasic:
     def setEndSymbol(endSymbol):
         WindowModelBasic.endSymbolStr = endSymbol
 
-    def __init__(self, lexicon, wordVectors , windowSize, hiddenSize, _lr,numClasses,numEpochs, batchSize=1.0, c=0.0):
+    def __init__(self, lexicon, wordVectors , windowSize, hiddenSize, _lr,numClasses,numEpochs, batchSize=1.0, c=0.0
+                 ,learningRateUpdStrategy = LearningRateUpdNormalStrategy()):
         self.Wv = theano.shared(name='wordVecs',
                                 value=np.asarray(wordVectors.getWordVectors(), dtype=theano.config.floatX),
                                 borrow=True)
         self.wordSize = wordVectors.getLenWordVector()
-        self.lr = _lr
+        self.lrValue = _lr
+        self.lr =  T.dscalar('lr')
+        self.learningRateUpdStrategy = learningRateUpdStrategy;
         self.hiddenSize = hiddenSize;
         self.windowSize = windowSize
         self.regularizationFactor = c;
@@ -113,7 +118,7 @@ class WindowModelBasic:
         index = T.iscalar("index")
         
         # Train function.
-        train = theano.function(inputs=[index],
+        train = theano.function(inputs=[index,self.lr],
                                 outputs=self.cost,
                                 updates=self.updates,
                                 givens={
@@ -126,13 +131,19 @@ class WindowModelBasic:
             minibatch_index = 0
             i = 0
             
+            lr = self.learningRateUpdStrategy.getCurrentLearninRate(self.lrValue,ite)
+            
+            t1 = time.time()
+            
             while minibatch_index < len(windowIdxs):
                 batchSize.set_value(batchesSize[i])
                 
-                train(minibatch_index)
+                train(minibatch_index,lr)
                 
                 minibatch_index += batchesSize[i]
                 i+=1
+            
+            print 'Time to training the epoch  ' + str(time.time() - t1)
             
             for l in self.listeners:
                 l.afterEpoch(ite)

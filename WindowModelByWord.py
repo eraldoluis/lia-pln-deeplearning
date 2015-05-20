@@ -4,12 +4,14 @@
 import numpy as np
 import theano
 from NNet.SoftmaxLayer import SoftmaxLayer
-from NNet.Util import negative_log_likelihood, regularizationSquareSumParamaters
+from NNet.Util import negative_log_likelihood, regularizationSquareSumParamaters,\
+    LearningRateUpdNormalStrategy
 from WindowModelBasic import WindowModelBasic
 
 class WindowModelByWord(WindowModelBasic):
 
-    def __init__(self, lexicon, wordVectors , windowSize, hiddenSize, _lr,numClasses,numEpochs, batchSize=1, c=0.0,):
+    def __init__(self, lexicon, wordVectors , windowSize, hiddenSize, _lr,numClasses,numEpochs, batchSize=1, c=0.0
+                 ,learningRateUpdStrategy = LearningRateUpdNormalStrategy()):
         WindowModelBasic.__init__(self, lexicon, wordVectors, windowSize, hiddenSize, _lr, numClasses, numEpochs, batchSize, c)
                 
         # Camada: softmax

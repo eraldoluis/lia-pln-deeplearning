@@ -9,7 +9,7 @@ import time
 
 class MacMorphoReader:    
     def readTestData(self, filename,lexicon,lexiconOfLabel,separateSentences=True,filters=[]):
-        return self.readData(filename, lexicon, lexiconOfLabel,None,separateSentences,filters)
+        return self.readData(filename, lexicon, lexiconOfLabel,None,separateSentences,False,filters)
     
     def readData(self, filename,lexicon,lexiconOfLabel, wordVecs=None, separateSentences= True, addWordUnkown=False,filters=[]):
         '''
@@ -24,10 +24,10 @@ class MacMorphoReader:
         prefWord = 'word='
         
         for line in f:
-#             a +=1
-#                 
-#             if a ==10:
-#                 break;
+            a +=1
+                 
+            if a ==10:
+                break;
             
             line_split = line.split()
             # Ignore empty lines.

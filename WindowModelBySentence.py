@@ -2,15 +2,18 @@
 # -*- coding: utf-8 -*-
 
 from NNet.SentenceSoftmaxLayer import SentenceSoftmaxLayer
-from NNet.Util import regularizationSquareSumParamaters
+from NNet.Util import regularizationSquareSumParamaters,\
+    LearningRateUpdNormalStrategy
 from WindowModelBasic import WindowModelBasic
 import numpy as np
 from itertools import chain
 
 class WindowModelBySentence(WindowModelBasic):
 
-    def __init__(self, lexicon, wordVectors , windowSize, hiddenSize, _lr,numClasses,numEpochs, batchSize=1, c=0.0,):
-        WindowModelBasic.__init__(self, lexicon, wordVectors, windowSize, hiddenSize, _lr, numClasses, numEpochs, batchSize, c)
+    def __init__(self, lexicon, wordVectors , windowSize, hiddenSize, _lr,numClasses,numEpochs, batchSize=1, c=0.0
+                    ,learningRateUpdStrategy = LearningRateUpdNormalStrategy()):
+        WindowModelBasic.__init__(self, lexicon, wordVectors, windowSize, hiddenSize, _lr, 
+                                  numClasses, numEpochs, batchSize, c,learningRateUpdStrategy)
     
         # Camada: softmax
         self.sentenceSoftmax = SentenceSoftmaxLayer(self.hiddenLayer.getOutput(), self.hiddenSize, numClasses);
@@ -21,6 +24,8 @@ class WindowModelBySentence(WindowModelBasic):
         logOfSumAllPath = self.sentenceSoftmax.getLogOfSumAllPathY()
         negativeLogLikehood = -(self.sentenceSoftmax.getSumPathY(self.y) - logOfSumAllPath)
         cost =   negativeLogLikehood + regularizationSquareSumParamaters(parameters, self.regularizationFactor, self.y.shape[0]);
+        
+     
                     
         # Gradiente dos pesos e do bias
         updates = self.hiddenLayer.getUpdate(cost, self.lr);

@@ -18,6 +18,8 @@ from WindowModelBasic import WindowModelBasic
 from Evaluate.EvaluateEveryNumEpoch import EvaluateEveryNumEpoch
 from DataOperation.ReaderLexiconAndWordVec import ReaderLexiconAndWordVec
 import importlib
+from NNet.Util import LearningRateUpdDivideByEpochStrategy,\
+    LearningRateUpdNormalStrategy
 
 def main():
     
@@ -80,6 +82,11 @@ def main():
     parser.add_argument('--filters', dest='filters', action='store',default=[],nargs='*',
                        help='The filters which will be apply in the data. You have to pass the module and class name.'+
                        ' Ex: modulename1 classname1 modulename2 classname2')
+    
+    lrStrategyChoices= ["normal","divide_epoch"]
+    
+    parser.add_argument('--lrupdstrategy', dest='lrUpdStrategy', action='store',default="NORMAL",choices=lrStrategyChoices,
+                       help='Set the learning rate update strategy. NORMAL and DIVIDE_EPOCH are the options available')
     
     
     #Todo: delete
@@ -157,7 +164,13 @@ def main():
             
         
         lexiconOfLabel = Lexicon()
-
+        
+        
+        if args.lrUpdStrategy == lrStrategyChoices[0]:
+            learningRateUpdStrategy = LearningRateUpdNormalStrategy()
+        elif args.lrUpdStrategy == lrStrategyChoices[1]:
+            learningRateUpdStrategy = LearningRateUpdDivideByEpochStrategy()
+            
         if args.alg == algTypeChoices[0]:
             separeSentence = False
             print 'Loading train data...'
@@ -165,7 +178,7 @@ def main():
             
             numClasses = lexiconOfLabel.getLen()
             model = WindowModelByWord(lexicon,wordVector, 
-                            args.windowSize, args.hiddenSize, args.lr,numClasses,args.numepochs,args.batchSize, args.c);
+                            args.windowSize, args.hiddenSize, args.lr,numClasses,args.numepochs,args.batchSize, args.c,learningRateUpdStrategy);
         
         elif args.alg == algTypeChoices[1]:
             separeSentence = True
@@ -174,13 +187,13 @@ def main():
             
             numClasses = lexiconOfLabel.getLen()
             model = WindowModelBySentence(lexicon,wordVector, 
-                            args.windowSize, args.hiddenSize, args.lr,numClasses,args.numepochs,args.batchSize, args.c)
+                            args.windowSize, args.hiddenSize, args.lr,numClasses,args.numepochs,args.batchSize, args.c,learningRateUpdStrategy)
         
         
                 
         if args.numPerEpoch is not None and len(args.numPerEpoch) != 0 :
             print 'Loading test data...'
-            testData = datasetReader.readTestData(args.test,lexicon,lexiconOfLabel,separeSentence)
+            testData = datasetReader.readTestData(args.test,lexicon,lexiconOfLabel,separeSentence,filters)
             
             evalListener = EvaluateEveryNumEpoch(args.numepochs,args.numPerEpoch,EvaluateAccuracy(),model,testData[0],testData[1])
             

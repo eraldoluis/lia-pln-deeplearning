@@ -61,3 +61,14 @@ class WeightTanhGenerator:
     
     def getEInit(self,fin,fout):
         return numpy.sqrt(6. / (fin + fout))
+
+class LearningRateUpdNormalStrategy:
+    
+    def getCurrentLearninRate(self,learningRate,numEpoch):
+        return learningRate
+
+class LearningRateUpdDivideByEpochStrategy:
+    
+    def getCurrentLearninRate(self,learningRate ,numEpoch):
+        return learningRate/numEpoch
+    

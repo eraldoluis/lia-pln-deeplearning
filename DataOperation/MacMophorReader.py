@@ -24,10 +24,10 @@ class MacMorphoReader:
         prefWord = 'word='
         
         for line in f:
-            a +=1
-                 
-            if a ==10:
-                break;
+#             a +=1
+#                  
+#             if a ==10:
+#                 break;
             
             line_split = line.split()
             # Ignore empty lines.

@@ -4,8 +4,6 @@
 '''
 '''
 import re
-import time
-
 
 class MacMorphoReader:    
     def readTestData(self, filename,lexicon,lexiconOfLabel,separateSentences=True,filters=[]):

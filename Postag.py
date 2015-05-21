@@ -147,8 +147,6 @@ def main():
             
             if lexicon.getLen() != wordVector.getLength():
                 raise Exception("O número de palavras no vacabulário é diferente do número de palavras do word Vector")
-            
-            addUnkownWord = False
         else:
             wordVector = WordVector(wordSize=args.wordVecSize)
             lexicon = Lexicon()
@@ -158,9 +156,6 @@ def main():
             
             lexicon.put(WindowModelBasic.endSymbolStr)
             wordVector.append(None)
-            
-            addUnkownWord = True
-            
         
         lexiconOfLabel = Lexicon()
         
@@ -173,7 +168,7 @@ def main():
         if args.alg == algTypeChoices[0]:
             separeSentence = False
             print 'Loading train data...'
-            trainData = datasetReader.readData(args.train,lexicon,lexiconOfLabel,wordVector,separeSentence,addUnkownWord,filters)
+            trainData = datasetReader.readData(args.train,lexicon,lexiconOfLabel,wordVector,separeSentence,True,filters)
             
             numClasses = lexiconOfLabel.getLen()
             model = WindowModelByWord(lexicon,wordVector, 
@@ -182,7 +177,7 @@ def main():
         elif args.alg == algTypeChoices[1]:
             separeSentence = True
             print 'Loading train data...'
-            trainData = datasetReader.readData(args.train,lexicon,lexiconOfLabel,wordVector,separeSentence,addUnkownWord,filters)
+            trainData = datasetReader.readData(args.train,lexicon,lexiconOfLabel,wordVector,separeSentence,True,filters)
             
             numClasses = lexiconOfLabel.getLen()
             model = WindowModelBySentence(lexicon,wordVector, 
@@ -223,6 +218,7 @@ def main():
     eval = EvaluateAccuracy()
     acc = eval.evaluateWithPrint(predicts,testData[1]);
     
+        
     
 
     t2 = time.time()

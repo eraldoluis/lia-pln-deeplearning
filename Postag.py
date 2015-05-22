@@ -157,8 +157,7 @@ def main():
             lexicon.put(WindowModelBasic.endSymbolStr)
             wordVector.append(None)
         
-        lexiconOfLabel = Lexicon()
-        
+        lexiconOfLabel = Lexicon(addUnkownValue=False)
         
         if args.lrUpdStrategy == lrStrategyChoices[0]:
             learningRateUpdStrategy = LearningRateUpdNormalStrategy()
@@ -216,8 +215,6 @@ def main():
     
     eval = EvaluateAccuracy()
     acc = eval.evaluateWithPrint(predicts,testData[1]);
-    
-        
     
 
     t2 = time.time()

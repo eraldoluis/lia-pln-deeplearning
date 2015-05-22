@@ -16,13 +16,19 @@ class ReaderLexiconAndWordVec:
         wordVector = WordVector()
         
         f = open(filename, 'r')
-        a= 0
+        a = 0
+        b = 0
         
         for line in f:
             
+#             b +=1
+#                   
+#             if b ==10:
+#                 break;
+            
             if re.search('^[0-9]+ [0-9]+$', line):
                 if a > 0:
-                    raise Exception('Foi encontrado mais de uma linha que contém o número de exemplos e tamanho do word vector')
+                    raise Exception('Foi encontrado mais de uma linha no arquivo que contém o número de exemplos e tamanho do word vector')
                 a+=1
                 continue
             

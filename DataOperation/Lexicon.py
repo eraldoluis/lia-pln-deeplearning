@@ -6,14 +6,17 @@
 
 class Lexicon:
     
-    UNKNOWN_INDEX = 0
     UNKNOWN_VALUE = 'UUUNKKK'
 
-    def __init__(self,filePath=''):
+    def __init__(self,filePath='',addUnkownValue = True):
         self.__lexicon = []
         self.__lexiconDict = {}
         
-        self.put(Lexicon.UNKNOWN_VALUE)
+        if addUnkownValue:
+            self.unknown_index = 0
+            self.put(Lexicon.UNKNOWN_VALUE)
+        else:
+            self.unknown_index = -1
         
         if filePath:
             self.putUsingFile(filePath)
@@ -62,7 +65,7 @@ class Lexicon:
         the return 0 (the unknown lexicon).
         '''
         word = word.lower()
-        return self.__lexiconDict.get(word, self.UNKNOWN_INDEX)
+        return self.__lexiconDict.get(word, self.unknown_index)
     
     def isUnknownIndex(self,index):
-        return index == self.UNKNOWN_INDEX
+        return index == self.unknown_index

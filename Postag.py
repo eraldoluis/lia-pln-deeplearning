@@ -182,8 +182,7 @@ def main():
             numClasses = lexiconOfLabel.getLen()
             model = WindowModelBySentence(lexicon,wordVector, 
                             args.windowSize, args.hiddenSize, args.lr,numClasses,args.numepochs,args.batchSize, args.c,learningRateUpdStrategy)
-        
-        
+            
                 
         if args.numPerEpoch is not None and len(args.numPerEpoch) != 0 :
             print 'Loading test data...'

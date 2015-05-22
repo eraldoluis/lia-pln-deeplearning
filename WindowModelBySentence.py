@@ -24,9 +24,7 @@ class WindowModelBySentence(WindowModelBasic):
         logOfSumAllPath = self.sentenceSoftmax.getLogOfSumAllPathY()
         negativeLogLikehood = -(self.sentenceSoftmax.getSumPathY(self.y) - logOfSumAllPath)
         cost =   negativeLogLikehood + regularizationSquareSumParamaters(parameters, self.regularizationFactor, self.y.shape[0]);
-        
-     
-                    
+                      
         # Gradiente dos pesos e do bias
         updates = self.hiddenLayer.getUpdate(cost, self.lr);
         updates += self.sentenceSoftmax.getUpdate(cost, self.lr);

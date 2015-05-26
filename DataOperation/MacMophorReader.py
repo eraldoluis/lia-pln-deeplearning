@@ -5,10 +5,44 @@
 '''
 import re
 
-class MacMorphoReader:    
+class MacMorphoReader:
+    
+    def __init__(self,fileWithFeatures):
+        self.fileWithFeatures = fileWithFeatures 
+     
     def readTestData(self, filename,lexicon,lexiconOfLabel,separateSentences=True,filters=[]):
         return self.readData(filename, lexicon, lexiconOfLabel,None,separateSentences,False,filters)
     
+    def addToken(self, lexicon, wordVecs, addWordUnkown, filters, indexesBySentence, word):
+        for f in filters:
+            word = f.filter(word)
+        
+        lexiconIndex = lexicon.getLexiconIndex(word)
+        if addWordUnkown and lexicon.isUnknownIndex(lexiconIndex):
+            lexiconIndex = lexicon.put(word)
+            wordVecs.append(None)
+        indexesBySentence.append(lexiconIndex)
+
+
+    def addLabel(self, lexiconOfLabel, labelsBySentence, token):
+        labelsBySentence.append(lexiconOfLabel.put(token))
+
+    def readTokenAndLabelOfFileWithFeature(self, lexicon, lexiconOfLabel, wordVecs, addWordUnkown, filters, indexesBySentence, labelsBySentence, token):
+        prefWord = 'word='
+        
+        if prefWord in token:
+            word = token[len(prefWord):]
+            self.addToken(lexicon, wordVecs, addWordUnkown, filters, indexesBySentence, word)
+        elif re.search(r'^([A-Z]|\W)', token) is not None:
+            self.addLabel(lexiconOfLabel, labelsBySentence, token)
+    
+    def readTokenAndLabelOfRawFile(self, lexicon, lexiconOfLabel, wordVecs, addWordUnkown, filters, indexesBySentence, labelsBySentence, token):
+        s = token.split('_')
+        
+        self.addToken(lexicon, wordVecs, addWordUnkown, filters, indexesBySentence, s[0])
+        self.addLabel(lexiconOfLabel, labelsBySentence, s[1])
+    
+
     def readData(self, filename,lexicon,lexiconOfLabel, wordVecs=None, separateSentences= True, addWordUnkown=False,filters=[]):
         '''
         Read the data from a file and return a matrix which the first row is the words indexes  and second row is the labels values
@@ -17,9 +51,10 @@ class MacMorphoReader:
         indexes = data[0]
         labels = data[1]
         
+        func = self.readTokenAndLabelOfFileWithFeature if self.fileWithFeatures else self.readTokenAndLabelOfRawFile
+        
         f = open(filename, 'r')
         a = 0
-        prefWord = 'word='
         
         for line in f:
             
@@ -41,23 +76,11 @@ class MacMorphoReader:
                 labelsBySentence = labels
             
             for token in line_split:
-                
-                if prefWord in token:
-                    word = token[len(prefWord):]
-                    
-                    for filter in filters:
-                        word = filter.filter(word);
-                    
-                    lexiconIndex = lexicon.getLexiconIndex(word)
-                    
-                    if addWordUnkown and lexicon.isUnknownIndex(lexiconIndex):
-                        lexiconIndex = lexicon.put(word)
-                        wordVecs.append(None)
-                    
-                    indexesBySentence.append(lexiconIndex)
-                elif re.search(r'^([A-Z])', token) is not None:
-                    labelsBySentence.append(lexiconOfLabel.put(token))
+                func(lexicon, lexiconOfLabel, wordVecs, addWordUnkown, filters, indexesBySentence, labelsBySentence, token)
             
+            if len(indexesBySentence) != len(labelsBySentence):
+                raise Exception('Número de tokens e labels não são iguais na linha: ' + line)
+                         
             if separateSentences:
                 indexes.append(indexesBySentence)
                 labels.append(labelsBySentence)
@@ -73,4 +96,7 @@ class MacMorphoReader:
 # 
 #         print list
         return data
+    
+    
+    
  

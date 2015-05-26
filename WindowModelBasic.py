@@ -137,9 +137,8 @@ class WindowModelBasic:
             
             while minibatch_index < len(windowIdxs):
                 batchSize.set_value(batchesSize[i])
-                
                 train(minibatch_index,lr)
-                
+                                            
                 minibatch_index += batchesSize[i]
                 i+=1
             

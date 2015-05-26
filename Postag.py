@@ -110,7 +110,7 @@ def main():
         
     t0 = time.time()
  
-    datasetReader = MacMorphoReader()
+    datasetReader = MacMorphoReader(False)
     testData = None
         
     if args.loadModel is not None:

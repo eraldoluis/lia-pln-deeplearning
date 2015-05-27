@@ -19,6 +19,18 @@ from DataOperation.ReaderLexiconAndWordVec import ReaderLexiconAndWordVec
 import importlib
 from NNet.Util import LearningRateUpdDivideByEpochStrategy,\
     LearningRateUpdNormalStrategy
+from Evaluate.EvaluatePercPredictsCorrectNotInWordSet import EvaluatePercPredictsCorrectNotInWordSet
+
+
+def readVocabAndWord(args):
+    if args.vocab == args.wordVectors or args.vocab is not None or args.wordVectors is not None:
+        fi = args.wordVectors if args.wordVectors is not None else args.vocab
+        lexicon, wordVector = ReaderLexiconAndWordVec().readData(fi)
+    else:
+        wordVector = WordVector(args.wordVectors)
+        lexicon = Lexicon(args.vocab)
+    
+    return lexicon, wordVector
 
 def main():
     
@@ -82,6 +94,12 @@ def main():
                        help='The filters which will be apply in the data. You have to pass the module and class name.'+
                        ' Ex: modulename1 classname1 modulename2 classname2')
     
+    parser.add_argument('--testoosv', dest='testOOSV', action='store_true',default=False,
+                       help='Do the test OOSV')
+    
+    parser.add_argument('--testoouv', dest='testOOUV', action='store_true',default=False,
+                       help='Do the test OOSV')
+    
     lrStrategyChoices= ["normal","divide_epoch"]
     
     parser.add_argument('--lrupdstrategy', dest='lrUpdStrategy', action='store',default="NORMAL",choices=lrStrategyChoices,
@@ -100,7 +118,6 @@ def main():
         
     
     filters = []
-    
     a = 0
     
     while a < len(args.filters):
@@ -123,6 +140,15 @@ def main():
         elif isinstance(model,WindowModelBySentence): 
             separeSentence = True
             
+        if args.testOOSV:
+            lexiconFindInTrain = set()
+            datasetReader.readData(args.train,lexicon,lexiconOfLabel, separateSentences= separeSentence,filters=filters,lexiconFindInTrain=lexiconFindInTrain)
+            
+        if args.testOOUV:
+            lexiconWV, wv = readVocabAndWord(args)
+            lexiconFindInWV = set([ word for word in lexiconWV.getLexiconDict()])
+            lexiconFindInWV.remove(Lexicon.UNKNOWN_VALUE.lower())
+            
         f.close()
     else:        
         print 'Loading dictionary...'
@@ -131,22 +157,20 @@ def main():
         WindowModelBasic.setEndSymbol(args.endSymbol)
 
         if args.vocab is not None or args.wordVectors is not None:
+            lexicon, wordVector = readVocabAndWord(args)
             
-            if args.vocab == args.wordVectors or args.vocab is not None or args.wordVectors is not None:
-                f = args.wordVectors if args.wordVectors is not None else args.vocab
-                lexicon,wordVector =  ReaderLexiconAndWordVec().readData(f)
-            else:
-                wordVector = WordVector(args.wordVectors)
-                lexicon = Lexicon(args.vocab)
-                
             if lexicon.isUnknownIndex(lexicon.getLexiconIndex(WindowModelBasic.startSymbolStr)):
                 raise Exception("O vocabulário não possui o símbolo de começo\"<s>)\"")
-            
             if lexicon.isUnknownIndex(lexicon.getLexiconIndex(WindowModelBasic.endSymbolStr)):
                 raise Exception("O vocabulário não possui o símbolo de final\"<s>)\"")
-            
             if lexicon.getLen() != wordVector.getLength():
                 raise Exception("O número de palavras no vacabulário é diferente do número de palavras do word Vector")
+            
+            
+            
+            if args.testOOUV:
+                lexiconFindInWV = set([ word for word in lexicon.getLexiconDict()])
+                lexiconFindInWV.remove(Lexicon.UNKNOWN_VALUE.lower())
         else:
             wordVector = WordVector(wordSize=args.wordVecSize)
             lexicon = Lexicon()
@@ -156,6 +180,9 @@ def main():
             
             lexicon.put(WindowModelBasic.endSymbolStr)
             wordVector.append(None)
+            
+            if args.testOOUV:
+                lexiconFindInWV = set()
         
         lexiconOfLabel = Lexicon(addUnkownValue=False)
         
@@ -163,11 +190,13 @@ def main():
             learningRateUpdStrategy = LearningRateUpdNormalStrategy()
         elif args.lrUpdStrategy == lrStrategyChoices[1]:
             learningRateUpdStrategy = LearningRateUpdDivideByEpochStrategy()
+        
+        lexiconFindInTrain = set() if args.testOOSV else None
             
         if args.alg == algTypeChoices[0]:
             separeSentence = False
             print 'Loading train data...'
-            trainData = datasetReader.readData(args.train,lexicon,lexiconOfLabel,wordVector,separeSentence,True,filters)
+            trainData = datasetReader.readData(args.train,lexicon,lexiconOfLabel,wordVector,separeSentence,True,filters,lexiconFindInTrain)
             
             numClasses = lexiconOfLabel.getLen()
             model = WindowModelByWord(lexicon,wordVector, 
@@ -176,7 +205,7 @@ def main():
         elif args.alg == algTypeChoices[1]:
             separeSentence = True
             print 'Loading train data...'
-            trainData = datasetReader.readData(args.train,lexicon,lexiconOfLabel,wordVector,separeSentence,True,filters)
+            trainData = datasetReader.readData(args.train,lexicon,lexiconOfLabel,wordVector,separeSentence,True,filters,lexiconFindInTrain)
             
             numClasses = lexiconOfLabel.getLen()
             model = WindowModelBySentence(lexicon,wordVector, 
@@ -215,6 +244,14 @@ def main():
     
     eval = EvaluateAccuracy()
     acc = eval.evaluateWithPrint(predicts,testData[1]);
+    
+    if args.testOOSV:
+        oosv = EvaluatePercPredictsCorrectNotInWordSet(lexicon,lexiconFindInTrain,'OOSV')
+        oosv.evaluateWithPrint(predicts, testData[1], testData[0])
+    
+    if args.testOOUV:
+        oouv = EvaluatePercPredictsCorrectNotInWordSet(lexicon,lexiconFindInWV,'OOUV')
+        oouv.evaluateWithPrint(predicts, testData[1], testData[0])
     
 
     t2 = time.time()

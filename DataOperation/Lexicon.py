@@ -20,6 +20,9 @@ class Lexicon:
         
         if filePath:
             self.putUsingFile(filePath)
+    
+    def getLexiconDict(self):
+        return self.__lexiconDict
 
     def getLen(self):
         '''

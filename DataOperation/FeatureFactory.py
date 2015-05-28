@@ -4,6 +4,7 @@
 '''
 '''
 from DataOperation.Lexicon import Lexicon
+import codecs
 
 
 class FeatureFactory:
@@ -21,7 +22,7 @@ class FeatureFactory:
         indexes = data[0]
         labels = data[1]
 
-        f = open(filename, 'r')
+        f = codecs.open(filename, 'r','utf-8')
         for line in f:
             line_split = line.split()
             # Ignore empty lines.

@@ -155,6 +155,8 @@ def main():
         
         WindowModelBasic.setStartSymbol(args.startSymbol)
         WindowModelBasic.setEndSymbol(args.endSymbol)
+        
+        
 
         if args.vocab is not None or args.wordVectors is not None:
             lexicon, wordVector = readVocabAndWord(args)
@@ -166,11 +168,11 @@ def main():
             if lexicon.getLen() != wordVector.getLength():
                 raise Exception("O número de palavras no vacabulário é diferente do número de palavras do word Vector")
             
-            
-            
             if args.testOOUV:
                 lexiconFindInWV = set([ word for word in lexicon.getLexiconDict()])
                 lexiconFindInWV.remove(Lexicon.UNKNOWN_VALUE.lower())
+                
+            addWordUnkown = False
         else:
             wordVector = WordVector(wordSize=args.wordVecSize)
             lexicon = Lexicon()
@@ -183,6 +185,8 @@ def main():
             
             if args.testOOUV:
                 lexiconFindInWV = set()
+            
+            addWordUnkown = True
         
         lexiconOfLabel = Lexicon(addUnkownValue=False)
         
@@ -196,7 +200,7 @@ def main():
         if args.alg == algTypeChoices[0]:
             separeSentence = False
             print 'Loading train data...'
-            trainData = datasetReader.readData(args.train,lexicon,lexiconOfLabel,wordVector,separeSentence,True,filters,lexiconFindInTrain)
+            trainData = datasetReader.readData(args.train,lexicon,lexiconOfLabel,wordVector,separeSentence,addWordUnkown,filters,lexiconFindInTrain)
             
             numClasses = lexiconOfLabel.getLen()
             model = WindowModelByWord(lexicon,wordVector, 
@@ -205,7 +209,7 @@ def main():
         elif args.alg == algTypeChoices[1]:
             separeSentence = True
             print 'Loading train data...'
-            trainData = datasetReader.readData(args.train,lexicon,lexiconOfLabel,wordVector,separeSentence,True,filters,lexiconFindInTrain)
+            trainData = datasetReader.readData(args.train,lexicon,lexiconOfLabel,wordVector,separeSentence,addWordUnkown,filters,lexiconFindInTrain)
             
             numClasses = lexiconOfLabel.getLen()
             model = WindowModelBySentence(lexicon,wordVector, 

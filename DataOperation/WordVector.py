@@ -2,6 +2,7 @@
 # -*- coding: utf-8 -*-
 
 from NNet.Util import WeightTanhGenerator
+import codecs
 
 class WordVector:
     UNKOWN_INDEX = 0
@@ -33,7 +34,7 @@ class WordVector:
         self.__wordVecs.append(wordVector)
     
     def putUsingFile(self,vecfilename):
-        fVec = open(vecfilename, 'r')
+        fVec = codecs.open(vecfilename, 'r','utf-8')
         for line in fVec:
             self.putWordVecStr(line)
         fVec.close()

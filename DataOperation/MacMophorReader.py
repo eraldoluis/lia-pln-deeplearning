@@ -4,6 +4,7 @@
 '''
 '''
 import re
+import codecs
 
 class MacMorphoReader:
     
@@ -16,7 +17,7 @@ class MacMorphoReader:
     def addToken(self, lexicon, wordVecs, addWordUnkown, filters, indexesBySentence, word,lexiconFindInTrain):
         for f in filters:
             word = f.filter(word)
-        
+            
         lexiconIndex = lexicon.getLexiconIndex(word)
         if addWordUnkown and lexicon.isUnknownIndex(lexiconIndex):
             lexiconIndex = lexicon.put(word)
@@ -56,7 +57,7 @@ class MacMorphoReader:
         
         func = self.readTokenAndLabelOfFileWithFeature if self.fileWithFeatures else self.readTokenAndLabelOfRawFile
         
-        f = open(filename, 'r')
+        f = codecs.open(filename, 'r', 'utf-8')
         a = 0
         
         for line in f:

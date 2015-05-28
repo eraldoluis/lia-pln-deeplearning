@@ -4,6 +4,7 @@
 from DataOperation.Lexicon import Lexicon
 from DataOperation.WordVector import WordVector
 import re
+import codecs
 
 
 class ReaderLexiconAndWordVec:    
@@ -15,7 +16,7 @@ class ReaderLexiconAndWordVec:
         lexicon = Lexicon()
         wordVector = WordVector()
         
-        f = open(filename, 'r')
+        f = codecs.open(filename, 'r','utf-8')
         a = 0
         b = 0
         

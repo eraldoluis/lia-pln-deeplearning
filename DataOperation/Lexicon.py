@@ -3,6 +3,7 @@
 
 '''
 '''
+import codecs
 
 class Lexicon:
     
@@ -32,7 +33,7 @@ class Lexicon:
     
     def putUsingFile(self,vocabfilename):
         # Read the vocabulary file (one word per line).
-        fVoc = open(vocabfilename, 'r')
+        fVoc = codecs.open(vocabfilename, 'r', 'utf-8')
         for line in fVoc:
             word = line.strip()
             # Ignore empty lines.

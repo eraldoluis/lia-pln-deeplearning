@@ -1,4 +1,4 @@
-import theano
+#import theano
 import theano.tensor as T
 import numpy
 
@@ -62,3 +62,4 @@ class WeightTanhGenerator:
     
     def getEInit(self,fin,fout):
         return numpy.sqrt(6. / (fin + fout))
+    

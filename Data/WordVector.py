@@ -33,3 +33,7 @@ class WordVector:
     
     def getWordVectors(self):
         return self.__wordVecs
+      
+    def startRandomAllVecs(self, dictSize):
+	self.__wordVecs = self.__generatorWeight.generateWeight(dictSize,self.__wordSize)
+	

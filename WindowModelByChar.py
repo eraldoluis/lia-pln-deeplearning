@@ -11,42 +11,23 @@ from NNet.SoftmaxLayer import SoftmaxLayer
 from NNet.Util import negative_log_likelihood, regularizationSquareSumParamaters
 from WindowModelBasic import WindowModelBasic
 
-class WindowModelByWord(WindowModelBasic):
+class CharWNN(WindowModelBasic):
 
-    def __init__(self, lexicon, wordVectors , windowSize, hiddenSize, _lr,numClasses,numEpochs, batchSize=1, c=0.0,charModel=None):
-        WindowModelBasic.__init__(self, lexicon, wordVectors, windowSize, hiddenSize, _lr, numClasses, numEpochs, batchSize, c,charModel)
+    def __init__(self, lexicon, wordVectors , windowSize, hiddenSize, _lr,numClasses,numEpochs, batchSize=1, c=0.0,):
+        WindowModelBasic.__init__(self, lexicon, wordVectors, windowSize, hiddenSize, _lr, numClasses, numEpochs, batchSize, c)
+                
+        # Camada: softmax
+        self.softmax = SoftmaxLayer(self.hiddenLayer.getOutput(), self.hiddenSize, numClasses);
         
-        if charModel == None:
-            # Camada: softmax
-            self.softmax = SoftmaxLayer(self.hiddenLayer.getOutput(), self.hiddenSize, numClasses);
+        # Pega o resultado do foward
+        foward = self.softmax.getOutput();
         
-            # Pega o resultado do foward
-            foward = self.softmax.getOutput();
+        # Custo
+        parameters = self.softmax.getParameters() + self.hiddenLayer.getParameters()
+        cost = negative_log_likelihood(foward, self.y) + regularizationSquareSumParamaters(parameters, self.regularizationFactor, self.y.shape[0]);
         
-            # Custo
-            parameters = self.softmax.getParameters() + self.hiddenLayer.getParameters()
-            cost = negative_log_likelihood(foward, self.y) + regularizationSquareSumParamaters(parameters, self.regularizationFactor, self.y.shape[0]);
-            updates = self.hiddenLayer.getUpdate(cost, self.lr);
-        
-        else:
-            # Camada: softmax
-            self.softmax = SoftmaxLayer(self.second_hiddenLayer.getOutput(), numClasses, numClasses);
-        
-            # Pega o resultado do foward
-            foward = self.softmax.getOutput();
-        
-            # Custo
-            parameters = self.softmax.getParameters() + self.first_hiddenLayer.getParameters()
-            parameters +=self.second_hiddenLayer.getParameters()
-            parameters +=self.charModel.hiddenLayer.getParameters() 
-            cost = negative_log_likelihood(foward, self.y) + regularizationSquareSumParamaters(parameters, self.regularizationFactor, self.y.shape[0]);
-            self.charModel.setCost(cost)
-            updates = self.first_hiddenLayer.getUpdate(cost, self.lr);
-            updates += self.second_hiddenLayer.getUpdate(cost, self.lr);
-            #updates += self.charModel.updates
-            
         # Gradiente dos pesos e do bias
-        
+        updates = self.hiddenLayer.getUpdate(cost, self.lr);
         updates += self.softmax.getUpdate(cost, self.lr);
         updates += self.wordToVector.getUpdate(cost, self.lr); 
         
@@ -95,5 +76,3 @@ class WindowModelByWord(WindowModelBasic):
         
         return f();
     
-                
-        

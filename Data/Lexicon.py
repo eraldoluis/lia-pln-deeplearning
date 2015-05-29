@@ -21,7 +21,7 @@ class Lexicon:
         Include a new word in the lexicon and return its index. If the word is
         already in the lexicon, then just return its index.
         '''
-        word = word.lower()
+        #word = word.lower()
         idx = self.__lexiconDict.get(word)
         if idx is None:
             # Insert a unseen word in the lexicon.

@@ -218,7 +218,16 @@ def main():
             
             wordVector.append(None)
         elif args.unkownWordStrategy == unkownWordStrategy[1]:
-            raise NotImplementedError('Mean Strategy not implemented yet');
+            unkownWordVector = numpy.mean(numpy.asarray(wordVector.getWordVectors()),0)
+            
+            lexiconIndex = lexicon.put(unknowName)
+            lexicon.setUnkownIndex(lexiconIndex)
+            
+            print unkownWordVector
+            
+            wordVector.append(unkownWordVector.tolist())
+            
+            print lexiconIndex
         elif args.unkownWordStrategy == unkownWordStrategy[2]:
             lexiconIndex = lexicon.getLexiconIndex(unicode(args.unkownWord, "utf-8"))
             
@@ -235,7 +244,7 @@ def main():
             learningRateUpdStrategy = LearningRateUpdDivideByEpochStrategy()
         
         lexiconFindInTrain = set() if args.testOOSV else None
-            
+        
         if args.alg == algTypeChoices[0]:
             separeSentence = False
             print 'Loading train data...'
@@ -253,8 +262,7 @@ def main():
             numClasses = lexiconOfLabel.getLen()
             model = WindowModelBySentence(lexicon,wordVector, 
                             args.windowSize, args.hiddenSize, args.lr,numClasses,args.numepochs,args.batchSize, args.c,learningRateUpdStrategy)
-            
-                
+                        
         if args.numPerEpoch is not None and len(args.numPerEpoch) != 0 :
             print 'Loading test data...'
             testData = datasetReader.readTestData(args.test,lexicon,lexiconOfLabel,separeSentence,filters,unkownDataTest)

@@ -6,18 +6,11 @@
 import codecs
 
 class Lexicon:
-    
-    UNKNOWN_VALUE = 'UUUNKKK'
 
-    def __init__(self,filePath='',addUnkownValue = True):
+    def __init__(self,filePath=''):
         self.__lexicon = []
         self.__lexiconDict = {}
-        
-        if addUnkownValue:
-            self.unknown_index = 0
-            self.put(Lexicon.UNKNOWN_VALUE)
-        else:
-            self.unknown_index = -1
+        self.unknown_index = -1
         
         if filePath:
             self.putUsingFile(filePath)
@@ -47,14 +40,13 @@ class Lexicon:
         Include a new word in the lexicon and return its index. If the word is
         already in the lexicon, then just return its index.
         '''
-        word = word.lower()
         idx = self.__lexiconDict.get(word)
         if idx is None:
             # Insert a unseen word in the lexicon.
             idx = len(self.__lexicon)
             self.__lexicon.append(word)
             self.__lexiconDict[word] = idx
-        
+            
         return idx
 
     def getLexicon(self, index):
@@ -68,8 +60,13 @@ class Lexicon:
         Return the index of the given word. If the word is not in the lexicon,
         the return 0 (the unknown lexicon).
         '''
-        word = word.lower()
         return self.__lexiconDict.get(word, self.unknown_index)
+    
+    def getUnkownIndex(self):
+        return self.unknown_index
     
     def isUnknownIndex(self,index):
         return index == self.unknown_index
+    
+    def setUnkownIndex(self,unknown_index):
+        self.unknown_index = unknown_index

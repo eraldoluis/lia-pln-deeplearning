@@ -100,9 +100,22 @@ def main():
     parser.add_argument('--testoouv', dest='testOOUV', action='store_true',default=False,
                        help='Do the test OOSV')
     
+    unkownWordStrategy= ["random","mean_all_vector","word_vocab"]
+    
+    
+    parser.add_argument('--unkownwordstrategy', dest='unkownWordStrategy', action='store',default=unkownWordStrategy[0]
+                        ,choices=unkownWordStrategy,
+                       help='Choose the strategy use to construct a word vector of a unknown word.'
+                       + 'There are three types of strategy: random(generate randomly a word vector) ,'+
+                       ' mean_all_vector(generate the word vector form the mean of all words)' +
+                       ', word_vocab(use a word vector of one particular word. You have to use the parameter unkownword to set this word)')
+    
+    parser.add_argument('--unkownword', dest='unkownWord', action='store',default=False,
+                       help='The worch which will use the represent a unkown word')
+    
     lrStrategyChoices= ["normal","divide_epoch"]
     
-    parser.add_argument('--lrupdstrategy', dest='lrUpdStrategy', action='store',default="NORMAL",choices=lrStrategyChoices,
+    parser.add_argument('--lrupdstrategy', dest='lrUpdStrategy', action='store',default=lrStrategyChoices[0],choices=lrStrategyChoices,
                        help='Set the learning rate update strategy. NORMAL and DIVIDE_EPOCH are the options available')
     
     
@@ -120,6 +133,9 @@ def main():
     filters = []
     a = 0
     
+    args.filters.append('DataOperation.TransformLowerCaseFilter')
+    args.filters.append('TransformLowerCaseFilter')
+    
     while a < len(args.filters):
         module_ = importlib.import_module(args.filters[a])
         filters.append(getattr(module_, args.filters[a+1])())
@@ -129,6 +145,11 @@ def main():
  
     datasetReader = MacMorphoReader(False)
     testData = None
+    
+    if args.testOOUV:
+        unkownDataTest = []
+    else:
+        unkownDataTest = None
         
     if args.loadModel is not None:
         print 'Loading model in ' + args.loadModel + ' ...'
@@ -147,7 +168,6 @@ def main():
         if args.testOOUV:
             lexiconWV, wv = readVocabAndWord(args)
             lexiconFindInWV = set([ word for word in lexiconWV.getLexiconDict()])
-            lexiconFindInWV.remove(Lexicon.UNKNOWN_VALUE.lower())
             
         f.close()
     else:        
@@ -170,7 +190,6 @@ def main():
             
             if args.testOOUV:
                 lexiconFindInWV = set([ word for word in lexicon.getLexiconDict()])
-                lexiconFindInWV.remove(Lexicon.UNKNOWN_VALUE.lower())
                 
             addWordUnkown = False
         else:
@@ -187,8 +206,28 @@ def main():
                 lexiconFindInWV = set()
             
             addWordUnkown = True
+            
         
-        lexiconOfLabel = Lexicon(addUnkownValue=False)
+        args.unkownWordStrategy
+        
+        unknowName = u'UUUNKKK'
+        
+        if args.unkownWordStrategy == unkownWordStrategy[0]:
+            lexiconIndex = lexicon.put(unknowName)
+            lexicon.setUnkownIndex(lexiconIndex)
+            
+            wordVector.append(None)
+        elif args.unkownWordStrategy == unkownWordStrategy[1]:
+            raise NotImplementedError('Mean Strategy not implemented yet');
+        elif args.unkownWordStrategy == unkownWordStrategy[2]:
+            lexiconIndex = lexicon.getLexiconIndex(unicode(args.unkownWord, "utf-8"))
+            
+            if lexicon.isUnknownIndex(lexiconIndex):
+                raise Exception('Unkown Word Value passed not exist in the unsupervised dictionary');
+            
+            lexicon.setUnkownIndex(lexiconIndex)
+            
+        lexiconOfLabel = Lexicon()
         
         if args.lrUpdStrategy == lrStrategyChoices[0]:
             learningRateUpdStrategy = LearningRateUpdNormalStrategy()
@@ -218,7 +257,7 @@ def main():
                 
         if args.numPerEpoch is not None and len(args.numPerEpoch) != 0 :
             print 'Loading test data...'
-            testData = datasetReader.readTestData(args.test,lexicon,lexiconOfLabel,separeSentence,filters)
+            testData = datasetReader.readTestData(args.test,lexicon,lexiconOfLabel,separeSentence,filters,unkownDataTest)
             
             evalListener = EvaluateEveryNumEpoch(args.numepochs,args.numPerEpoch,EvaluateAccuracy(),model,testData[0],testData[1])
             
@@ -241,7 +280,8 @@ def main():
     print 'Loading test data...'
     
     if testData is None:          
-        testData = datasetReader.readTestData(args.test,lexicon,lexiconOfLabel,separeSentence,filters)
+        testData = datasetReader.readTestData(args.test,lexicon,lexiconOfLabel,separeSentence,filters,unkownDataTest)
+
     
     print 'Testing...'
     predicts = model.predict(testData[0]);
@@ -251,11 +291,11 @@ def main():
     
     if args.testOOSV:
         oosv = EvaluatePercPredictsCorrectNotInWordSet(lexicon,lexiconFindInTrain,'OOSV')
-        oosv.evaluateWithPrint(predicts, testData[1], testData[0])
+        oosv.evaluateWithPrint(predicts, testData[1], testData[0],unkownDataTest)
     
     if args.testOOUV:
         oouv = EvaluatePercPredictsCorrectNotInWordSet(lexicon,lexiconFindInWV,'OOUV')
-        oouv.evaluateWithPrint(predicts, testData[1], testData[0])
+        oouv.evaluateWithPrint(predicts, testData[1], testData[0],unkownDataTest)
     
 
     t2 = time.time()

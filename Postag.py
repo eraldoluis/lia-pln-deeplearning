@@ -223,11 +223,8 @@ def main():
             lexiconIndex = lexicon.put(unknowName)
             lexicon.setUnkownIndex(lexiconIndex)
             
-            print unkownWordVector
-            
             wordVector.append(unkownWordVector.tolist())
             
-            print lexiconIndex
         elif args.unkownWordStrategy == unkownWordStrategy[2]:
             lexiconIndex = lexicon.getLexiconIndex(unicode(args.unkownWord, "utf-8"))
             

@@ -9,6 +9,8 @@ from NNet.WortToVectorLayer import WordToVectorLayer
 import math
 from NNet.Util import LearningRateUpdNormalStrategy
 import time
+from numpy import arange
+import random
 
 class WindowModelBasic:
     startSymbolStr = "<s>"
@@ -23,7 +25,7 @@ class WindowModelBasic:
         WindowModelBasic.endSymbolStr = endSymbol
 
     def __init__(self, lexicon, wordVectors , windowSize, hiddenSize, _lr,numClasses,numEpochs, batchSize=1.0, c=0.0
-                 ,learningRateUpdStrategy = LearningRateUpdNormalStrategy()):
+                 ,learningRateUpdStrategy = LearningRateUpdNormalStrategy(),randomizeInput=False):
         self.Wv = theano.shared(name='wordVecs',
                                 value=np.asarray(wordVectors.getWordVectors(), dtype=theano.config.floatX),
                                 borrow=True)
@@ -43,6 +45,7 @@ class WindowModelBasic:
         self.update = None
         self.regularizationFactor = theano.shared(c)
         self.y = theano.shared(np.asarray([0]),"y",borrow=True)
+        self.isToRandomizeInput = randomizeInput
         
         # Nós casos em que é feita a predição a cada certo número de épocas de um treinamento,
         # ocorre uma concorrência no uso do atributo windowIdxs pelos métodos predict e train. O problema
@@ -126,22 +129,30 @@ class WindowModelBasic:
                                         self.y: self.y[index : index + batchSize]
                                 })
         
+        
+        self.beginBlock = []    
+        pos = 0
+        
+        for v in batchesSize:
+            self.beginBlock.append(pos)
+            pos += v
+        
+        idxList = range(len(batchesSize))
+        
         for ite in range(1,self.numEpochs + 1):
             print 'Epoch ' + str(ite)
-            minibatch_index = 0
-            i = 0
+            
+            if self.isToRandomizeInput:
+                random.shuffle(idxList)
             
             lr = self.learningRateUpdStrategy.getCurrentLearninRate(self.lrValue,ite)
             
             t1 = time.time()
-            
-            while minibatch_index < len(windowIdxs):
-                batchSize.set_value(batchesSize[i])
-                train(minibatch_index,lr)
-                                            
-                minibatch_index += batchesSize[i]
-                i+=1
-            
+        
+            for idx in idxList:
+                batchSize.set_value(batchesSize[idx])
+                train(self.beginBlock[idx],lr) 
+                
             print 'Time to training the epoch  ' + str(time.time() - t1)
             
             for l in self.listeners:

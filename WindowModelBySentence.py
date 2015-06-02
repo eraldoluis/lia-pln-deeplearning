@@ -13,7 +13,7 @@ class WindowModelBySentence(WindowModelBasic):
     def __init__(self, lexicon, wordVectors , windowSize, hiddenSize, _lr,numClasses,numEpochs, batchSize=1, c=0.0
                     ,learningRateUpdStrategy = LearningRateUpdNormalStrategy()):
         WindowModelBasic.__init__(self, lexicon, wordVectors, windowSize, hiddenSize, _lr, 
-                                  numClasses, numEpochs, batchSize, c,learningRateUpdStrategy)
+                                  numClasses, numEpochs, batchSize, c,learningRateUpdStrategy,True)
     
         # Camada: softmax
         self.sentenceSoftmax = SentenceSoftmaxLayer(self.hiddenLayer.getOutput(), self.hiddenSize, numClasses);

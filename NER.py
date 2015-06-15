@@ -16,7 +16,7 @@ from Evaluate.EvaluatePrecisionRecallF1 import EvaluatePrecisionRecallF1
 
 def main():
     
-    exception_verbosity='high'
+    
     parser = argparse.ArgumentParser();
     
     parser.add_argument('--withCharwnn',dest='withCharwnn',action='store_true',
@@ -128,12 +128,13 @@ def main():
     else:
         if args.withCharwnn==False:
             model = WindowModelByWord(featureFactory.getLexicon(),featureFactory.getWordVector(), 
-                            args.wordWindowSize, args.hiddenSize, args.lr,numClasses,args.numepochs,args.batchSize, args.c);
+                            args.wordWindowSize, args.hiddenSize, args.lr,numClasses,args.numepochs,args.batchSize, args.c,None);
             print 'Training...'
             model.train(trainData[0],trainData[1]);
         else:
-            charModel = CharWNN(trainData[2],featureFactory.getCharcon(),featureFactory.getCharVector(),
-                            args.charWindowSize,args.wordWindowSize, args.convSize, args.lr, numClasses, args.numepochs,args.batchSize, args.c);
+            
+            charModel = CharWNN(trainData[2],trainData[3],featureFactory.getCharcon(),featureFactory.getCharVector(),
+                           args.charWindowSize,args.wordWindowSize, args.convSize, args.lr, numClasses, args.numepochs,args.batchSize, args.c);
 
             wordModel = WindowModelByWord(featureFactory.getLexicon(),featureFactory.getWordVector(), 
                             args.wordWindowSize, args.hiddenSize, args.lr,numClasses,args.numepochs,args.batchSize, args.c,charModel);
@@ -153,11 +154,22 @@ def main():
     print ("Train time: %s seconds" % (str(t1 - t0)))
 
     print 'Loading test data...'
+    
+    
+    
     if args.withCharwnn==False:
         testData = featureFactory.readData(args.test)
-    print 'Testing...'
-    predicts = model.predict(testData[0]);
+        print 'Testing...'
+        predicts = model.predict(testData[0]);
+        
+    else:
+        testData = featureFactory.readTestDataWithChar(args.test)
+                
+        print 'Testing...'
+        predicts = wordModel.predict(testData[0]);
+        
     eval = EvaluatePrecisionRecallF1(numClasses)
+     
     
     eval.evaluate(predicts,testData[1]);
     

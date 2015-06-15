@@ -36,13 +36,8 @@ class WindowModelBasic:
         
     def setCost(self,cost):
         self.cost = cost
-        if self.charModel:
-            self.charModel.setCost(cost)
     
     def setUpdates(self,updates):
-        if self.charModel:
-            self.charModel.setUpdates()
-            updates += self.charModel.updates
         self.updates = updates
     
     def initWithBasicLayers(self):
@@ -58,10 +53,8 @@ class WindowModelBasic:
             # Camada: hidden layer com a função Tanh como função de ativaçãos
             self.hiddenLayer = HiddenLayer(self.wordToVector.getOutput(), self.wordSize * self.windowSize , self.hiddenSize);
         else:    
-            #[wordIdx,charEmbedd,charIdx] = self.charModel.getCharEmbeddingOfWindow(self.wordIndex,self.charIndex)
-            #self.newCharIndex = charIdx
-            # Camada: hidden layer com a função Tanh como função de ativaçãos
-            self.first_hiddenLayer = HiddenLayer(T.concatenate([self.wordToVector.getOutput(),self.charModel.getOutput()]), (self.wordSize + self.charModel.convSize) * self.windowSize , self.hiddenSize);
+            # Camada: 2 hidden layer com a função Tanh como função de ativaçãos
+            self.first_hiddenLayer = HiddenLayer(T.concatenate([self.wordToVector.getOutput(),self.charModel.getOutput()],axis=1), (self.wordSize + self.charModel.convSize) * self.windowSize , self.hiddenSize);
             self.second_hiddenLayer = HiddenLayer(self.first_hiddenLayer.getOutput(), self.hiddenSize , self.numClasses);
         
     
@@ -77,57 +70,58 @@ class WindowModelBasic:
 
     def train(self, inputData, correctData):
         numWordsInTrain = len(inputData)
-                
+                      
         # Label
         self.y.set_value(np.asarray(correctData),borrow=True)
-        
-        # Camada: word window.
-        self.windowIdxs.set_value(self.getAllWindowIndexes(inputData),borrow=True)
-        
+                       
         batchesSize = self.confBatchSize(numWordsInTrain)
         
-        batchSize = theano.shared(0, "batchSize"); 
+        batchSize = theano.shared(1, "batchSize"); 
         index = T.iscalar("index")
         charIndex = T.iscalar("charIndex")
         # Train function.
         if self.charModel==None:
+            # Camada: word window.
+            self.windowIdxs.set_value(self.getAllWindowIndexes(inputData),borrow=True)
             train = theano.function(inputs=[index],
                                     outputs=self.cost,
                                     updates=self.updates,
-                                    givens={
-                                
+                                    givens={     
                                             self.windowIdxs: self.windowIdxs[index : index + batchSize],
                                             self.y: self.y[index : index + batchSize]
                                     })
         
         else:
-            #self.updates += self.charModel.updates
             
+            
+            self.charModel.charWindowIdxs.set_value(self.charModel.getAllWordCharWindowIndexes(inputData),borrow=True)
+            self.windowIdxs.set_value(self.charModel.allWindowIndexes,borrow=True)
             train = theano.function(inputs=[index],
                                     outputs=self.cost,
                                     updates=self.updates,
                                     givens={
-                                            #self.wordIndex: index,
-                                            #self.charIndex: charIndex,  
+                                            self.charModel.wordIdx: (index)*self.windowSize,
+                                            self.charModel.charWindowIdxs: self.charModel.charWindowIdxs[self.charModel.numCharsOfWindow[index]:self.charModel.numCharsOfWindow[index+1]],
                                             self.windowIdxs: self.windowIdxs[index : index + batchSize],
                                             self.y: self.y[index : index + batchSize]
                                     })
     
         for ite in range(self.numEpochs):
-            minibatch_index = 0
+            minibatch_wordIndex = 0
+            
             i = 0
-            #self.newCharIndex = 0
-            while minibatch_index < numWordsInTrain:
+            
+            while minibatch_wordIndex < numWordsInTrain:
                 batchSize.set_value(batchesSize[i])
                 
-                train(minibatch_index)
+                train(minibatch_wordIndex)
                 
-                minibatch_index += batchesSize[i]
+                minibatch_wordIndex += batchesSize[i]
                 i+=1
                 
             self.setLr(self.lr/float(ite+1.0))
-            if self.charModel:
-                self.charModel.setIndexNull()    
+            
+                
         
     def predict(self, inputData):
         raise NotImplementedError();

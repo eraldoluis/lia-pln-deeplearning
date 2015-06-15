@@ -76,7 +76,8 @@ class HiddenLayer(object):
         self.params = [self.W, self.b]
     
     def getOutput(self):
-        return self.output
+        
+        return self.output 
     
     def getParameters(self):
         return self.params

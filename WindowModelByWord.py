@@ -10,6 +10,7 @@ from theano.tensor.nnet.nnet import softmax
 from NNet.SoftmaxLayer import SoftmaxLayer
 from NNet.Util import negative_log_likelihood, regularizationSquareSumParamaters
 from WindowModelBasic import WindowModelBasic
+from CharWNN import *
 
 class WindowModelByWord(WindowModelBasic):
 
@@ -23,8 +24,8 @@ class WindowModelByWord(WindowModelBasic):
             # Pega o resultado do foward
             foward = self.softmax.getOutput();
         
-            # Custo
             parameters = self.softmax.getParameters() + self.hiddenLayer.getParameters()
+            # Custo
             cost = negative_log_likelihood(foward, self.y) + regularizationSquareSumParamaters(parameters, self.regularizationFactor, self.y.shape[0]);
             updates = self.hiddenLayer.getUpdate(cost, self.lr);
         
@@ -35,17 +36,20 @@ class WindowModelByWord(WindowModelBasic):
             # Pega o resultado do foward
             foward = self.softmax.getOutput();
         
-            # Custo
+            
             parameters = self.softmax.getParameters() + self.first_hiddenLayer.getParameters()
-            parameters +=self.second_hiddenLayer.getParameters()
-            parameters +=self.charModel.hiddenLayer.getParameters() 
+            parameters += self.second_hiddenLayer.getParameters()
+            parameters += self.charModel.hiddenLayer.getParameters()
+            
+            # Custo 
             cost = negative_log_likelihood(foward, self.y) + regularizationSquareSumParamaters(parameters, self.regularizationFactor, self.y.shape[0]);
             self.charModel.setCost(cost)
+            self.charModel.setUpdates()
+            
             updates = self.first_hiddenLayer.getUpdate(cost, self.lr);
             updates += self.second_hiddenLayer.getUpdate(cost, self.lr);
-            #updates += self.charModel.updates
+            updates += self.charModel.updates
             
-        # Gradiente dos pesos e do bias
         
         updates += self.softmax.getUpdate(cost, self.lr);
         updates += self.wordToVector.getUpdate(cost, self.lr); 
@@ -53,7 +57,7 @@ class WindowModelByWord(WindowModelBasic):
         self.setCost(cost)
         self.setUpdates(updates)
     
-    
+    #Esta funcao retorna todos os indices das janelas de palavras  
     def getAllWindowIndexes(self, data):
         allWindowIndexes = [];
         
@@ -82,18 +86,36 @@ class WindowModelByWord(WindowModelBasic):
         if isinstance(self.batchSize, list):
             return np.asarray(self.batchSize);
         
-        
-        
         return np.full(numWordsInTrain/self.batchSize + 1,self.batchSize)
         
     def predict(self, inputData):
-        self.windowIdxs.set_value(self.getAllWindowIndexes(inputData),borrow=True)
         
-        y_pred = self.softmax.getPrediction();
-          
-        f = theano.function([],[y_pred]);
+        predict = 0
+        if self.charModel == None:
+            self.windowIdxs.set_value(self.getAllWindowIndexes(inputData),borrow=True)
+            y_pred = self.softmax.getPrediction();
+            f = theano.function([],[y_pred]);
+            predict = f();
+            
+        else:
+            
+            self.charModel.charWindowIdxs.set_value(self.charModel.getAllWordCharWindowIndexes(inputData),borrow=True)
+            self.windowIdxs.set_value(self.charModel.allWindowIndexes,borrow=True)
+            index = T.iscalar("index")
+            f = theano.function(inputs=[index],
+                                    outputs=self.softmax.getPrediction(),
+                                    givens={
+                                            self.charModel.wordIdx: (index)*self.windowSize,
+                                            self.charModel.charWindowIdxs: self.charModel.charWindowIdxs[self.charModel.numCharsOfWindow[index]:self.charModel.numCharsOfWindow[index+1]],
+                                            self.windowIdxs: self.windowIdxs[index : index + 1],
+                                            
+                                    })
+            predict = []
+            for i in range(len(inputData)):
+                predict.append(f(i)[0]);
+                
+            
+        return predict
         
-        return f();
-    
                 
         

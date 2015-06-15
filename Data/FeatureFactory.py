@@ -6,7 +6,7 @@
 import re
 from Data.WordVector import WordVector
 from Data.Lexicon import Lexicon
-
+import numpy as np
 
 class FeatureFactory:
 
@@ -17,6 +17,7 @@ class FeatureFactory:
         if charVectorSize:
             self.__charcon = Lexicon(); 
             self.__charVecs = WordVector(charVectorSize);
+             
         
     def readWordVectors(self, vecfilename, vocabfilename):
         '''
@@ -120,20 +121,30 @@ class FeatureFactory:
         Read the data from a file and return a matrix which the first row is the words indexes, second row is the labels values
                  the third row is the char indexes of each word 
         '''
-        data = [[],[],[]]
+        data = [[],[],{},[]]
         wordIndexes = data[0]
         wordLabels = data[1]
         charIndexes = data[2]
-
-        if addWordUnknown:
-            self.__lexicon.put("UNNKN")
-            self.__lexicon.put("<s>")
-            self.__lexicon.put("</s>")
-           
+        numCharsOfWord = data[3]
+        
+        
         if addCharUnknown:
             self.__charcon.put("UNNKN")
             self.__charcon.put("<s>")
             self.__charcon.put("</s>")
+            numCharsOfWord.append(1)
+            numCharsOfWord.append(1)
+            numCharsOfWord.append(1)
+            
+            
+        if addWordUnknown:
+            self.__lexicon.put("UNNKN")
+            self.__lexicon.put("<s>")
+            self.__lexicon.put("</s>")
+            charIndexes[0] = [0]
+            charIndexes[1] = [1]
+            charIndexes[2] = [2]
+                
              
         f = open(filename, 'r')
         for line in f:
@@ -141,29 +152,32 @@ class FeatureFactory:
             # Ignore empty lines.
             if len(line_split) < 2:
                 continue
-            i = 0
+            
             for i in range(0,len(line_split)):  
                 if(line_split[i].find("word=")!=-1):
                     word = line_split[i][5:]
                     word = re.sub(r'[1-9]',"0",word)
                     
-                    wordCharIndex = []
-                    for char in word:
-                        charconIndex = self.__charcon.getLexiconIndex(char)
-                        if addCharUnknown and charconIndex == 0:
-                            charconIndex = self.__charcon.put(char)
-                            #self.__charVecs.append(None)
-                        wordCharIndex.append(charconIndex)    
-
-                    charIndexes.append(wordCharIndex)
-
+                    
                     
                     lexiconIndex = self.__lexicon.getLexiconIndex(word)
+                                   
+                    if lexiconIndex == 0 and addWordUnknown:
+                            lexiconIndex = self.__lexicon.put(word)
+                            
+                    if charIndexes.get(lexiconIndex) is None:  
+                    
+                        wordCharIndex = []
+                        for char in word:
+                            charconIndex = self.__charcon.getLexiconIndex(char)
+                            if addCharUnknown and charconIndex == 0:
+                                charconIndex = self.__charcon.put(char)
+                            wordCharIndex.append(charconIndex)    
             
-                    if addWordUnknown and lexiconIndex == 0:
-                        lexiconIndex = self.__lexicon.put(word)
-                        #self.__wordVecs.append(None)
-                         
+                        charIndexes[lexiconIndex] = wordCharIndex
+                        numCharsOfWord.append(len(word))
+                        
+
                     wordIndexes.append(lexiconIndex)
                     
                                          
@@ -172,7 +186,7 @@ class FeatureFactory:
                     wordLabels.append(self.__lexiconOfLabel.put(line_split[i]))
     
         f.close()
-        
+       
         if addWordUnknown:
             self.__wordVecs.startRandomAllVecs(self.__lexicon.getLen())
    
@@ -180,7 +194,37 @@ class FeatureFactory:
             self.__charVecs.startRandomAllVecs(self.__charcon.getLen())
        
         return data
-      
+    
+    def readTestDataWithChar(self, filename):
+        '''
+        Read the data from a file and return a matrix which the first row is the words indexes, second row is the labels values
+                 the third row is the char indexes of each word 
+        '''
+        data = [[],[]]
+        wordIndexes = data[0]
+        wordLabels = data[1]
+             
+        f = open(filename, 'r')
+        for line in f:
+            line_split = line.split()
+            # Ignore empty lines.
+            if len(line_split) < 2:
+                continue
+            
+            for i in range(0,len(line_split)):  
+                if(line_split[i].find("word=")!=-1):
+                    word = line_split[i][5:]
+                    word = re.sub(r'[1-9]',"0",word)
+                    
+                    lexiconIndex = self.__lexicon.getLexiconIndex(word)
+                    wordIndexes.append(lexiconIndex)               
+                                                                     
+                    while (line_split[i].find("word")!=-1):
+                        i+=1
+                    wordLabels.append(self.__lexiconOfLabel.put(line_split[i]))
+        f.close()
+        return data  
+    
     def getLexiconLen(self):
         '''
         Return the number of words in the lexicon.
@@ -204,3 +248,9 @@ class FeatureFactory:
       
     def getCharVector(self):
         return self.__charVecs
+    
+    def getDict(self):
+        return self.__lexicon.getDict()
+    
+    def getDict2(self):
+        return self.__charcon.getDict()

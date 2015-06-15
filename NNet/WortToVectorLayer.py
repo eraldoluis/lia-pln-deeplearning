@@ -9,7 +9,7 @@ class WordToVectorLayer:
     def __init__(self, _input, Wv, wordSize, isToUpdateWordVector=True):
         self.__wordSize = wordSize
         self.__Wv = Wv
-        self.__output = T.flatten(self.__Wv[_input], 2)
+        self.__output = T.flatten(self.__Wv[_input],2)
         self.__windowIdxs = _input
         self.__isToUpdateWordVector = isToUpdateWordVector
         

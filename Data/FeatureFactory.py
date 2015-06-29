@@ -138,13 +138,10 @@ class FeatureFactory:
             
             
         if addWordUnknown:
-            self.__lexicon.put("UNNKN")
-            self.__lexicon.put("<s>")
-            self.__lexicon.put("</s>")
-            charIndexes[0] = [0]
-            charIndexes[1] = [1]
-            charIndexes[2] = [2]
-                
+            charIndexes[0] = [self.__lexicon.put("UNNKN")]
+            charIndexes[1] = [self.__lexicon.put("<s>")]
+            charIndexes[2] = [self.__lexicon.put("</s>")]
+             
              
         f = open(filename, 'r')
         for line in f:
@@ -195,7 +192,7 @@ class FeatureFactory:
        
         return data
     
-    def readTestDataWithChar(self, filename):
+    def readTestData(self, filename):
         '''
         Read the data from a file and return a matrix which the first row is the words indexes, second row is the labels values
                  the third row is the char indexes of each word 
@@ -203,7 +200,8 @@ class FeatureFactory:
         data = [[],[]]
         wordIndexes = data[0]
         wordLabels = data[1]
-             
+        numTotal = 0
+        num = 0     
         f = open(filename, 'r')
         for line in f:
             line_split = line.split()
@@ -217,12 +215,17 @@ class FeatureFactory:
                     word = re.sub(r'[1-9]',"0",word)
                     
                     lexiconIndex = self.__lexicon.getLexiconIndex(word)
-                    wordIndexes.append(lexiconIndex)               
-                                                                     
+                    wordIndexes.append(lexiconIndex)
+                    
+                    numTotal +=1               
+                    if lexiconIndex:
+                        num +=1
+                                                                         
                     while (line_split[i].find("word")!=-1):
                         i+=1
                     wordLabels.append(self.__lexiconOfLabel.put(line_split[i]))
         f.close()
+        
         return data  
     
     def getLexiconLen(self):

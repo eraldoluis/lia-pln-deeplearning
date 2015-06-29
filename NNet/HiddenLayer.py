@@ -55,7 +55,7 @@ class HiddenLayer(object):
                 weightTanhGenerator.generateWeight(numberNeuronsPreviousLayer,numberClasses),
                 dtype=theano.config.floatX
             )
-            if activation == theano.tensor.nnet.sigmoid:
+            if activation == T.nnet.sigmoid:
                 W_values *= 4
 
             W = theano.shared(value=W_values, name='W_hiddenLayer', borrow=True)

@@ -12,7 +12,7 @@ from WindowModelBasic import *
 from CharWNN import *
 import cPickle as pickle
 from Evaluate.EvaluatePrecisionRecallF1 import EvaluatePrecisionRecallF1
-
+from Evaluate.EvaluateAccuracy import EvaluateAccuracy
 
 def main():
     
@@ -158,21 +158,25 @@ def main():
     
     
     if args.withCharwnn==False:
-        testData = featureFactory.readData(args.test)
+        testData = featureFactory.readTestData(args.test)
         print 'Testing...'
         predicts = model.predict(testData[0]);
         
     else:
-        testData = featureFactory.readTestDataWithChar(args.test)
+        testData = featureFactory.readTestData(args.test)
                 
         print 'Testing...'
         predicts = wordModel.predict(testData[0]);
         
-    eval = EvaluatePrecisionRecallF1(numClasses)
+    #eval = EvaluatePrecisionRecallF1(numClasses)
+    eval = EvaluateAccuracy()
      
     
-    eval.evaluate(predicts,testData[1]);
+    #eval.evaluate(predicts,testData[1]);
+    print predicts
+    print testData[1]
     
+    eval.evaluateWithPrint(predicts,testData[1])
 
     t2 = time.time()
     print ("TypeTest  time: %s seconds" % (str(t2 - t1)))

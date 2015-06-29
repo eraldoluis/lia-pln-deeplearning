@@ -54,16 +54,18 @@ class CharWNN():
         
         charEmbedding = T.zeros((numWor,self.convSize))
         a = T.arange(0,numWor)
+        indice = theano.shared(value=0,name="indice")
         
-        def maxByWord(ind,charEmbedding,dot):
+        def maxByWord(ind,charEmbedding,indice,dot):
             numChars = self.numCharByWord[self.wordIdx]
-            charEmbedding = T.set_subtensor(charEmbedding[ind], T.max(dot[ind:ind+numChars], 0))
+            charEmbedding = T.set_subtensor(charEmbedding[ind], T.max(dot[indice:indice+numChars], 0))
+            indice = indice + numChars
             self.wordIdx = self.wordIdx + 1
-            return charEmbedding
+            return [charEmbedding,indice]
         
-        r, updates = theano.scan(fn= maxByWord,
+        [r,lol], updates = theano.scan(fn= maxByWord,
                                        sequences = a,
-                                       outputs_info = charEmbedding,
+                                       outputs_info = [charEmbedding,indice],
                                        non_sequences =self.hiddenLayer.getOutput(),
                                        n_steps = numWor)
         

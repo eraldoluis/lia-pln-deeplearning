@@ -95,7 +95,7 @@ class WindowModelByWord(WindowModelBasic):
             self.windowIdxs.set_value(self.getAllWindowIndexes(inputData),borrow=True)
             y_pred = self.softmax.getPrediction();
             f = theano.function([],[y_pred]);
-            predict = f();
+            predict = f()[0];
             
         else:
             

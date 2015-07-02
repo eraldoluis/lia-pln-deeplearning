@@ -105,15 +105,14 @@ class WindowModelByWord(WindowModelBasic):
             f = theano.function(inputs=[index],
                                     outputs=self.softmax.getPrediction(),
                                     givens={
-                                            self.charModel.wordIdx: (index)*self.windowSize,
-                                            self.charModel.charWindowIdxs: self.charModel.charWindowIdxs[self.charModel.numCharsOfWindow[index]:self.charModel.numCharsOfWindow[index+1]],
+                                            self.charModel.charWindowIdxs: self.charModel.charWindowIdxs[T.sum(self.charModel.numCharByWord[0:index]):T.sum(self.charModel.numCharByWord[0:index+self.windowSize])],
+                                            self.charModel.posMaxByWord:self.charModel.posMaxByWord[index*self.windowSize:(index+1)*self.windowSize],
                                             self.windowIdxs: self.windowIdxs[index : index + 1],
                                             
                                     })
             predict = []
             for i in range(len(inputData)):
                 predict.append(f(i)[0]);
-                
             
         return predict
         

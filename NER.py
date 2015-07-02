@@ -126,55 +126,39 @@ def main():
         model = pickle.load(f)
         f.close()
     else:
-        if args.withCharwnn==False:
-            model = WindowModelByWord(featureFactory.getLexicon(),featureFactory.getWordVector(), 
-                            args.wordWindowSize, args.hiddenSize, args.lr,numClasses,args.numepochs,args.batchSize, args.c,None);
-            print 'Training...'
-            model.train(trainData[0],trainData[1]);
-        else:
-            
+        charModel = None
+        if args.withCharwnn:
             charModel = CharWNN(trainData[2],trainData[3],featureFactory.getCharcon(),featureFactory.getCharVector(),
-                           args.charWindowSize,args.wordWindowSize, args.convSize, args.lr, numClasses, args.numepochs,args.batchSize, args.c);
-
-            wordModel = WindowModelByWord(featureFactory.getLexicon(),featureFactory.getWordVector(), 
-                            args.wordWindowSize, args.hiddenSize, args.lr,numClasses,args.numepochs,args.batchSize, args.c,charModel);
-    
-            wordModel.train(trainData[0],trainData[1])
-        
-        
-        if args.saveModel is not None:
-            print 'Saving Model...'
-            f = open(args.saveModel, "wb");
-            pickle.dump(model, f, pickle.HIGHEST_PROTOCOL)
-            f.close()
+                           args.charWindowSize,args.wordWindowSize, args.convSize, args.lr, numClasses, args.numepochs,featureFactory.getMaxNumberOfChars(),args.batchSize, args.c);
+                           
+        wordModel = WindowModelByWord(featureFactory.getLexicon(),featureFactory.getWordVector(), 
+                            args.wordWindowSize, args.hiddenSize, args.lr,numClasses,args.numepochs,args.batchSize, args.c,charModel);               
+                           
+        print 'Training...'
+        wordModel.train(trainData[0],trainData[1]);
             
-            print 'Model save with sucess in ' + args.saveModel,
+        
+    if args.saveModel is not None:
+        print 'Saving Model...'
+        f = open(args.saveModel, "wb");
+        pickle.dump(wordModel, f, pickle.HIGHEST_PROTOCOL)
+        f.close()
+         
+        print 'Model save with sucess in ' + args.saveModel,
 
     t1 = time.time()
     print ("Train time: %s seconds" % (str(t1 - t0)))
 
     print 'Loading test data...'
     
-    
-    
-    if args.withCharwnn==False:
-        testData = featureFactory.readTestData(args.test)
-        print 'Testing...'
-        predicts = model.predict(testData[0]);
-        
-    else:
-        testData = featureFactory.readTestData(args.test)
-                
-        print 'Testing...'
-        predicts = wordModel.predict(testData[0]);
+    testData = featureFactory.readTestData(args.test)
+    print 'Testing...'
+    predicts = wordModel.predict(testData[0]);
         
     #eval = EvaluatePrecisionRecallF1(numClasses)
     eval = EvaluateAccuracy()
      
-    
     #eval.evaluate(predicts,testData[1]);
-    
-    
     eval.evaluateWithPrint(predicts,testData[1])
 
     t2 = time.time()

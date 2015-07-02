@@ -80,7 +80,7 @@ class WindowModelBasic:
         
         batchSize = theano.shared(1, "batchSize"); 
         index = T.iscalar("index")
-        charIndex = T.iscalar("charIndex")
+        
         # Train function.
         if self.charModel==None:
             # Camada: word window.
@@ -102,8 +102,8 @@ class WindowModelBasic:
                                     outputs=self.cost,
                                     updates=self.updates,
                                     givens={
-                                            self.charModel.wordIdx: (index)*self.windowSize,
-                                            self.charModel.charWindowIdxs: self.charModel.charWindowIdxs[self.charModel.numCharsOfWindow[index]:self.charModel.numCharsOfWindow[index+1]],
+                                            self.charModel.charWindowIdxs: self.charModel.charWindowIdxs[T.sum(self.charModel.numCharByWord[0:index]):T.sum(self.charModel.numCharByWord[0:index+self.windowSize])],
+                                            self.charModel.posMaxByWord:self.charModel.posMaxByWord[index*self.windowSize:(index+1)*self.windowSize], 
                                             self.windowIdxs: self.windowIdxs[index : index + batchSize],
                                             self.y: self.y[index : index + batchSize]
                                     })
@@ -126,7 +126,6 @@ class WindowModelBasic:
                 
             self.setLr(self.lr_fixo/float(ite+2.0))
             print 'Time to training the epoch  ' + str(time.time() - t1)
-            
                 
         
     def predict(self, inputData):

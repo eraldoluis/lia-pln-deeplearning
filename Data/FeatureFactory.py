@@ -17,6 +17,9 @@ class FeatureFactory:
         if charVectorSize:
             self.__charcon = Lexicon(); 
             self.__charVecs = WordVector(charVectorSize);
+            self.maxNumberOfChars = 0
+            
+        
              
         
     def readWordVectors(self, vecfilename, vocabfilename):
@@ -96,7 +99,7 @@ class FeatureFactory:
             i = 0
             for i in range(0,len(line_split)):  
                 if(line_split[i].find("word=")!=-1):
-                    word = line_split[i][5:]
+                    word = line_split[i][5:].lower()
                     lexiconIndex = self.__lexicon.getLexiconIndex(word)
             
                     if addWordUnknown and lexiconIndex == 0:
@@ -173,6 +176,8 @@ class FeatureFactory:
             
                         charIndexes[lexiconIndex] = wordCharIndex
                         numCharsOfWord.append(len(word))
+                        if len(word) > self.maxNumberOfChars:
+                            self.maxNumberOfChars = len(word) 
                         
 
                     wordIndexes.append(lexiconIndex)
@@ -200,8 +205,7 @@ class FeatureFactory:
         data = [[],[]]
         wordIndexes = data[0]
         wordLabels = data[1]
-        numTotal = 0
-        num = 0     
+          
         f = open(filename, 'r')
         for line in f:
             line_split = line.split()
@@ -217,9 +221,6 @@ class FeatureFactory:
                     lexiconIndex = self.__lexicon.getLexiconIndex(word)
                     wordIndexes.append(lexiconIndex)
                     
-                    numTotal +=1               
-                    if lexiconIndex:
-                        num +=1
                                                                          
                     while (line_split[i].find("word")!=-1):
                         i+=1
@@ -257,3 +258,7 @@ class FeatureFactory:
     
     def getDict2(self):
         return self.__charcon.getDict()
+    
+    def getMaxNumberOfChars(self):
+        return self.maxNumberOfChars
+    

@@ -9,6 +9,7 @@ from NNet.WortToVectorLayer import WordToVectorLayer
 from theano.tensor.nnet.nnet import softmax
 from NNet.SoftmaxLayer import SoftmaxLayer
 from NNet.Util import negative_log_likelihood, regularizationSquareSumParamaters
+import time
 
 class WindowModelBasic:
 
@@ -18,6 +19,7 @@ class WindowModelBasic:
                                 borrow=True)
         self.wordSize = wordVectors.getLenWordVector()
         self.lr = _lr
+        self.lr_fixo = _lr
         self.hiddenSize = hiddenSize;
         self.windowSize = windowSize
         self.regularizationFactor = c;
@@ -108,9 +110,12 @@ class WindowModelBasic:
     
         for ite in range(self.numEpochs):
             minibatch_wordIndex = 0
+            print 'Epoch ' + str(ite+1)
             
             i = 0
+            t1 = time.time()
             
+        
             while minibatch_wordIndex < numWordsInTrain:
                 batchSize.set_value(batchesSize[i])
                 
@@ -119,7 +124,8 @@ class WindowModelBasic:
                 minibatch_wordIndex += batchesSize[i]
                 i+=1
                 
-            self.setLr(self.lr/float(ite+1.0))
+            self.setLr(self.lr_fixo/float(ite+2.0))
+            print 'Time to training the epoch  ' + str(time.time() - t1)
             
                 
         

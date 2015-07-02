@@ -115,22 +115,25 @@ numWor = batchSize *  wordWindowSizeT
 curIdx = T.scalar('curIdx',dtype='int64') 
 wordIdx = T.scalar('wordIdx',dtype='int64') 
 
-bb = T.zeros((numWor,dot.shape[1])) 
+bb = T.zeros((numWor,dot.shape[1]))
+
+indice = theano.shared(value=0,name="indice") 
 
 # A função retorna o max de cada palavra
-def maxByWord(ind,wordIndex,bb,dot):
+def maxByWord(ind,wordIndex,bb,indice,dot):
     numChar = numCharByWord[wordIndex]
-    bb =  T.set_subtensor(bb[ind], T.max(dot[ind:ind+numChar], 0))
+    bb =  T.set_subtensor(bb[ind], T.max(dot[indice:indice+numChar], 0))
     #curIndex = curIndex + numChar
     wordIndex = wordIndex +1
-    return [wordIndex,bb]
+    indice = indice + numChar
+    return [wordIndex,bb,indice]
 
 
 a = T.arange(0,numWor)
 #print a.eval()
-[i,r], updates = theano.scan(fn= maxByWord,
+[i,r,s], updates = theano.scan(fn= maxByWord,
                    sequences = a,
-                   outputs_info = [wordIdx,bb],
+                   outputs_info = [wordIdx,bb,indice],
                    non_sequences = dot,
                    n_steps = numWor)
 

@@ -11,7 +11,7 @@ from NNet.WortToVectorLayer import WordToVectorLayer
 #from NNet.Util import negative_log_likelihood, regularizationSquareSumParamaters
 #from WindowModelBasic import WindowModelBasic
 from NNet.Util import defaultGradParameters,WeightTanhGenerator
-from atk import Window
+#from atk import Window
 
 
 class CharWNN():

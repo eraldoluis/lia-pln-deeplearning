@@ -1,10 +1,17 @@
 .project
 .pydevproject
+.classpath
+.project
+.settings/
+data/
+.metadata/
+dataset/
+.pydevproject
 .settings/
 dataset/
 
-.classpath
 *.pyc
 *.txt
 *.p
 *.model
+*.pyc

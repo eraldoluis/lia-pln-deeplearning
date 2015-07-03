@@ -108,6 +108,7 @@ class WindowModelBasic:
                                             self.y: self.y[index : index + batchSize]
                                     })
     
+	
         for ite in range(self.numEpochs):
             minibatch_wordIndex = 0
             print 'Epoch ' + str(ite+1)
@@ -121,6 +122,7 @@ class WindowModelBasic:
                 
                 train(minibatch_wordIndex)
                 
+                               
                 minibatch_wordIndex += batchesSize[i]
                 i+=1
                 

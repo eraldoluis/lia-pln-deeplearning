@@ -32,7 +32,7 @@ def main():
                        help='Number of epochs: how many iterations over the training set.')
     
     parser.add_argument('--hiddenLayerSize', dest='hiddenSize', action='store', type=int,
-                       help='The number of neurons in the hidden layer',default=100)
+                       help='The number of neurons in the hidden layer',default=300)
     
     parser.add_argument('--convolutionalLayerSize', dest='convSize', action='store', type=int,
                        help='The number of neurons in the convolutional layer',default=50)
@@ -53,7 +53,7 @@ def main():
                        help='The larger C is the more the regularization pushes the weights of all our parameters to zero.')
     
     parser.add_argument('--wordVecSize', dest='wordVecSize', action='store', type=int,
-                       help='Word vector size',default=50)
+                       help='Word vector size',default=100)
     
     parser.add_argument('--charVecSize', dest='charVecSize', action='store', type=int,
                        help='Char vector size',default=10)

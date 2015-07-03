@@ -67,8 +67,8 @@ class CharWNN():
         self.wordToVector = WordToVectorLayer(self.charWindowIdxs,self.Cv, self.charSize, True)
         
         # Camada: hidden layer com a função Tanh como função de ativaçãos
-        self.hiddenLayer = HiddenLayer(self.wordToVector.getOutput(),self.charSize * self.charWindowSize , self.convSize, W=None, b=None, activation=None);
-        #self.hiddenLayer = HiddenLayer(self.wordToVector.getOutput(),self.charSize * self.charWindowSize , self.convSize);
+        #self.hiddenLayer = HiddenLayer(self.wordToVector.getOutput(),self.charSize * self.charWindowSize , self.convSize, W=None, b=None, activation=None);
+        self.hiddenLayer = HiddenLayer(self.wordToVector.getOutput(),self.charSize * self.charWindowSize , self.convSize);
 
     # Esta função retorna o índice das janelas dos caracteres de todas as palavras 
     def getAllWordCharWindowIndexes(self,inputData):

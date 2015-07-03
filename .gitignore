@@ -1,9 +1,20 @@
 .project
 .pydevproject
+.classpath
+.project
 .settings/
 <<<<<<< HEAD
 data/
 .metadata/
+dataset/
+.pydevproject
+.settings/
+dataset/
+
+*.pyc
+*.txt
+*.p
+*.model
 *.pyc
 =======
 dataset/

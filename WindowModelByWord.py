@@ -3,19 +3,17 @@
 
 import numpy as np
 import theano
-import theano.tensor as T
-from NNet.HiddenLayer import HiddenLayer
-from NNet.WortToVectorLayer import WordToVectorLayer
-from theano.tensor.nnet.nnet import softmax
 from NNet.SoftmaxLayer import SoftmaxLayer
-from NNet.Util import negative_log_likelihood, regularizationSquareSumParamaters
+from NNet.Util import negative_log_likelihood, regularizationSquareSumParamaters,\
+    LearningRateUpdNormalStrategy
 from WindowModelBasic import WindowModelBasic
 from CharWNN import *
 
 class WindowModelByWord(WindowModelBasic):
 
-    def __init__(self, lexicon, wordVectors , windowSize, hiddenSize, _lr,numClasses,numEpochs, batchSize=1, c=0.0,charModel=None):
-        WindowModelBasic.__init__(self, lexicon, wordVectors, windowSize, hiddenSize, _lr, numClasses, numEpochs, batchSize, c,charModel)
+    def __init__(self, lexicon, wordVectors , windowSize, hiddenSize, _lr,numClasses,numEpochs, batchSize=1, c=0.0,charModel=None
+		 ,learningRateUpdStrategy = LearningRateUpdNormalStrategy()):
+        WindowModelBasic.__init__(self, lexicon, wordVectors, windowSize, hiddenSize, _lr, numClasses, numEpochs, batchSize, c, charModel)
         
         if charModel == None:
             # Camada: softmax
@@ -57,6 +55,10 @@ class WindowModelByWord(WindowModelBasic):
         self.setCost(cost)
         self.setUpdates(updates)
     
+    
+    def reshapeCorrectData(self,correctData):
+        return np.asarray(correctData)
+      
     #Esta funcao retorna todos os indices das janelas de palavras  
     def getAllWindowIndexes(self, data):
         allWindowIndexes = [];
@@ -65,32 +67,21 @@ class WindowModelByWord(WindowModelBasic):
             allWindowIndexes.append(self.getWindowIndexes(idxWord, data))
             
         return np.array(allWindowIndexes);
-
-    def getWindowIndexes(self, idxWord, data):
-        lenData = len(data)
-        windowNums = []
-        contextSize = int(np.floor((self.windowSize - 1) / 2))
-        i = idxWord - contextSize
-        while (i <= idxWord + contextSize):
-            if(i < 0):
-                windowNums.append(self.startSymbol)
-            elif (i >= lenData):
-                windowNums.append(self.endSymbol)
-            else:
-                windowNums.append(data[i])
-            i += 1
-        return windowNums
     
-    def confBatchSize(self,numWordsInTrain):
+    def confBatchSize(self,inputData):
+        numWords = len(inputData)
+        
         # Configura o batch size
         if isinstance(self.batchSize, list):
             return np.asarray(self.batchSize);
         
-        return np.full(numWordsInTrain/self.batchSize + 1,self.batchSize)
+        return np.full(numWords/self.batchSize + 1,self.batchSize)
         
     def predict(self, inputData):
-        
+      
+        self.reloadWindowIds = True  
         predict = 0
+        
         if self.charModel == None:
             self.windowIdxs.set_value(self.getAllWindowIndexes(inputData),borrow=True)
             y_pred = self.softmax.getPrediction();
@@ -115,6 +106,4 @@ class WindowModelByWord(WindowModelBasic):
                 predict.append(f(i)[0]);
             
         return predict
-        
-                
         

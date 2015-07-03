@@ -3,32 +3,51 @@
 
 '''
 '''
+import codecs
 
 class Lexicon:
 
-    def __init__(self):
+    def __init__(self,filePath=''):
         self.__lexicon = []
         self.__lexiconDict = {}
+        self.unknown_index = -1
+        
+        if filePath:
+            self.putUsingFile(filePath)
+    
+    def getLexiconDict(self):
+        return self.__lexiconDict
 
     def getLen(self):
         '''
         Return the number of words in the lexicon.
         '''
         return len(self.__lexicon)
+    
+    def putUsingFile(self,vocabfilename):
+        # Read the vocabulary file (one word per line).
+        fVoc = codecs.open(vocabfilename, 'r', 'utf-8')
+        for line in fVoc:
+            word = line.strip()
+            # Ignore empty lines.
+            if len(word) == 0:
+                continue
+            self.put(word)
+        fVoc.close()
 
     def put(self, word):
         '''
         Include a new word in the lexicon and return its index. If the word is
         already in the lexicon, then just return its index.
         '''
-        #word = word.lower()
+
         idx = self.__lexiconDict.get(word)
         if idx is None:
             # Insert a unseen word in the lexicon.
             idx = len(self.__lexicon)
             self.__lexicon.append(word)
             self.__lexiconDict[word] = idx
-        
+            
         return idx
 
     def getLexicon(self, index):
@@ -43,6 +62,18 @@ class Lexicon:
         the return 0 (the unknown lexicon).
         '''
         #word = word.lower()
-        return self.__lexiconDict.get(word, 0)
+        #return self.__lexiconDict.get(word, 0)
+	return self.__lexiconDict.get(word, self.unknown_index)
+      
     def  getDict(self):
         return self.__lexiconDict
+    
+    def getUnkownIndex(self):
+        return self.unknown_index
+    
+    def isUnknownIndex(self,index):
+        return index == self.unknown_index
+    
+    def setUnkownIndex(self,unknown_index):
+        self.unknown_index = unknown_index
+

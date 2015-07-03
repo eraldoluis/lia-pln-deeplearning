@@ -22,7 +22,6 @@ class EvaluateAccuracy:
         predict = numpy.asarray(predicts)
         correct = numpy.asarray(corrects)
         
-               
         if predict.shape != correct.shape:
             raise Exception('O número de predições é diferente do número de exemplos')
         

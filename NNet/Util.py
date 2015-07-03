@@ -4,7 +4,6 @@ import numpy
 
 
 ################################ FUNCTIONS ########################
-
 def defaultGradParameters(cost, parameters, learningRate):
     gparams = [T.grad(cost, param) for param in parameters]
 
@@ -62,4 +61,15 @@ class WeightTanhGenerator:
     
     def getEInit(self,fin,fout):
         return numpy.sqrt(6. / (fin + fout))
+
+class LearningRateUpdNormalStrategy:
+    
+    def getCurrentLearninRate(self,learningRate,numEpoch):
+        return learningRate
+
+class LearningRateUpdDivideByEpochStrategy:
+    
+    def getCurrentLearninRate(self,learningRate ,numEpoch):
+        return learningRate/numEpoch
+
     

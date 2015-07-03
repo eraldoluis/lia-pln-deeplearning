@@ -1,6 +1,16 @@
 .project
 .pydevproject
 .settings/
+<<<<<<< HEAD
 data/
 .metadata/
 *.pyc
+=======
+dataset/
+
+.classpath
+*.pyc
+*.txt
+*.p
+*.model
+>>>>>>> origin/irving

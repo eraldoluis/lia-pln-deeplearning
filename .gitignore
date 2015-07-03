@@ -3,4 +3,11 @@
 .settings/
 data/
 .metadata/
+dataset/
+
+.classpath
+*.pyc
+*.txt
+*.p
+*.model
 *.pyc

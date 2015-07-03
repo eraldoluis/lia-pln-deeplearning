@@ -6,11 +6,11 @@ import theano.tensor as T
 '''
 class WordToVectorLayer:
     
-    def __init__(self, input, Wv, wordSize, isToUpdateWordVector=True):
+    def __init__(self, _input, Wv, wordSize, isToUpdateWordVector=True):
         self.__wordSize = wordSize
         self.__Wv = Wv
-        self.__output = T.flatten(self.__Wv[input], 2)
-        self.__windowIdxs = input
+        self.__output = T.flatten(self.__Wv[_input],2)
+        self.__windowIdxs = _input
         self.__isToUpdateWordVector = isToUpdateWordVector
         
                 
@@ -28,3 +28,4 @@ class WordToVectorLayer:
         
         return [(self.__Wv,
                     T.inc_subtensor(self.__Wv[widowsIdxsFlatten], T.reshape(gwordVectorFlatten, reshapeSize)))]
+

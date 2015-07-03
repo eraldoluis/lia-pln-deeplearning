@@ -2,3 +2,5 @@
 .pydevproject
 .settings/
 data/
+.metadata/
+*.pyc

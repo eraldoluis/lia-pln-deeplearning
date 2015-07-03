@@ -3,7 +3,7 @@ import numpy
 import theano
 from NNet.Util import defaultGradParameters
 import NNet
-from test import numWords
+#from test import numWords
 from _collections import deque
 
 class SentenceSoftmaxLayer(object):

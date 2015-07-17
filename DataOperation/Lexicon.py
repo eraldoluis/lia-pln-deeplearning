@@ -61,19 +61,17 @@ class Lexicon:
         Return the index of the given word. If the word is not in the lexicon,
         the return 0 (the unknown lexicon).
         '''
-        #word = word.lower()
-        #return self.__lexiconDict.get(word, 0)
-	return self.__lexiconDict.get(word, self.unknown_index)
+        return self.__lexiconDict.get(word, self.unknown_index)
       
-    def  getDict(self):
+    def getDict(self):
         return self.__lexiconDict
     
-    def getUnkownIndex(self):
+    def getUnknownIndex(self):
         return self.unknown_index
     
     def isUnknownIndex(self,index):
         return index == self.unknown_index
     
-    def setUnkownIndex(self,unknown_index):
+    def setUnknownIndex(self,unknown_index):
         self.unknown_index = unknown_index
 

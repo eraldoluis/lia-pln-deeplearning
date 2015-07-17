@@ -11,65 +11,98 @@ class MacMorphoReader:
     def __init__(self,fileWithFeatures):
         self.fileWithFeatures = fileWithFeatures 
      
-    def readTestData(self, filename,lexicon,lexiconOfLabel,separateSentences=True,filters=[],unkownDataTest=None):
-        return self.readData(filename, lexicon, lexiconOfLabel,None,separateSentences,False,filters,None,unkownDataTest)
+    def readTestData(self, filename,lexicon,lexiconOfLabel,lexiconRaw,separateSentences=True,addWordUnknown=False,withCharwnn=False,charVars=[None,None,{},[]],addCharUnknown=False,filters=[],unknownDataTest=None,unknownDataTestCharIdxs=None):
+        return self.readData(filename, lexicon, lexiconOfLabel,lexiconRaw,None,separateSentences,False,withCharwnn,charVars,False,filters,None,unknownDataTest,unknownDataTestCharIdxs)
     
-    def addToken(self, lexicon, wordVecs, addWordUnkown, filters, indexesBySentence, word,setWordsInDataSet,unkownData):
+    def addToken(self, lexicon, wordVecs, addWordUnknown, filters, indexesBySentence, rawWord,setWordsInDataSet,unknownData,lexiconRaw,indexesOfRawBySentence,numCharsOfRawBySentence,withCharwnn,charVars,addCharUnknown,unknownDataCharIdxs):
+        
+        charcon = charVars[0]
+        charVector = charVars[1]
+        charIndexesOfLexiconRaw = charVars[2]
+        numCharsOfLexiconRaw = charVars[3]
+        
         for f in filters:
-            word = f.filter(word)
+            word = f.filter(rawWord)
                 
         lexiconIndex = lexicon.getLexiconIndex(word)
+        
 
-        if addWordUnkown and lexicon.isUnknownIndex(lexiconIndex):
+        if addWordUnknown and lexicon.isUnknownIndex(lexiconIndex):
             lexiconIndex = lexicon.put(word)
             wordVecs.append(None)
         
         if setWordsInDataSet is not None:
             setWordsInDataSet.add(word)
             
-        if lexicon.isUnknownIndex(lexiconIndex) and unkownData is not None:
-            unkownData.append(word)
+        if lexicon.isUnknownIndex(lexiconIndex) and unknownData is not None:
+            unknownData.append(word)
         
         indexesBySentence.append(lexiconIndex)
+        
+        if withCharwnn:
+            
+            lexiconIndex = lexiconRaw.getLexiconIndex(rawWord)
+            if lexiconRaw.isUnknownIndex(lexiconIndex):
+                lexiconIndex = lexiconRaw.put(rawWord)
+                numCharsOfLexiconRaw.append(len(rawWord))
+                            
+                charIndexes = []
+                for char in rawWord:
+                    idx = charcon.getLexiconIndex(char)
+                    if addCharUnknown and charcon.isUnknownIndex(idx):
+                        idx = charcon.put(char)
+                        charVector.append(None)
+                    charIndexes.append(idx)
+                charIndexesOfLexiconRaw[lexiconIndex] = charIndexes
+                if unknownDataCharIdxs is not None:
+                    unknownDataCharIdxs.append(charIndexes) 
+                    
+            indexesOfRawBySentence.append(lexiconIndex)
+            numCharsOfRawBySentence.append(len(rawWord))        
+            
+        
 
     def addLabel(self, lexiconOfLabel, labelsBySentence, token):
         labelsBySentence.append(lexiconOfLabel.put(token))
-
-    def readTokenAndLabelOfFileWithFeature(self, lexicon, lexiconOfLabel, wordVecs, addWordUnkown, filters, indexesBySentence, labelsBySentence, token,setWordsInDataSet,unkownData):
+                                        
+    def readTokenAndLabelOfFileWithFeature(self, lexicon, lexiconOfLabel, wordVecs, addWordUnknown, filters, indexesBySentence, labelsBySentence,lexiconRaw, indexesOfRawBySentence, numCharsOfRawBySentence , token,setWordsInDataSet,unknownData,withCharwnn,charVars,addCharUnknown,unknownDataCharIdxs):
+                
         prefWord = 'word='
         
         if prefWord in token:
             word = token[len(prefWord):]
-            self.addToken(lexicon, wordVecs, addWordUnkown, filters, indexesBySentence, word,setWordsInDataSet,unkownData)
+            self.addToken(lexicon, wordVecs, addWordUnknown, filters, indexesBySentence, word,setWordsInDataSet,unknownData,
+                          lexiconRaw,indexesOfRawBySentence,numCharsOfRawBySentence,withCharwnn,charVars,addCharUnknown,unknownDataCharIdxs)
         elif re.search(r'^([A-Z]|\W)', token) is not None:
             self.addLabel(lexiconOfLabel, labelsBySentence, token)
-    
-    def readTokenAndLabelOfRawFile(self, lexicon, lexiconOfLabel, wordVecs, addWordUnkown, filters, indexesBySentence, labelsBySentence, token,setWordsInDataSet,unkownData):
+                                
+    def readTokenAndLabelOfRawFile(self, lexicon, lexiconOfLabel, wordVecs, addWordUnknown, filters, indexesBySentence, labelsBySentence,lexiconRaw, indexesOfRawBySentence, numCharsOfRawBySentence,token, setWordsInDataSet,unknownData,withCharwnn,charVars,addCharUnknown,unknownDataCharIdxs):
         s = token.split('_')
         
-        self.addToken(lexicon, wordVecs, addWordUnkown, filters, indexesBySentence, s[0],setWordsInDataSet,unkownData)
+        self.addToken(lexicon, wordVecs, addWordUnknown, filters, indexesBySentence, s[0],setWordsInDataSet,unknownData,
+                      lexiconRaw,indexesOfRawBySentence,numCharsOfRawBySentence,withCharwnn,charVars,addCharUnknown,unknownDataCharIdxs)
+        
         self.addLabel(lexiconOfLabel, labelsBySentence, s[1])
     
 
-    def readData(self, filename,lexicon,lexiconOfLabel, wordVecs=None, separateSentences= True, addWordUnkown=False,filters=[], setWordsInDataSet=None,unkownDataTest=[]):
+    def readData(self, filename,lexicon,lexiconOfLabel,lexiconRaw, wordVecs=None, separateSentences=True, addWordUnknown=False,withCharwnn=False,charVars=[None,None,{},[]],addCharUnknown=False,filters=[], setWordsInDataSet=None,unknownDataTest=[],unknownDataTestCharIdxs=None):
         '''
-        Read the data from a file and return a matrix which the first row is the words indexes  and second row is the labels values
+        Read the data from a file and return a matrix which the first row is the words indexes, second row is the labels values and 
+        the third row has the indexes of the raw words, and the fourth the number of chars each word in the training set has.
         '''
-        data = [[],[]]
+        data = [[],[],[],[]]
         indexes = data[0]
         labels = data[1]
+        indexesOfRaw = data[2]
+        numCharsOfRaw = data[3]
+        
         
         func = self.readTokenAndLabelOfFileWithFeature if self.fileWithFeatures else self.readTokenAndLabelOfRawFile
         
         f = codecs.open(filename, 'r', 'utf-8')
-        a = 0
+        
         
         for line in f:
-            
-#             a +=1
-#                   
-#             if a ==10:
-#                 break;
             
             line_split = line.split()
             # Ignore empty lines.
@@ -79,14 +112,19 @@ class MacMorphoReader:
             if separateSentences:
                 indexesBySentence = []
                 labelsBySentence = []
-                unkownDataBySentence = [] if unkownDataTest is not None else None
+                indexesOfRawBySentence = []
+                numCharsOfRawBySentence = []
+                unknownDataBySentence = [] if unknownDataTest is not None else None
             else:
                 indexesBySentence = indexes
+                indexesOfRawBySentence = indexesOfRaw
+                numCharsOfRawBySentence = numCharsOfRaw
                 labelsBySentence = labels
-                unkownDataBySentence = unkownDataTest
+                unknownDataBySentence = unknownDataTest
             
             for token in line_split:
-                func(lexicon, lexiconOfLabel, wordVecs, addWordUnkown, filters, indexesBySentence, labelsBySentence, token,setWordsInDataSet,unkownDataBySentence)
+                func(lexicon, lexiconOfLabel, wordVecs, addWordUnknown, filters, indexesBySentence, labelsBySentence,
+                      lexiconRaw,indexesOfRawBySentence, numCharsOfRawBySentence,token,setWordsInDataSet,unknownDataBySentence, withCharwnn,charVars,addCharUnknown,unknownDataTestCharIdxs)
             
             if len(indexesBySentence) != len(labelsBySentence):
                 raise Exception('Número de tokens e labels não são iguais na linha: ' + line)
@@ -94,22 +132,16 @@ class MacMorphoReader:
             if separateSentences:
                 indexes.append(indexesBySentence)
                 labels.append(labelsBySentence)
+                indexesOfRaw.append(indexesOfRawBySentence)
+                numCharsOfRaw.append(numCharsOfRawBySentence)
                 
-                if unkownDataTest is not None:
-                    unkownDataTest.append(unkownDataBySentence)
+                if unknownDataTest is not None:
+                    unknownDataTest.append(unknownDataBySentence)
                 
         f.close()
         
-#         list = []
-#         i = 0
-#         for l in data[0]:
-#             if len(l) < 5:
-#                 list.append((i,len(l)))
-#             i+=1
-# 
-#         print list
+        
         return data
     
     
     
- 

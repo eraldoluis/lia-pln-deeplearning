@@ -50,7 +50,7 @@ class SentenceSoftmaxLayer(object):
          
         """
         A primeira execução do scan é totalmente inútil. 
-        Foi necessário fazer deste jeito, pois as frases com uma só palavra fazem com que o n_steps do scan fosse igual 0,
+        Foi necessário fazer deste jeito, pois as frases com uma só palavra fazem com que o n_steps do scan fosse igual à 0,
         já que no código anterior n_steps = numWords - 1. Porém, o scan,na versão 0.7, não suporta n_steps igual a zero.
         """
         def stepToCalculateAllPath(posWord,delta):
@@ -94,12 +94,12 @@ class SentenceSoftmaxLayer(object):
               
             return [delta,argMax];
   
-        [max, argMax], updates =  theano.scan(fn= viterbiStep ,
+        [maxi, argMax], updates =  theano.scan(fn= viterbiStep ,
             sequences= T.arange(1,numWords),
             outputs_info= [delta,argMax],
             n_steps = numWords - 1)
 
-        lastClass = T.argmax(max[-1])
+        lastClass = T.argmax(maxi[-1])
              
         self.viterbi = theano.function(inputs=[],outputs=[lastClass,argMax[-1]] , updates=updates)
         

@@ -17,6 +17,7 @@ from numpy import arange
 import random
 
 
+
 class WindowModelBasic:
     startSymbolStr = "<s>"
     endSymbolStr = "</s>"
@@ -52,9 +53,10 @@ class WindowModelBasic:
         self.update = None
         self.regularizationFactor = theano.shared(c)
         self.y = theano.shared(np.asarray([0]),"y",borrow=True)
+        
         self.charModel = charModel
         self.isToRandomizeInput = randomizeInput
-        
+        self.numCharByWord = theano.shared(np.asarray([0]),'numCharByWord',int)
         # Nós casos em que é feita a predição a cada certo número de épocas de um treinamento,
         # ocorre uma concorrência no uso do atributo windowIdxs pelos métodos predict e train. O problema
         # é que o método predict sobrescreve o valor do windowIdxs, que contém os valores da janela do train.
@@ -62,6 +64,7 @@ class WindowModelBasic:
         # Se o método train estiver sendo executado e se  o reloadWindowIds for verdadeiro, então o valor do windowsIdx
         # é configurado com os valores da janelas do treinamento. Esta solução só foi pensadam para rodar em ambientes não paralelos
         self.reloadWindowIds = False
+        
 
         
         self.initWithBasicLayers()
@@ -89,9 +92,9 @@ class WindowModelBasic:
             # Camada: hidden layer com a função Tanh como função de ativaçãos
             self.hiddenLayer = HiddenLayer(self.wordToVector.getOutput(), self.wordSize * self.windowSize , self.hiddenSize);
         else:    
-            # Camada: 2 hidden layer com a função Tanh como função de ativaçãos
-            self.first_hiddenLayer = HiddenLayer(T.concatenate([self.wordToVector.getOutput(),self.charModel.getOutput()],axis=1), (self.wordSize + self.charModel.convSize) * self.windowSize , self.hiddenSize);
-            self.second_hiddenLayer = HiddenLayer(self.first_hiddenLayer.getOutput(), self.hiddenSize , self.numClasses);
+            # Camada: hidden layer com a função Tanh como função de ativaçãos
+            self.hiddenLayer = HiddenLayer(T.concatenate([self.wordToVector.getOutput(),self.charModel.getOutput()],axis=1), (self.wordSize + self.charModel.convSize) * self.windowSize , self.hiddenSize);
+            
         
     
     def getAllWindowIndexes(self, data):
@@ -119,8 +122,10 @@ class WindowModelBasic:
         raise NotImplementedError();
      
 
-    def train(self, inputData, correctData):
-        numWordsInTrain = len(inputData)
+    def train(self, inputData, correctData, indexesOfRawWord):
+        self.reloadWindowIds = False
+        
+        
                       
         # Label
         self.y.set_value(self.reshapeCorrectData(correctData),borrow=True)
@@ -132,16 +137,18 @@ class WindowModelBasic:
         
         batchesSize = self.confBatchSize(inputData)
 
-        self.reloadWindowIds = False
-        
-        
         batchSize = theano.shared(1, "batchSize"); 
         index = T.iscalar("index")
+        
+        charBatchesSize = None
+        charBatchS = theano.shared(1, "charBatchS");
+        
+        
         
         # Train function.
         if self.charModel==None:
             # Camada: word window.
-            self.windowIdxs.set_value(self.getAllWindowIndexes(inputData),borrow=True)
+            
             train = theano.function(inputs=[index,self.lr],
                                     outputs=self.cost,
                                     updates=self.updates,
@@ -153,19 +160,46 @@ class WindowModelBasic:
         else:
             
             
-            self.charModel.charWindowIdxs.set_value(self.charModel.getAllWordCharWindowIndexes(inputData),borrow=True)
-            self.windowIdxs.set_value(self.charModel.allWindowIndexes,borrow=True)
-            train = theano.function(inputs=[index,self.lr],
+            
+            #self.numCharByWord.set_value(np.asarray(numCharsByRawWord),borrow=True)
+            
+            charIndex = T.iscalar("charIndex")
+            
+            charmodelIdxsPos = self.charModel.getAllWordCharWindowIndexes(indexesOfRawWord)
+            charWindowIdxs = charmodelIdxsPos[0]
+            posMaxByWord = charmodelIdxsPos[1]
+            numCharByWord = charmodelIdxsPos[2]
+            
+            
+            
+            
+            self.charModel.charWindowIdxs.set_value(charWindowIdxs,borrow=True)
+            self.charModel.posMaxByWord.set_value(posMaxByWord,borrow=True)
+            
+            charBatchesSize = self.charModel.confBatchSize(numCharByWord,batchesSize)
+            
+            
+            
+            
+            train = theano.function(inputs=[index,self.lr,self.charModel.lr,charIndex],
                                     outputs=self.cost,
                                     updates=self.updates,
                                     givens={
-                                            self.charModel.charWindowIdxs: self.charModel.charWindowIdxs[T.sum(self.charModel.numCharByWord[0:index]):T.sum(self.charModel.numCharByWord[0:index+self.windowSize])],
-                                            self.charModel.posMaxByWord:self.charModel.posMaxByWord[index*self.windowSize:(index+1)*self.windowSize], 
+                                            self.charModel.charWindowIdxs: self.charModel.charWindowIdxs[charIndex:charIndex+charBatchS],
+                                            self.charModel.posMaxByWord:self.charModel.posMaxByWord[index*self.windowSize:(index+batchSize)*self.windowSize], 
                                             self.windowIdxs: self.windowIdxs[index : index + batchSize],
                                             self.y: self.y[index : index + batchSize]
                                     })
-    
-	self.beginBlock = []    
+            
+            self.charBeginBlock = []    
+            pos = 0
+            
+            for v in charBatchesSize:
+                self.charBeginBlock.append(pos)
+                pos += v
+            
+            
+        self.beginBlock = []    
         pos = 0
         
         for v in batchesSize:
@@ -174,42 +208,51 @@ class WindowModelBasic:
         
         idxList = range(len(batchesSize))
         
+        
+        
         for ite in range(1,self.numEpochs + 1):
             print 'Epoch ' + str(ite)
             
             if self.isToRandomizeInput:
-	        random.shuffle(idxList)
+                random.shuffle(idxList)
             
             lr = self.learningRateUpdStrategy.getCurrentLearninRate(self.lrValue,ite)
-            i = 0
+            
             t1 = time.time()
             
-        
-            #while minibatch_wordIndex < numWordsInTrain
-            for idx in idxList:
-                batchSize.set_value(batchesSize[idx])
-                train(self.beginBlock[idx],lr) 
+            
+            if self.charModel == None:
+                for idx in range(len(inputData)):
+                 
+                    
+                    batchSize.set_value(batchesSize[idxList[idx]])
+                    train(self.beginBlock[idxList[idx]],lr) 
                 
-                #batchSize.set_value(batchesSize[i])
-                #train(minibatch_wordIndex)
+            else:
+                for idx in range(len(inputData)):
                 
-                               
-                #minibatch_wordIndex += batchesSize[i]
-                #i+=1
-                
+                    batchSize.set_value(batchesSize[idxList[idx]])
+                    charBatchS.set_value(charBatchesSize[idxList[idx]])
+                    self.charModel.batchSize.set_value(batchesSize[idxList[idx]])
+                    
+                    train(self.beginBlock[idxList[idx]],lr,lr,self.charBeginBlock[idxList[idx]]) 
+                    
             print 'Time to training the epoch  ' + str(time.time() - t1)
             
+            #Evaluate the model if the iteration is in the list of epochs to evaluate
             for l in self.listeners:
                 l.afterEpoch(ite)
                 
             if self.reloadWindowIds:
                 self.windowIdxs.set_value(windowIdxs,borrow=True)
+                
+                if self.charModel is not None:
+                    self.charModel.charWindowIdxs.set_value(charWindowIdxs,borrow=True)
+                    self.charModel.posMaxByWord.set_value(posMaxByWord,borrow=True)
+                    
                 self.reloadWindowIds = False
                 
     def predict(self, inputData):
         raise NotImplementedError();
     
-    def setLr(self,__lr):
-        self.lr = __lr
-        if self.charModel:
-            self.charModel.setLr(__lr)
+

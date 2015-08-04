@@ -222,20 +222,20 @@ class WindowModelBasic:
             
             
             if self.charModel == None:
-                for idx in range(len(inputData)):
+                for idx in idxList:
                  
                     
-                    batchSize.set_value(batchesSize[idxList[idx]])
-                    train(self.beginBlock[idxList[idx]],lr) 
+                    batchSize.set_value(batchesSize[idx])
+                    train(self.beginBlock[idx],lr) 
                 
             else:
-                for idx in range(len(inputData)):
+                for idx in idxList:
                 
-                    batchSize.set_value(batchesSize[idxList[idx]])
-                    charBatchS.set_value(charBatchesSize[idxList[idx]])
-                    self.charModel.batchSize.set_value(batchesSize[idxList[idx]])
+                    batchSize.set_value(batchesSize[idx])
+                    charBatchS.set_value(charBatchesSize[idx])
+                    self.charModel.batchSize.set_value(batchesSize[idx])
                     
-                    train(self.beginBlock[idxList[idx]],lr,lr,self.charBeginBlock[idxList[idx]]) 
+                    train(self.beginBlock[idx],lr,lr,self.charBeginBlock[idx]) 
                     
             print 'Time to training the epoch  ' + str(time.time() - t1)
             

@@ -93,7 +93,7 @@ class WindowModelBasic:
             self.hiddenLayer = HiddenLayer(self.wordToVector.getOutput(), self.wordSize * self.windowSize , self.hiddenSize);
         else:    
             # Camada: hidden layer com a função Tanh como função de ativaçãos
-            self.hiddenLayer = HiddenLayer(T.concatenate([self.wordToVector.getOutput(),self.charModel.getOutput()],axis=1), (self.wordSize + self.charModel.convSize) * self.windowSize , self.hiddenSize);
+            self.hiddenLayer = HiddenLayer(theano.printing.Print()(T.concatenate([theano.printing.Print()(self.wordToVector.getOutput()),theano.printing.Print()(self.charModel.getOutput())],axis=1)), (self.wordSize + self.charModel.convSize) * self.windowSize , self.hiddenSize);
             
         
     
@@ -234,6 +234,10 @@ class WindowModelBasic:
                     batchSize.set_value(batchesSize[idx])
                     charBatchS.set_value(charBatchesSize[idx])
                     self.charModel.batchSize.set_value(batchesSize[idx])
+                    
+                    print batchesSize[idx]
+                    print charBatchesSize[idx]
+                    print self.beginBlock[idx],lr,lr,self.charBeginBlock[idx]
                     
                     train(self.beginBlock[idx],lr,lr,self.charBeginBlock[idx]) 
                     

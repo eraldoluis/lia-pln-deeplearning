@@ -7,7 +7,7 @@ import time
 from DataOperation.MacMophorReader import MacMorphoReader
 from DataOperation.WordVector import WordVector
 from Evaluate.EvaluateAccuracy import EvaluateAccuracy
-from WindowModelBySentence import WindowModelBySentence
+from WindowModelBySentence import WindowModelBySentence, NeuralNetworkChoiceEnum
 import cPickle as pickle
 from DataOperation.Lexicon import Lexicon
 from WindowModelByWord import WindowModelByWord
@@ -118,6 +118,11 @@ def main():
     parser.add_argument('--lrupdstrategy', dest='lrUpdStrategy', action='store',default=lrStrategyChoices[0],choices=lrStrategyChoices,
                        help='Set the learning rate update strategy. NORMAL and DIVIDE_EPOCH are the options available')
     
+    
+    
+    networkChoices= ["complete","without_hidden_update_wv" ,"without_update"]
+    
+    parser.add_argument('--networkChoice', dest='networkChoice', action='store',default=networkChoices[0],choices=networkChoices)
     
     #Todo: delete
 #     numpy.random.seed(10)
@@ -256,9 +261,18 @@ def main():
             print 'Loading train data...'
             trainData = datasetReader.readData(args.train,lexicon,lexiconOfLabel,wordVector,separeSentence,addWordUnkown,filters,lexiconFindInTrain)
             
+            if args.networkChoice == networkChoices[0]:
+                networkChoice = NeuralNetworkChoiceEnum.COMPLETE
+            elif args.networkChoice == networkChoices[1]:
+                networkChoice = NeuralNetworkChoiceEnum.WITHOUT_HIDDEN_LAYER_AND_UPD_WV
+            elif args.networkChoice == networkChoices[2]:
+                networkChoice = NeuralNetworkChoiceEnum.WITHOUT_UPD_WV
+            else:
+                networkChoice = NeuralNetworkChoiceEnum.COMPLETE
+            
             numClasses = lexiconOfLabel.getLen()
             model = WindowModelBySentence(lexicon,wordVector, 
-                            args.windowSize, args.hiddenSize, args.lr,numClasses,args.numepochs,args.batchSize, args.c,learningRateUpdStrategy)
+                            args.windowSize, args.hiddenSize, args.lr,numClasses,args.numepochs,args.batchSize, args.c,learningRateUpdStrategy,networkChoice)
                         
         if args.numPerEpoch is not None and len(args.numPerEpoch) != 0 :
             print 'Loading test data...'

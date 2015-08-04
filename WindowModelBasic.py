@@ -25,7 +25,7 @@ class WindowModelBasic:
         WindowModelBasic.endSymbolStr = endSymbol
 
     def __init__(self, lexicon, wordVectors , windowSize, hiddenSize, _lr,numClasses,numEpochs, batchSize=1.0, c=0.0
-                 ,learningRateUpdStrategy = LearningRateUpdNormalStrategy(),randomizeInput=False):
+                 ,learningRateUpdStrategy = LearningRateUpdNormalStrategy(),randomizeInput=False,withoutHiddenLayer = False):
         self.Wv = theano.shared(name='wordVecs',
                                 value=np.asarray(wordVectors.getWordVectors(), dtype=theano.config.floatX),
                                 borrow=True)
@@ -55,7 +55,7 @@ class WindowModelBasic:
         # é configurado com os valores da janelas do treinamento. Esta solução só foi pensadam para rodar em ambientes não paralelos
         self.reloadWindowIds = False
         
-        self.initWithBasicLayers()
+        self.initWithBasicLayers(withoutHiddenLayer)
         self.listeners = []
         
     def addListener(self,listener):
@@ -67,7 +67,7 @@ class WindowModelBasic:
     def setUpdates(self,updates):
         self.updates = updates
     
-    def initWithBasicLayers(self):
+    def initWithBasicLayers(self,withoutHiddenLayer):
         # Camada: word window.
         self.windowIdxs = theano.shared(value=np.zeros((1,self.windowSize),dtype="int64"),
                                    name="windowIdxs")
@@ -76,8 +76,11 @@ class WindowModelBasic:
         self.wordToVector = WordToVectorLayer(self.windowIdxs, self.Wv, self.wordSize, True)
         
         # Camada: hidden layer com a função Tanh como função de ativaçãos
-        self.hiddenLayer = HiddenLayer(self.wordToVector.getOutput(), self.wordSize * self.windowSize , self.hiddenSize);
-        
+        if not withoutHiddenLayer:
+            print 'With Hidden Layer'
+            self.hiddenLayer = HiddenLayer(self.wordToVector.getOutput(), self.wordSize * self.windowSize , self.hiddenSize);
+        else:
+            print 'Without Hidden Layer'
     
     def getAllWindowIndexes(self, data):
         raise NotImplementedError();

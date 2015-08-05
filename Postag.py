@@ -311,12 +311,19 @@ def main():
             print 'Loading train data...'
             trainData = datasetReader.readData(args.train,lexicon,lexiconOfLabel,lexiconRaw, wordVector,separeSentence,
                                                addWordUnknown, args.withCharwnn, charVars, True, filters, lexiconFindInTrain)
-            
+	    #print 'lexicon'
+            #print lexicon.getLexiconDict()
+            #print 'lexiconRaw'
+            #print lexiconRaw.getLexiconDict()
             numClasses = lexiconOfLabel.getLen()
             if args.withCharwnn:
                 charModel = CharWNN(charVars[0],charVars[1],charVars[2],charVars[3], args.charWindowSize,args.wordWindowSize, 
                         args.convSize, numClasses, args.c,learningRateUpdStrategy,separeSentence);
-                        
+            #print 'charsDict'
+            #print charVars[0].getLexiconDict()        
+            
+            #print 'indexes , labels ,   indexesOfRaw,  numCharsOfRaw'
+            #print trainData
             model = WindowModelByWord(lexicon,wordVector,args.wordWindowSize, args.hiddenSize, args.lr,numClasses,
                                       args.numepochs,args.batchSize, args.c,charModel,learningRateUpdStrategy);
         

@@ -93,7 +93,8 @@ class WindowModelBasic:
             self.hiddenLayer = HiddenLayer(self.wordToVector.getOutput(), self.wordSize * self.windowSize , self.hiddenSize);
         else:    
             # Camada: hidden layer com a função Tanh como função de ativaçãos
-            self.hiddenLayer = HiddenLayer(theano.printing.Print()(T.concatenate([theano.printing.Print()(self.wordToVector.getOutput()),theano.printing.Print()(self.charModel.getOutput())],axis=1)), (self.wordSize + self.charModel.convSize) * self.windowSize , self.hiddenSize);
+            self.hiddenLayer = HiddenLayer(T.concatenate([self.wordToVector.getOutput(),self.charModel.getOutput()],axis=1), (self.wordSize + self.charModel.convSize) * self.windowSize , self.hiddenSize);
+            #self.hiddenLayer = HiddenLayer(theano.printing.Print()(T.concatenate([theano.printing.Print()(self.wordToVector.getOutput()),theano.printing.Print()(self.charModel.getOutput())],axis=1)), (self.wordSize + self.charModel.convSize) * self.windowSize , self.hiddenSize);
             
         
     
@@ -133,6 +134,9 @@ class WindowModelBasic:
         # Camada: word window.
         windowIdxs = self.getAllWindowIndexes(inputData)
         
+        #print 'windowIdxs'
+        #print windowIdxs
+        
         self.windowIdxs.set_value(windowIdxs,borrow=True)
         
         batchesSize = self.confBatchSize(inputData)
@@ -165,11 +169,20 @@ class WindowModelBasic:
             
             charIndex = T.iscalar("charIndex")
             
+            #print 'indexesOfRawWord'
+            #print indexesOfRawWord
             charmodelIdxsPos = self.charModel.getAllWordCharWindowIndexes(indexesOfRawWord)
             charWindowIdxs = charmodelIdxsPos[0]
             posMaxByWord = charmodelIdxsPos[1]
             numCharByWord = charmodelIdxsPos[2]
             
+            
+            #print 'charIndex'
+            #print charWindowIdxs
+            #print 'posMaxByWord'
+            #print posMaxByWord
+            #print 'numCharByWord'
+            #print numCharByWord
             
             
             
@@ -221,23 +234,33 @@ class WindowModelBasic:
             t1 = time.time()
             
             
-            if self.charModel == None:
+            if self.charModel == None:                
+                    
+                    
                 for idx in idxList:
                  
                     
                     batchSize.set_value(batchesSize[idx])
-                    train(self.beginBlock[idx],lr) 
-                
+                    train(self.beginBlock[idx],lr)     
             else:
+	        #print 'inicio frase','/n',self.beginBlock
+                #print batchesSize
+                #print 'inicio char','/n',charBatchesSize
+                #print self.charBeginBlock
+                
+                #print inputData
+                #print len(inputData)
                 for idx in idxList:
                 
                     batchSize.set_value(batchesSize[idx])
+                    #print self.beginBlock[idx],batchesSize[idx]
                     charBatchS.set_value(charBatchesSize[idx])
+                    #print self.charBeginBlock[idx],charBatchesSize[idx]
                     self.charModel.batchSize.set_value(batchesSize[idx])
                     
-                    print batchesSize[idx]
-                    print charBatchesSize[idx]
-                    print self.beginBlock[idx],lr,lr,self.charBeginBlock[idx]
+                    
+                    
+                    
                     
                     train(self.beginBlock[idx],lr,lr,self.charBeginBlock[idx]) 
                     

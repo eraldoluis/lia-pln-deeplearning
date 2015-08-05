@@ -88,6 +88,7 @@ class CharWNN():
         for idxWord in range(len(inputData)):
             
             WindowIndexes = self.getWindowIndexes(idxWord, inputData)
+            
             jj = 0
             
             for j in WindowIndexes:
@@ -203,7 +204,7 @@ class CharWNN():
         batchStep = []
         charIdx = 0
         
-        
+       
         if self.separateSentence:
             for sentence in inputData:
                 batchStep.append(sum(sentence))

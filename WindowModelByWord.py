@@ -69,14 +69,20 @@ class WindowModelByWord(WindowModelBasic):
         
         # Configura o batch size
         if isinstance(self.batchSize, list):
-            if sum(self.batchSize) <= numWords:
+            if sum(self.batchSize) < numWords:
                 print "The number of words for training set by batch is smaller than the number of words in inputData"
             else:
                 raise Exception("The total number of words in batch exceeds the number of words in inputData")
             
             return np.asarray(self.batchSize);
+	  
+	num = numWords/self.batchSize  
+        arr = np.full(num,self.batchSize,dtype=np.int64)
+        if numWords%self.batchSize:
+	  arr = np.append(arr, numWords%self.batchSize)
         
-        return np.full(numWords/self.batchSize + 1,self.batchSize,dtype=np.int64)
+        return arr
+        #return np.full(numWords/self.batchSize + 1,self.batchSize,dtype=np.int64)
         
     def predict(self, inputData,indexesOfRawWord,unknownDataTest):
       

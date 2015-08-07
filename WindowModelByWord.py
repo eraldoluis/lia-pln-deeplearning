@@ -16,6 +16,8 @@ class WindowModelByWord(WindowModelBasic):
         
         WindowModelBasic.__init__(self, lexicon, wordVectors, windowSize, hiddenSize, _lr, numClasses, numEpochs, 
                                   batchSize, c, charModel,learningRateUpdStrategy)
+	
+	self.setTestValues = True
         
         
         # Camada: softmax
@@ -25,6 +27,8 @@ class WindowModelByWord(WindowModelBasic):
         foward = self.softmax.getOutput();
         
         parameters = self.softmax.getParameters() + self.hiddenLayer.getParameters()
+        
+        
         
         if charModel == None:
             
@@ -43,6 +47,7 @@ class WindowModelByWord(WindowModelBasic):
             
             updates = self.hiddenLayer.getUpdate(cost, self.lr);
             updates += self.charModel.updates
+            
             
         
         updates += self.softmax.getUpdate(cost, self.lr);
@@ -89,46 +94,54 @@ class WindowModelByWord(WindowModelBasic):
         self.reloadWindowIds = True  
         predict = 0
         
+        if self.setTestValues:
+	    
+	    self.testWordWindowIdxs = self.getAllWindowIndexes(inputData)
+	    if self.charModel:
+	        self.charModel.updateAllCharIndexes(unknownDataTest)
+            
+                charmodelIdxPos = self.charModel.getAllWordCharWindowIndexes(indexesOfRawWord)
+                
+                self.testCharWindowIdxs = charmodelIdxPos[0]
+                self.testPosMaxByWord = charmodelIdxPos[1]
+                self.testNumCharByWord = charmodelIdxPos[2]
+                
+            self.setTestValues = False    
+        
+        self.windowIdxs.set_value(self.testWordWindowIdxs,borrow=True)
         if self.charModel == None:
-            self.windowIdxs.set_value(self.getAllWindowIndexes(inputData),borrow=True)
+            
             y_pred = self.softmax.getPrediction();
             f = theano.function([],[y_pred]);
             
             predict = f()[0]
             
         else:
+	    
+            self.charModel.charWindowIdxs.set_value(self.testCharWindowIdxs,borrow=True)
+            self.charModel.posMaxByWord.set_value(self.testPosMaxByWord,borrow=True)
             
-            self.charModel.updateAllCharIndexes(unknownDataTest)
+            index = T.iscalar("index")
+            charIndex = T.iscalar("charIndex")
+            step = T.iscalar("step")
             
-            self.windowIdxs.set_value(self.getAllWindowIndexes(inputData),borrow=True)
             
-            charmodelIdxPos = self.charModel.getAllWordCharWindowIndexes(indexesOfRawWord)
-            charWindowIdxs = charmodelIdxPos[0]
-            posMaxByWord = charmodelIdxPos[1]
-            #numCharByWord = charmodelIdxPos[2]
+            self.charModel.batchSize.set_value(1)
             
-            #numCharsInSentence = self.charModel.confBatchSize(numCharByWord,)
-             
-            self.charModel.charWindowIdxs.set_value(charWindowIdxs,borrow=True)
-            self.charModel.posMaxByWord.set_value(posMaxByWord,borrow=True)
-            self.charModel.batchSize.set_value(len(indexesOfRawWord))
+            f = theano.function(inputs=[index,charIndex,step],
+                                    outputs=self.softmax.getPrediction(),
+                                    givens={
+                                            self.charModel.charWindowIdxs: self.charModel.charWindowIdxs[charIndex:charIndex+step],
+                                            self.charModel.posMaxByWord:self.charModel.posMaxByWord[index*self.windowSize:(index+1)*self.windowSize],
+                                            self.windowIdxs: self.windowIdxs[index : index + 1],
+                                            
+                                    })
+            predict = []
+            j = 0
+            for i in range(len(inputData)):
+                predict.append(f(i,j,sum(self.testNumCharByWord[i*self.windowSize:(i+1)*self.windowSize]))[0]);
+                j += sum(self.testNumCharByWord[i*self.windowSize:(i+1)*self.windowSize])
             
-            y_pred = self.softmax.getPrediction();
-            f = theano.function([],[y_pred]);
-            predict = f()[0];
-            
-            #index = T.iscalar("index")
-            #f = theano.function(inputs=[index],
-            #                        outputs=self.softmax.getPrediction(),
-            #                        givens={
-            #                                self.charModel.charWindowIdxs: self.charModel.charWindowIdxs[T.sum(self.charModel.numCharByWord[0:index]):T.sum(self.charModel.numCharByWord[0:index+self.windowSize])],
-            #                                self.charModel.posMaxByWord:self.charModel.posMaxByWord[index*self.windowSize:(index+1)*self.windowSize],
-            #                                self.windowIdxs: self.windowIdxs[index : index + 1],
-            #                                
-            #                        })
-            #predict = []
-            #for i in range(len(inputData)):
-            #    predict.append(f(i)[0]);
             
         return predict
         

@@ -16,7 +16,7 @@ class WindowModelBySentence(WindowModelBasic):
         WindowModelBasic.__init__(self, lexicon, wordVectors, windowSize, hiddenSize, _lr, 
                                   numClasses, numEpochs, batchSize, c,charModel,learningRateUpdStrategy,True)
     
-        
+        self.setTestValues = True
         # Camada: softmax
         self.sentenceSoftmax = SentenceSoftmaxLayer(self.hiddenLayer.getOutput(), self.hiddenSize, numClasses);
         parameters = self.sentenceSoftmax.getParameters() + self.hiddenLayer.getParameters()
@@ -74,17 +74,31 @@ class WindowModelBySentence(WindowModelBasic):
         
     
     def predict(self, inputData,inputDataRaw,unknownDataTest):
-        windowSetences = self.getAllWindowIndexes(inputData);
+        
         
         predicts = []
         index = 0
         indexSentence = 0
         self.reloadWindowIds = True
         
+        if self.setTestValues:
+	    self.testSentenceWindowIdxs = self.getAllWindowIndexes(inputData)
+	    
+	    if self.charModel:
+	        self.charModel.updateAllCharIndexes(unknownDataTest)
+            
+                charmodelIdxPos = self.charModel.getAllWordCharWindowIndexes(inputDataRaw)
+                self.testCharWindowIdxs = charmodelIdxPos[0]
+                self.testPosMaxByWord = charmodelIdxPos[1]
+                self.testNumCharBySentence = charmodelIdxPos[2]
+                
+                
+            self.setTestValues = False    
+        
         if self.charModel==None:
         
-            while index < len(windowSetences):
-                self.windowIdxs.set_value(windowSetences[index:index + self.sentencesSize[indexSentence]],borrow=True)
+            while index < len(self.testSentenceWindowIdxs):
+                self.windowIdxs.set_value(self.testSentenceWindowIdxs[index:index + self.sentencesSize[indexSentence]],borrow=True)
                 
                 predicts.append(self.sentenceSoftmax.predict(self.sentencesSize[indexSentence]))
                 
@@ -93,27 +107,20 @@ class WindowModelBySentence(WindowModelBasic):
                 indexSentence += 1
         
         else:
-            self.charModel.updateAllCharIndexes(unknownDataTest)
-            
-            charmodelIdxPos = self.charModel.getAllWordCharWindowIndexes(inputDataRaw)
-            charWindow = charmodelIdxPos[0]
-            posMax = charmodelIdxPos[1]
-            numCharByWord = charmodelIdxPos[2]
-            
-            numCharsInSentence = self.charModel.confBatchSize(numCharByWord,[])
-            
-            
+                      
             
             charIndex = 0
-            while index < len(windowSetences):
-                self.windowIdxs.set_value(windowSetences[index:index + self.sentencesSize[indexSentence]],borrow=True)
-                self.charModel.charWindowIdxs.set_value(charWindow[charIndex:charIndex+numCharsInSentence[indexSentence]],borrow=True)
-                self.charModel.posMaxByWord.set_value(posMax[index*self.windowSize:(index+self.sentencesSize[indexSentence])*self.windowSize],borrow=True)
+            while index < len(self.testSentenceWindowIdxs):
+	        step = sum(self.testNumCharBySentence[indexSentence])
+	       
+                self.windowIdxs.set_value(self.testSentenceWindowIdxs[index:index + self.sentencesSize[indexSentence]],borrow=True)
+                self.charModel.charWindowIdxs.set_value(self.testCharWindowIdxs[charIndex:charIndex+step],borrow=True)
+                self.charModel.posMaxByWord.set_value(self.testPosMaxByWord[index*self.windowSize:(index+self.sentencesSize[indexSentence])*self.windowSize],borrow=True)
                 self.charModel.batchSize.set_value(self.sentencesSize[indexSentence])
                 
                 predicts.append(self.sentenceSoftmax.predict(self.sentencesSize[indexSentence]))
                 
-                charIndex += numCharsInSentence[indexSentence]
+                charIndex += step
                 index += self.sentencesSize[indexSentence]
                 indexSentence += 1
                 

@@ -9,7 +9,7 @@ class EvaluateEveryNumEpoch:
         self.inputData = inputData
         self.inputDataRaw = inputDataRaw
         self.correct = correct
-        self.unknwnDataTest = unknownDataTestCharIdxs
+        self.unknownDataTest = unknownDataTestCharIdxs
         self.evaluate = evaluate
         self.deque = deque();
         
@@ -38,7 +38,7 @@ class EvaluateEveryNumEpoch:
             return;
         
         print 'Testing...'        
-        predicts = self.model.predict(self.inputData,self.inputDataRaw,self.unknwnDataTest)
+        predicts = self.model.predict(self.inputData,self.inputDataRaw,self.unknownDataTest)
         self.evaluate.evaluateWithPrint(predicts,self.correct)
         
         self.deque.popleft()

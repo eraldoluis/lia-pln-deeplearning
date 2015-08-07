@@ -94,7 +94,7 @@ class WindowModelBasic:
         else:    
             # Camada: hidden layer com a função Tanh como função de ativaçãos
             self.hiddenLayer = HiddenLayer(T.concatenate([self.wordToVector.getOutput(),self.charModel.getOutput()],axis=1), (self.wordSize + self.charModel.convSize) * self.windowSize , self.hiddenSize);
-            #self.hiddenLayer = HiddenLayer(theano.printing.Print()(T.concatenate([theano.printing.Print()(self.wordToVector.getOutput()),theano.printing.Print()(self.charModel.getOutput())],axis=1)), (self.wordSize + self.charModel.convSize) * self.windowSize , self.hiddenSize);
+            
             
         
     
@@ -126,6 +126,12 @@ class WindowModelBasic:
     def train(self, inputData, correctData, indexesOfRawWord):
         self.reloadWindowIds = False
         
+        charIndex = T.iscalar("charIndex")
+        charWindowIdxs = None
+        posMaxByWord = None
+        numCharByWord = None
+        charBatchesSize = None
+        self.charBeginBlock = None
         
                       
         # Label
@@ -149,6 +155,7 @@ class WindowModelBasic:
         
         
         
+        
         # Train function.
         if self.charModel==None:
             # Camada: word window.
@@ -164,25 +171,10 @@ class WindowModelBasic:
         else:
             
             
-            
-            #self.numCharByWord.set_value(np.asarray(numCharsByRawWord),borrow=True)
-            
-            charIndex = T.iscalar("charIndex")
-            
-            #print 'indexesOfRawWord'
-            #print indexesOfRawWord
             charmodelIdxsPos = self.charModel.getAllWordCharWindowIndexes(indexesOfRawWord)
             charWindowIdxs = charmodelIdxsPos[0]
             posMaxByWord = charmodelIdxsPos[1]
             numCharByWord = charmodelIdxsPos[2]
-            
-            
-            #print 'charIndex'
-            #print charWindowIdxs
-            #print 'posMaxByWord'
-            #print posMaxByWord
-            #print 'numCharByWord'
-            #print numCharByWord
             
             
             
@@ -191,8 +183,7 @@ class WindowModelBasic:
             
             charBatchesSize = self.charModel.confBatchSize(numCharByWord,batchesSize)
             
-            
-            
+        
             
             train = theano.function(inputs=[index,self.lr,self.charModel.lr,charIndex],
                                     outputs=self.cost,
@@ -243,24 +234,14 @@ class WindowModelBasic:
                     batchSize.set_value(batchesSize[idx])
                     train(self.beginBlock[idx],lr)     
             else:
-	        #print 'inicio frase','/n',self.beginBlock
-                #print batchesSize
-                #print 'inicio char','/n',charBatchesSize
-                #print self.charBeginBlock
-                
-                #print inputData
-                #print len(inputData)
+	
                 for idx in idxList:
-                
+        
                     batchSize.set_value(batchesSize[idx])
-                    print self.beginBlock[idx],batchesSize[idx]
                     charBatchS.set_value(charBatchesSize[idx])
-                    print self.charBeginBlock[idx],charBatchesSize[idx]
+     
                     self.charModel.batchSize.set_value(batchesSize[idx])
-                    
-                    
-                    
-                    
+                                   
                     
                     train(self.beginBlock[idx],lr,lr,self.charBeginBlock[idx]) 
                     

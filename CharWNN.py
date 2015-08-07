@@ -19,7 +19,6 @@ class CharWNN():
         
         self.CharIdxWord = charIdxWord
         self.numCharsOfWord = numCharsOfWord
-        #self.numCharByWord = theano.shared(np.asarray([0]),'numCharByWord',int)
         
         self.Cv = theano.shared(name='charVecs',
                                 value=np.asarray(charVectors.getWordVectors(), dtype=theano.config.floatX),
@@ -33,7 +32,7 @@ class CharWNN():
         self.endSymbol = charcon.getLexiconIndex(WindowModelBasic.endSymbolStr)
         self.numClasses = numClasses
         self.separateSentence = separateSentence
-        #self.batchSize = T.lscalar('charBatchSize')
+        
         self.batchSize = theano.shared(name='charBatchSize', value=1)
         self.updates = None
         self.cost = None
@@ -55,7 +54,6 @@ class CharWNN():
         #definir a saída da camada Charwnn, a representação da janela de palavras à nível de caracter
         self.output = T.max(self.hiddenLayer.getOutput()[self.posMaxByWord], axis=1).reshape((self.batchSize,self.wordWindowSize * self.convSize))
         
-        
     
     def initWithBasicLayers(self):
         
@@ -67,8 +65,8 @@ class CharWNN():
         self.wordToVector = WordToVectorLayer(self.charWindowIdxs,self.Cv, self.charSize, True)
         
         # Camada: hidden layer com a função Tanh como função de ativaçãos
-        #self.hiddenLayer = HiddenLayer(self.wordToVector.getOutput(),self.charSize * self.charWindowSize , self.convSize, W=None, b=None, activation=None);
-        self.hiddenLayer = HiddenLayer(self.wordToVector.getOutput(),self.charSize * self.charWindowSize , self.convSize);
+        self.hiddenLayer = HiddenLayer(self.wordToVector.getOutput(),self.charSize * self.charWindowSize , self.convSize, W=None, b=None, activation=None);
+        #self.hiddenLayer = HiddenLayer(self.wordToVector.getOutput(),self.charSize * self.charWindowSize , self.convSize);
 
     # Esta função retorna o índice das janelas dos caracteres de todas as palavras 
     def getAllWordCharWindowIndexes(self,inputData):
@@ -139,9 +137,7 @@ class CharWNN():
         
         return [np.array(charWindowOfWord),np.asarray(maxPosByWord),np.array(numChar)]
 
-    
-    
-    
+        
     #esta funcao monta a janela de chars de uma palavra    
     def getAllCharIndexes(self,charIdxWord):
         allWindowIndexes = []

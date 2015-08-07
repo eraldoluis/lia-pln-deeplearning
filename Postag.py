@@ -156,8 +156,10 @@ def main():
         a+=2
         
     t0 = time.time()
- 
+    
+    #File Raw
     #datasetReader = MacMorphoReader(False)
+    #File With Features
     datasetReader = MacMorphoReader(True)
     testData = None
     
@@ -186,7 +188,8 @@ def main():
         else:
             print "The loaded model has char embeddings"
             args.withCharwnn = True
-            
+        
+        model.setTestValues = True    
                 
         if args.testOOSV:
             lexiconFindInTrain = set()
@@ -232,11 +235,11 @@ def main():
             
             lexicon.put(WindowModelBasic.startSymbolStr)
             wordVector.append(None)
-                           
-            lexicon.put(WindowModelBasic.endSymbolStr)
-            wordVector.append(None)
             
-            
+            if WindowModelBasic.startSymbolStr is not WindowModelBasic.endSymbolStr: 
+                lexicon.put(WindowModelBasic.endSymbolStr)
+                wordVector.append(None)
+                     
                 
             if args.testOOUV:
                 lexiconFindInWV = set()
@@ -247,26 +250,26 @@ def main():
         args.unknownWordStrategy
         
         unknownName = u'UUUNKKK'
-        
-        if args.unknownWordStrategy == unknownWordStrategy[0]:
-            lexiconIndex = lexicon.put(unknownName)
-            lexicon.setUnknownIndex(lexiconIndex)
-            wordVector.append(None)
+        if lexicon.getLexiconIndex(unknownName) is lexicon.getUnknownIndex():
+            if args.unknownWordStrategy == unknownWordStrategy[0]:
+                lexiconIndex = lexicon.put(unknownName)
+                lexicon.setUnknownIndex(lexiconIndex)
+                wordVector.append(None)
                 
-        elif args.unknownWordStrategy == unknownWordStrategy[1]:
-            unknownWordVector = numpy.mean(numpy.asarray(wordVector.getWordVectors()),0)
+            elif args.unknownWordStrategy == unknownWordStrategy[1]:
+                unknownWordVector = numpy.mean(numpy.asarray(wordVector.getWordVectors()),0)
             
-            lexiconIndex = lexicon.put(unknownName)
-            lexicon.setUnknownIndex(lexiconIndex)
-            wordVector.append(unknownWordVector.tolist())
+                lexiconIndex = lexicon.put(unknownName)
+                lexicon.setUnknownIndex(lexiconIndex)
+                wordVector.append(unknownWordVector.tolist())
             
-        elif args.unknownWordStrategy == unknownWordStrategy[2]:
-            lexiconIndex = lexicon.getLexiconIndex(unicode(args.unknownWord, "utf-8"))
+            elif args.unknownWordStrategy == unknownWordStrategy[2]:
+                lexiconIndex = lexicon.getLexiconIndex(unicode(args.unknownWord, "utf-8"))
             
-            if lexicon.isUnknownIndex(lexiconIndex):
-                raise Exception('Unknown Word Value passed does not exist in the unsupervised dictionary');
+                if lexicon.isUnknownIndex(lexiconIndex):
+                    raise Exception('Unknown Word Value passed does not exist in the unsupervised dictionary');
             
-            lexicon.setUnknownIndex(lexiconIndex)
+                lexicon.setUnknownIndex(lexiconIndex)
             
                                
         if args.withCharwnn:
@@ -277,24 +280,27 @@ def main():
             numCharsOfLexiconRaw.append(1)
             charIndexesOfLexiconRaw[idx] = [idx2]
                         
-            idx = lexiconRaw.put(WindowModelBasic.endSymbolStr)
-            idx2 = charcon.put(WindowModelBasic.endSymbolStr)
-            charVector.append(None)
-            numCharsOfLexiconRaw.append(1) 
-            charIndexesOfLexiconRaw[idx] = [idx2]
+            if WindowModelBasic.startSymbolStr != WindowModelBasic.endSymbolStr:   
+	        
+                idx = lexiconRaw.put(WindowModelBasic.endSymbolStr)
+                idx2 = charcon.put(WindowModelBasic.endSymbolStr)
+                charVector.append(None)
+                numCharsOfLexiconRaw.append(1) 
+                charIndexesOfLexiconRaw[idx] = [idx2]
             
-            idx = lexiconRaw.put(unknownName)
-            lexiconRaw.setUnknownIndex(idx)
-            idx2 = charcon.put(unknownName)
-            charcon.setUnknownIndex(idx2)
+            if lexiconRaw.getLexiconIndex(unknownName) is lexiconRaw.getUnknownIndex():
+                idx = lexiconRaw.put(unknownName)
+                lexiconRaw.setUnknownIndex(idx)
+                idx2 = charcon.put(unknownName)
+                charcon.setUnknownIndex(idx2)
             
-            numCharsOfLexiconRaw.append(1)
-            charIndexesOfLexiconRaw[idx] = [idx2]
-            charVector.append(None)
+                numCharsOfLexiconRaw.append(1)
+                charIndexesOfLexiconRaw[idx] = [idx2]
+                charVector.append(None)
             
             # charVars = [charcon,charVector, charIndexesOfLexiconRaw, numCharsOfLexiconRaw]  
             charVars = [charcon,charVector,charIndexesOfLexiconRaw,numCharsOfLexiconRaw]
-            
+        
         lexiconOfLabel = Lexicon()     
         charModel = None    
         
@@ -311,19 +317,12 @@ def main():
             print 'Loading train data...'
             trainData = datasetReader.readData(args.train,lexicon,lexiconOfLabel,lexiconRaw, wordVector,separeSentence,
                                                addWordUnknown, args.withCharwnn, charVars, True, filters, lexiconFindInTrain)
-	    #print 'lexicon'
-            #print lexicon.getLexiconDict()
-            #print 'lexiconRaw'
-            #print lexiconRaw.getLexiconDict()
+	    
             numClasses = lexiconOfLabel.getLen()
             if args.withCharwnn:
                 charModel = CharWNN(charVars[0],charVars[1],charVars[2],charVars[3], args.charWindowSize,args.wordWindowSize, 
                         args.convSize, numClasses, args.c,learningRateUpdStrategy,separeSentence);
-            #print 'charsDict'
-            #print charVars[0].getLexiconDict()        
             
-            #print 'indexes , labels ,   indexesOfRaw,  numCharsOfRaw'
-            #print trainData
             model = WindowModelByWord(lexicon,wordVector,args.wordWindowSize, args.hiddenSize, args.lr,numClasses,
                                       args.numepochs,args.batchSize, args.c,charModel,learningRateUpdStrategy);
         
@@ -353,7 +352,10 @@ def main():
             evalListener = EvaluateEveryNumEpoch(args.numepochs,args.numPerEpoch,EvaluateAccuracy(),model,testData[0],testData[1],testData[2],unknownDataTestCharIdxs)
             
             model.addListener(evalListener)
-            
+        
+        
+        
+        
         print 'Training...'
         
         
@@ -375,6 +377,7 @@ def main():
     if testData is None:
         unknownDataTestCharIdxs = []     
         testData = datasetReader.readTestData(args.test,lexicon,lexiconOfLabel,lexiconRaw,separeSentence,False,args.withCharwnn,charVars,False,filters,unknownDataTest,unknownDataTestCharIdxs)
+        
         
         
     

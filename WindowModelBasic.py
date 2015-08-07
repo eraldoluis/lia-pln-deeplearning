@@ -253,9 +253,9 @@ class WindowModelBasic:
                 for idx in idxList:
                 
                     batchSize.set_value(batchesSize[idx])
-                    #print self.beginBlock[idx],batchesSize[idx]
+                    print self.beginBlock[idx],batchesSize[idx]
                     charBatchS.set_value(charBatchesSize[idx])
-                    #print self.charBeginBlock[idx],charBatchesSize[idx]
+                    print self.charBeginBlock[idx],charBatchesSize[idx]
                     self.charModel.batchSize.set_value(batchesSize[idx])
                     
                     

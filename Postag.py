@@ -134,6 +134,8 @@ def main():
     parser.add_argument('--lrupdstrategy', dest='lrUpdStrategy', action='store',default=lrStrategyChoices[0],choices=lrStrategyChoices,
                        help='Set the learning rate update strategy. NORMAL and DIVIDE_EPOCH are the options available')
     
+    parser.add_argument('--filewithfeatures', dest='fileWithFeatures', action='store',default=False,
+                       help='The word which will be used to represent the unknown word')
 
     try:
         args = parser.parse_args();
@@ -157,10 +159,9 @@ def main():
         
     t0 = time.time()
     
-    #File Raw
-    #datasetReader = MacMorphoReader(False)
-    #File With Features
-    datasetReader = MacMorphoReader(True)
+    
+    datasetReader = MacMorphoReader(args.fileWithFeatures)
+    
     testData = None
     
     if args.testOOUV:

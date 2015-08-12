@@ -133,7 +133,7 @@ class CharWNN():
                         line.append(jj-1)
                         ii += 1
                     if line==[]:
-		      print 'numcharsofword',self.numCharsOfWord[j]
+		      print 'numcharsofword',self.numCharsOfWord[j],j
 		      
                     maxPosByWord.append(line)     
                     

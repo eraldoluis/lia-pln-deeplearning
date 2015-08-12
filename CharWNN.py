@@ -137,10 +137,10 @@ class CharWNN():
             
         for pp in maxPosByWord:
 	  if len(pp)!= self.maxLenWord:
-	    print 'OPs'
-        
-        print np.asarray(posMaxByWord)
-        #print posMaxByWord.shape,posMaxByWord.dtype
+	    print len(pp)
+        b = np.asarray(maxPosByWord)
+        print b
+        print b.shape,posMaxByWord.dtype
         return [np.array(charWindowOfWord),np.matrix(maxPosByWord),np.array(numChar)]
 
         

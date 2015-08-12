@@ -132,10 +132,14 @@ class CharWNN():
                         line.append(jj-1)
                         ii += 1
                     maxPosByWord.append(line)     
-            
+                    
             numChar.append(numCharSentence)      
+            
+        for pp in maxPosByWord:
+	  if len(pp)!= self.maxLenWord:
+	    print 'OPs'
         
-        return [np.array(charWindowOfWord),np.asarray(maxPosByWord),np.array(numChar)]
+        return [np.array(charWindowOfWord),np.matrix(maxPosByWord),np.array(numChar)]
 
         
     #esta funcao monta a janela de chars de uma palavra    

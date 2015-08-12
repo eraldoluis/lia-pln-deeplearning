@@ -140,8 +140,6 @@ class WindowModelBasic:
         # Camada: word window.
         windowIdxs = self.getAllWindowIndexes(inputData)
         
-        #print 'windowIdxs'
-        #print windowIdxs
         
         self.windowIdxs.set_value(windowIdxs,borrow=True)
         
@@ -176,12 +174,11 @@ class WindowModelBasic:
             posMaxByWord = charmodelIdxsPos[1]
             numCharByWord = charmodelIdxsPos[2]
             
-            print posMaxByWord
-            print posMaxByWord.shape,posMaxByWord.dtype
+            
             
             self.charModel.charWindowIdxs.set_value(charWindowIdxs,borrow=True)
-            self.charModel.posMaxByWord.set_value(np.asarray(posMaxByWord),borrow=True)
-            print self.charModel.posMaxByWord.get_value()
+            self.charModel.posMaxByWord.set_value(posMaxByWord,borrow=True)
+            
             charBatchesSize = self.charModel.confBatchSize(numCharByWord,batchesSize)
             
         

@@ -132,23 +132,13 @@ class CharWNN():
                     while ii+1 < self.maxLenWord:
                         line.append(jj-1)
                         ii += 1
-                    if line==[]:
-		      print 'numcharsofword',self.numCharsOfWord[j],j
+                    
 		      
                     maxPosByWord.append(line)     
                     
             numChar.append(numCharSentence)      
-        i = 0    
-        for pp in maxPosByWord:
-	  
-	  if len(pp)!= self.maxLenWord:
-	    print len(pp),i
-	    print pp
-	  i+=1  
-        b = np.asarray(maxPosByWord)
-        print b
-        print b.shape,b.dtype
-        print 'why'
+        
+        
         return [np.array(charWindowOfWord),np.asarray(maxPosByWord),np.array(numChar)]
 
         

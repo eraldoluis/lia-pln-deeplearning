@@ -177,7 +177,7 @@ class WindowModelBasic:
             numCharByWord = charmodelIdxsPos[2]
             
             print posMaxByWord
-            print posMaxByWord.shape,posMaxByWord.type
+            print posMaxByWord.shape,posMaxByWord.dtype
             
             self.charModel.charWindowIdxs.set_value(charWindowIdxs,borrow=True)
             self.charModel.posMaxByWord.set_value(np.asarray(posMaxByWord),borrow=True)

@@ -42,7 +42,7 @@ class CharWNN():
         self.convSize = convSize
         
         self.maxLenWord = max(numCharsOfWord)
-        self.posMaxByWord = theano.shared(np.zeros((1,self.maxLenWord),dtype="int64"),'posMaxByWord',int)
+        self.posMaxByWord = theano.shared(np.zeros((2,self.maxLenWord),dtype="int64"),'posMaxByWord',int)
         
         # Inicializando as camadas básicas 
         self.initWithBasicLayers()
@@ -139,6 +139,8 @@ class CharWNN():
 	  if len(pp)!= self.maxLenWord:
 	    print 'OPs'
         
+        print np.asarray(posMaxByWord)
+        #print posMaxByWord.shape,posMaxByWord.dtype
         return [np.array(charWindowOfWord),np.matrix(maxPosByWord),np.array(numChar)]
 
         

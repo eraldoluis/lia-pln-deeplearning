@@ -89,7 +89,7 @@ class MacMorphoReader:
         
             self.addLabel(lexiconOfLabel, labelsBySentence, s[1])
         else:
-	    print 'the',s[0],s[1]
+	    print 'the','[',token,']',s[0],s[1]
     
 
     def readData(self, filename,lexicon,lexiconOfLabel,lexiconRaw, wordVecs=None, separateSentences=True, addWordUnknown=False,withCharwnn=False,charVars=[None,None,{},[]],addCharUnknown=False,filters=[], setWordsInDataSet=None,unknownDataTest=[],unknownDataTestCharIdxs=None):

@@ -123,6 +123,7 @@ class CharWNN():
                     for item in self.AllCharWindowIndexes[j]:
                         charWindowOfWord.append(item)
                     numCharSentence.append(self.numCharsOfWord[j])
+                    print 'numcharsofword',self.numCharsOfWord[j]
                     
                     line = []
                     for ii in range(self.numCharsOfWord[j]):

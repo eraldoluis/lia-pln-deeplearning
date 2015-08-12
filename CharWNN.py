@@ -140,7 +140,8 @@ class CharWNN():
 	    print len(pp)
         b = np.asarray(maxPosByWord)
         print b
-        print b.shape,posMaxByWord.dtype
+        print b.shape,b.dtype
+        print 'why'
         return [np.array(charWindowOfWord),np.matrix(maxPosByWord),np.array(numChar)]
 
         

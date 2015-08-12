@@ -79,15 +79,17 @@ class MacMorphoReader:
                                 
     def readTokenAndLabelOfRawFile(self, lexicon, lexiconOfLabel, wordVecs, addWordUnknown, filters, indexesBySentence, labelsBySentence,lexiconRaw, indexesOfRawBySentence, numCharsOfRawBySentence,token, setWordsInDataSet,unknownData,withCharwnn,charVars,addCharUnknown,unknownDataCharIdxs):
         s = token.split('_')
-        print 'raw'
-        assert (len(s[0])>0)
-        assert (len(s[1])>0)
+        
+        #assert (len(s[0])>0)
+        #assert (len(s[1])>0)
         
         if (len(s[0]) and len(s[1])):
             self.addToken(lexicon, wordVecs, addWordUnknown, filters, indexesBySentence, s[0],setWordsInDataSet,unknownData,
                           lexiconRaw,indexesOfRawBySentence,numCharsOfRawBySentence,withCharwnn,charVars,addCharUnknown,unknownDataCharIdxs)
         
             self.addLabel(lexiconOfLabel, labelsBySentence, s[1])
+        else:
+	    print 'the',s[0],s[1]
     
 
     def readData(self, filename,lexicon,lexiconOfLabel,lexiconRaw, wordVecs=None, separateSentences=True, addWordUnknown=False,withCharwnn=False,charVars=[None,None,{},[]],addCharUnknown=False,filters=[], setWordsInDataSet=None,unknownDataTest=[],unknownDataTestCharIdxs=None):

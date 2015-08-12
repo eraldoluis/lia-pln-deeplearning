@@ -96,6 +96,7 @@ class MacMorphoReader:
         indexesOfRaw = data[2]
         numCharsOfRaw = data[3]
         
+        print 'hi',len(charVars[2]),len(charVars[3])
         
         func = self.readTokenAndLabelOfFileWithFeature if self.fileWithFeatures else self.readTokenAndLabelOfRawFile
         
@@ -139,7 +140,8 @@ class MacMorphoReader:
                     unknownDataTest.append(unknownDataBySentence)
                 
         f.close()
-        
+        print len(charVars[2]),len(charVars[3])
+        assert(charVars[2]==charVars[3])
         
         return data
     

@@ -177,11 +177,11 @@ class WindowModelBasic:
             numCharByWord = charmodelIdxsPos[2]
             
             print posMaxByWord
-            print posMaxByWord.shape
+            print posMaxByWord.shape,posMaxByWord.type
             
             self.charModel.charWindowIdxs.set_value(charWindowIdxs,borrow=True)
-            self.charModel.posMaxByWord.set_value(posMaxByWord,borrow=True)
-            
+            self.charModel.posMaxByWord.set_value(np.asarray(posMaxByWord),borrow=True)
+            print self.charModel.posMaxByWord.get_value()
             charBatchesSize = self.charModel.confBatchSize(numCharByWord,batchesSize)
             
         

@@ -123,7 +123,7 @@ class CharWNN():
                     for item in self.AllCharWindowIndexes[j]:
                         charWindowOfWord.append(item)
                     numCharSentence.append(self.numCharsOfWord[j])
-                    print 'numcharsofword',self.numCharsOfWord[j]
+                    
                     
                     line = []
                     for ii in range(self.numCharsOfWord[j]):
@@ -132,6 +132,9 @@ class CharWNN():
                     while ii+1 < self.maxLenWord:
                         line.append(jj-1)
                         ii += 1
+                    if line==[]:
+		      print 'numcharsofword',self.numCharsOfWord[j]
+		      
                     maxPosByWord.append(line)     
                     
             numChar.append(numCharSentence)      

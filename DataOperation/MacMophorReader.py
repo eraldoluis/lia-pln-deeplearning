@@ -141,7 +141,7 @@ class MacMorphoReader:
                 
         f.close()
         print len(charVars[2]),len(charVars[3])
-        assert(charVars[2]==charVars[3])
+        #assert(charVars[2]==charVars[3])
         
         return data
     

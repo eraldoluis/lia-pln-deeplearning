@@ -3,21 +3,29 @@
 
 from NNet.Util import WeightTanhGenerator
 import codecs
+import numpy as np
 
 class WordVector:
     UNKOWN_INDEX = 0
     
-    def __init__(self,filePath='',wordSize=-1):        
+    def __init__(self,filePath='',wordSize=-1,areZeros=False):        
         self.__wordVecs = []
         self.__generatorWeight = WeightTanhGenerator()
         if filePath:
             self.putUsingFile(filePath)
         else:
             self.__wordSize = wordSize
+        self.zeroInit = False
+        if areZeros:
+	    self.zeroInit = True
             
     def append(self,wordVector):            
         if  wordVector is None:
-            wordVector = self.__generatorWeight.generateVector(self.__wordSize)
+	    if self.zeroInit:
+	        wordVector = np.zeros(self.__wordSize)
+	    else:    
+                wordVector = self.__generatorWeight.generateVector(self.__wordSize)
+                
         else:
             if self.__wordSize < 1:
                 self.__wordSize = len(wordVector)

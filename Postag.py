@@ -136,6 +136,11 @@ def main():
         
     parser.add_argument('--filewithfeatures',dest='fileWithFeatures',action='store_true',
                        help='Set that the training e testing files have features')
+    
+    charVecsInitChoices= ["random","zeros"]
+    
+    parser.add_argument('--charVecsInit', dest='charVecsInit', action='store',default=charVecsInitChoices[0],choices=charVecsInitChoices,
+                       help='Set the way to initialize the char vectors. RANDOM and ZEROS are the options available')
 
     try:
         args = parser.parse_args();
@@ -214,7 +219,8 @@ def main():
         charcon = Lexicon()
         charIndexesOfLexiconRaw = {}
         numCharsOfLexiconRaw = []
-        charVector = WordVector(wordSize=args.charVecSize)
+        charVector = WordVector(wordSize=args.charVecSize,areZeros=args.charVecsInit)
+        #charVector = WordVector(wordSize=args.charVecSize)
 
         if args.vocab is not None or args.wordVectors is not None:
             lexicon, wordVector = readVocabAndWord(args)

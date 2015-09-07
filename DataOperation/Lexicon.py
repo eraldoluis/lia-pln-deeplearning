@@ -74,4 +74,7 @@ class Lexicon:
     
     def setUnknownIndex(self,unknown_index):
         self.unknown_index = unknown_index
-
+    def printi(self):
+        print self.__lexicon
+        print self.__lexiconDict
+        print self.unknown_index

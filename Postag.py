@@ -8,7 +8,7 @@ from DataOperation.MacMophorReader import MacMorphoReader
 from DataOperation.WordVector import WordVector
 from Evaluate.EvaluateAccuracy import EvaluateAccuracy
 from WindowModelBySentence import WindowModelBySentence
-from CharWNN import *
+from CharWNN import CharWNN
 import cPickle as pickle
 from DataOperation.Lexicon import Lexicon
 from WindowModelByWord import WindowModelByWord
@@ -24,8 +24,7 @@ from Evaluate.EvaluatePercPredictsCorrectNotInWordSet import EvaluatePercPredict
 
 
 def readVocabAndWord(args):
-    #if args.vocab == args.wordVectors or args.vocab is not None or args.wordVectors is not None:
-    if args.vocab == args.wordVectors:
+    if args.vocab == args.wordVectors or args.vocab is not None or args.wordVectors is not None:
         fi = args.wordVectors if args.wordVectors is not None else args.vocab
         lexicon, wordVector = ReaderLexiconAndWordVec().readData(fi)
     else:
@@ -33,6 +32,7 @@ def readVocabAndWord(args):
         lexicon = Lexicon(args.vocab)
     
     return lexicon, wordVector
+
 
 def main():
     
@@ -137,10 +137,17 @@ def main():
     parser.add_argument('--filewithfeatures',dest='fileWithFeatures',action='store_true',
                        help='Set that the training e testing files have features')
     
-    charVecsInitChoices= ["random","zeros"]
+    vecsInitChoices= ["randomAll","random","zeros","normalize"]
     
-    parser.add_argument('--charVecsInit', dest='charVecsInit', action='store',default=charVecsInitChoices[0],choices=charVecsInitChoices,
+    parser.add_argument('--charVecsInit', dest='charVecsInit', action='store',default=vecsInitChoices[1],choices=vecsInitChoices,
                        help='Set the way to initialize the char vectors. RANDOM and ZEROS are the options available')
+    
+    parser.add_argument('--wordVecsInit', dest='wordVecsInit', action='store',default=vecsInitChoices[1],choices=vecsInitChoices,
+                       help='Set the way to initialize the char vectors. RANDOM and ZEROS are the options available')
+    
+    parser.add_argument('--charwnnwithact',dest='charwnnWithAct',action='store_true',
+                       help='Set training with character embeddings')
+    
 
     try:
         args = parser.parse_args();
@@ -219,7 +226,8 @@ def main():
         charcon = Lexicon()
         charIndexesOfLexiconRaw = {}
         numCharsOfLexiconRaw = []
-        charVector = WordVector(wordSize=args.charVecSize,areZeros=args.charVecsInit)
+        
+        charVector = WordVector(wordSize=args.charVecSize,mode=args.charVecsInit)
         #charVector = WordVector(wordSize=args.charVecSize)
 
         if args.vocab is not None or args.wordVectors is not None:
@@ -237,13 +245,14 @@ def main():
                 
             addWordUnknown = False
         else:
-            wordVector = WordVector(wordSize=args.wordVecSize)
+            wordVector = WordVector(wordSize=args.wordVecSize,mode=args.wordVecsInit)
             lexicon = Lexicon()
             
             lexicon.put(WindowModelBasic.startSymbolStr)
             wordVector.append(None)
             
-            if WindowModelBasic.startSymbolStr is not WindowModelBasic.endSymbolStr: 
+            
+            if WindowModelBasic.startSymbolStr != WindowModelBasic.endSymbolStr: 
                 lexicon.put(WindowModelBasic.endSymbolStr)
                 wordVector.append(None)
                      
@@ -257,6 +266,7 @@ def main():
         args.unknownWordStrategy
         
         unknownName = u'UUUNKKK'
+        
         if lexicon.getLexiconIndex(unknownName) is lexicon.getUnknownIndex():
             if args.unknownWordStrategy == unknownWordStrategy[0]:
                 lexiconIndex = lexicon.put(unknownName)
@@ -277,7 +287,8 @@ def main():
                     raise Exception('Unknown Word Value passed does not exist in the unsupervised dictionary');
             
                 lexicon.setUnknownIndex(lexiconIndex)
-            
+        
+                
                                
         if args.withCharwnn:
             
@@ -288,7 +299,7 @@ def main():
             charIndexesOfLexiconRaw[idx] = [idx2]
                         
             if WindowModelBasic.startSymbolStr != WindowModelBasic.endSymbolStr:   
-	        
+        
                 idx = lexiconRaw.put(WindowModelBasic.endSymbolStr)
                 idx2 = charcon.put(WindowModelBasic.endSymbolStr)
                 charVector.append(None)
@@ -324,11 +335,19 @@ def main():
             print 'Loading train data...'
             trainData = datasetReader.readData(args.train,lexicon,lexiconOfLabel,lexiconRaw, wordVector,separeSentence,
                                                addWordUnknown, args.withCharwnn, charVars, True, filters, lexiconFindInTrain)
-	    
+    
             numClasses = lexiconOfLabel.getLen()
             if args.withCharwnn:
+                if args.charVecsInit == 'randomAll':
+                    charVars[1].startAllRandom()
+                    
                 charModel = CharWNN(charVars[0],charVars[1],charVars[2],charVars[3], args.charWindowSize,args.wordWindowSize, 
-                        args.convSize, numClasses, args.c,learningRateUpdStrategy,separeSentence);
+                        args.convSize, numClasses, args.c,learningRateUpdStrategy,separeSentence,args.charwnnWithAct);
+            
+            if args.wordVecsInit == 'randomAll':
+                wordVector.startAllRandom()
+            elif args.wordVecsInit == 'normalize':
+                wordVector.normalize()
             
             model = WindowModelByWord(lexicon,wordVector,args.wordWindowSize, args.hiddenSize, args.lr,numClasses,
                                       args.numepochs,args.batchSize, args.c,charModel,learningRateUpdStrategy);
@@ -336,25 +355,40 @@ def main():
         elif args.alg == algTypeChoices[1]:
             separeSentence = True
             print 'Loading train data...'
+            
             trainData = datasetReader.readData(args.train,lexicon,lexiconOfLabel,lexiconRaw,
                             wordVector,separeSentence,addWordUnknown,args.withCharwnn,charVars,True,filters,lexiconFindInTrain);
             
             
+            
             numClasses = lexiconOfLabel.getLen()
             
+            
             if args.withCharwnn:
+                if args.charVecsInit == 'randomAll':
+                    charVars[1].startAllRandom()
+                    
+                
+                    
                 charModel = CharWNN(charVars[0],charVars[1],charVars[2],charVars[3], args.charWindowSize,args.wordWindowSize, 
-                        args.convSize, numClasses, args.c,learningRateUpdStrategy,separeSentence);
+                        args.convSize, numClasses, args.c,learningRateUpdStrategy,separeSentence,args.charwnnWithAct);
+                        
+            if args.wordVecsInit == 'randomAll':
+                wordVector.startAllRandom()
+            elif args.wordVecsInit == 'normalize':
+                wordVector.normalize()
+                
                         
             model = WindowModelBySentence(lexicon,wordVector, args.wordWindowSize, args.hiddenSize, args.lr,
                                           numClasses,args.numepochs,args.batchSize, args.c,charModel,learningRateUpdStrategy)
             
         
-                        
+                   
         if args.numPerEpoch is not None and len(args.numPerEpoch) != 0 :
             print 'Loading test data...'
             unknownDataTestCharIdxs = []
             testData = datasetReader.readTestData(args.test,lexicon,lexiconOfLabel,lexiconRaw,separeSentence,False,args.withCharwnn,charVars,False,filters,unknownDataTest,unknownDataTestCharIdxs)
+            
             
             evalListener = EvaluateEveryNumEpoch(args.numepochs,args.numPerEpoch,EvaluateAccuracy(),model,testData[0],testData[1],testData[2],unknownDataTestCharIdxs)
             
@@ -391,8 +425,8 @@ def main():
     print 'Testing...'
     predicts = model.predict(testData[0],testData[2],unknownDataTestCharIdxs);
     
-    eval = EvaluateAccuracy()
-    acc = eval.evaluateWithPrint(predicts,testData[1]);
+    evalue = EvaluateAccuracy()
+    acc = evalue.evaluateWithPrint(predicts,testData[1]);
     
     if args.testOOSV:
         oosv = EvaluatePercPredictsCorrectNotInWordSet(lexicon,lexiconFindInTrain,'OOSV')

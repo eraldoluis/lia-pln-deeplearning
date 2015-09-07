@@ -28,4 +28,4 @@ class WordToVectorLayer:
         
         return [(self.__Wv,
                     T.inc_subtensor(self.__Wv[widowsIdxsFlatten], T.reshape(gwordVectorFlatten, reshapeSize)))]
-
+        

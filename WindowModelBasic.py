@@ -130,7 +130,7 @@ class WindowModelBasic:
         charWindowIdxs = None
         posMaxByWord = None
         numCharByWord = None
-        charBatchesSize = None
+        
         self.charBeginBlock = None
         
                       
@@ -139,11 +139,11 @@ class WindowModelBasic:
         
         # Camada: word window.
         windowIdxs = self.getAllWindowIndexes(inputData)
-        
-        
+                
         self.windowIdxs.set_value(windowIdxs,borrow=True)
         
         batchesSize = self.confBatchSize(inputData)
+        
 
         batchSize = theano.shared(1, "batchSize"); 
         index = T.iscalar("index")
@@ -174,15 +174,13 @@ class WindowModelBasic:
             posMaxByWord = charmodelIdxsPos[1]
             numCharByWord = charmodelIdxsPos[2]
             
-            
-            
+                    
             self.charModel.charWindowIdxs.set_value(charWindowIdxs,borrow=True)
             self.charModel.posMaxByWord.set_value(posMaxByWord,borrow=True)
             
             charBatchesSize = self.charModel.confBatchSize(numCharByWord,batchesSize)
             
-        
-            
+                    
             train = theano.function(inputs=[index,self.lr,self.charModel.lr,charIndex],
                                     outputs=self.cost,
                                     updates=self.updates,
@@ -199,8 +197,8 @@ class WindowModelBasic:
             for v in charBatchesSize:
                 self.charBeginBlock.append(pos)
                 pos += v
-            
-            
+                
+                    
         self.beginBlock = []    
         pos = 0
         
@@ -208,6 +206,7 @@ class WindowModelBasic:
             self.beginBlock.append(pos)
             pos += v
         
+                
         idxList = range(len(batchesSize))
         
         
@@ -232,7 +231,7 @@ class WindowModelBasic:
                     batchSize.set_value(batchesSize[idx])
                     train(self.beginBlock[idx],lr)     
             else:
-	
+
                 for idx in idxList:
         
                     batchSize.set_value(batchesSize[idx])

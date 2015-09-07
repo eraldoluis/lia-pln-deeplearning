@@ -8,22 +8,25 @@ import numpy as np
 class WordVector:
     UNKOWN_INDEX = 0
     
-    def __init__(self,filePath='',wordSize=-1,areZeros=False):        
+    def __init__(self,filePath='',wordSize=-1,mode=None):        
         self.__wordVecs = []
         self.__generatorWeight = WeightTanhGenerator()
         if filePath:
             self.putUsingFile(filePath)
         else:
             self.__wordSize = wordSize
-        self.zeroInit = False
-        if areZeros:
-	    self.zeroInit = True
+        self.mode = mode
+        self.__len = 0
+        
             
     def append(self,wordVector):            
         if  wordVector is None:
-	    if self.zeroInit:
-	        wordVector = np.zeros(self.__wordSize)
-	    else:    
+            if self.mode =='zeros':
+                wordVector = np.zeros(self.__wordSize)
+            elif self.mode == 'randomAll':
+                self.__len +=1    
+                return
+            else:    
                 wordVector = self.__generatorWeight.generateVector(self.__wordSize)
                 
         else:
@@ -42,8 +45,8 @@ class WordVector:
             self.putWordVecStr(line)
         fVec.close()
         
-    def putWordVecStr(self,str):
-        return self.append([float(num) for num in str.split()])
+    def putWordVecStr(self,string):
+        self.append([float(num) for num in string.split()])
     
     
     def getWordVector(self,index):
@@ -57,3 +60,9 @@ class WordVector:
     
     def getWordVectors(self):
         return self.__wordVecs
+    
+    def startAllRandom(self):
+        self.__wordVecs = self.__generatorWeight.generateWeight(self.__len,self.__wordSize)
+        
+    def normalize(self):
+        self.__wordVecs = (self.__wordVecs - np.mean(np.asarray(self.__wordVecs)))/np.std(np.asarray(self.__wordVecs))

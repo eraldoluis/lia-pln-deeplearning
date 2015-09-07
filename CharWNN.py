@@ -14,7 +14,7 @@ from WindowModelBasic import WindowModelBasic
 class CharWNN():
 
     def __init__(self,charcon, charVectors, charIdxWord, numCharsOfWord, charWindowSize, wordWindowSize , convSize,
-                  numClasses, c=0.0,learningRateUpdStrategy = LearningRateUpdNormalStrategy(),separateSentence=False):
+                  numClasses, c=0.0,learningRateUpdStrategy = LearningRateUpdNormalStrategy(),separateSentence=False,withAct=False):
         
         
         self.CharIdxWord = charIdxWord
@@ -37,7 +37,8 @@ class CharWNN():
         self.updates = None
         self.cost = None
         self.output = None
-        #self.allWindowIndexes = None
+        self.withAct = withAct
+        
         self.regularizationFactor = theano.shared(c)
         self.convSize = convSize
         
@@ -65,8 +66,13 @@ class CharWNN():
         self.wordToVector = WordToVectorLayer(self.charWindowIdxs,self.Cv, self.charSize, True)
         
         # Camada: hidden layer com a função Tanh como função de ativaçãos
-        #self.hiddenLayer = HiddenLayer(self.wordToVector.getOutput(),self.charSize * self.charWindowSize , self.convSize, W=None, b=None, activation=None);
-        self.hiddenLayer = HiddenLayer(self.wordToVector.getOutput(),self.charSize * self.charWindowSize , self.convSize);
+        if self.withAct:
+            print 'Charwnn with Activation'
+            self.hiddenLayer = HiddenLayer(self.wordToVector.getOutput(),self.charSize * self.charWindowSize , self.convSize);
+        else:
+            print 'Charwnn without Activation'
+            self.hiddenLayer = HiddenLayer(self.wordToVector.getOutput(),self.charSize * self.charWindowSize , self.convSize, activation=None);
+        
 
     # Esta função retorna o índice das janelas dos caracteres de todas as palavras 
     def getAllWordCharWindowIndexes(self,inputData):
@@ -95,7 +101,7 @@ class CharWNN():
                 numChar.append(self.numCharsOfWord[j])
                 
                 line = []
-                for ii in range(self.numCharsOfWord[j]):
+                for ii in range(min(self.numCharsOfWord[j],self.maxLenWord)):
                     line.append(jj)
                     jj += 1
                 while ii+1 < self.maxLenWord:
@@ -114,10 +120,11 @@ class CharWNN():
         maxPosByWord = []
            
         for idxSentence in range(len(inputData)):
-            numCharSentence = []   
+            numCharSentence = []
+            jj = 0   
             for idxWord in range(len(inputData[idxSentence])):
                 WindowIndexes = self.getWindowIndexes(idxWord, inputData[idxSentence])
-                jj = 0
+                
                 
                 for j in WindowIndexes:
                     for item in self.AllCharWindowIndexes[j]:
@@ -126,14 +133,14 @@ class CharWNN():
                     
                     
                     line = []
-                    for ii in range(self.numCharsOfWord[j]):
+                    for ii in range(min(self.numCharsOfWord[j],self.maxLenWord)):
                         line.append(jj)
                         jj += 1
                     while ii+1 < self.maxLenWord:
                         line.append(jj-1)
                         ii += 1
                     
-		      
+      
                     maxPosByWord.append(line)     
                     
             numChar.append(numCharSentence)      

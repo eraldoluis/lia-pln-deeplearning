@@ -274,10 +274,9 @@ def main():
                 wordVector.append(None)
                 
             elif args.unknownWordStrategy == unknownWordStrategy[1]:
-                unknownWordVector = numpy.mean(numpy.asarray(wordVector.getWordVectors()[(wordVector.getLength() - 10):]), 0)
+                unknownWordVector = numpy.mean(numpy.asarray(wordVector.getWordVectors()[(wordVector.getLength() - 1000):]), 0)
                 
-                print wordVector.getWordVectors()[wordVector.getLength() - 10:]
-                print unknownWordVector
+                               
                 lexiconIndex = lexicon.put(unknownName)
                 lexicon.setUnknownIndex(lexiconIndex)
                 wordVector.append(unknownWordVector.tolist())

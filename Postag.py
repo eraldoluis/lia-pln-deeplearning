@@ -148,7 +148,7 @@ def main():
     parser.add_argument('--charwnnwithact', dest='charwnnWithAct', action='store_true',
                        help='Set training with character embeddings')
     
-    parser.add_argument('--mean_size', dest='meanSize', action='store', type=int,
+    parser.add_argument('--mean_size', dest='meanSize', action='store', type=float,
                        help='The size of the batch in the train', default=1)
 
     
@@ -278,9 +278,12 @@ def main():
                 wordVector.append(None)
                 
             elif args.unknownWordStrategy == unknownWordStrategy[1]:
-                unknownWordVector = numpy.mean(numpy.asarray(wordVector.getWordVectors()[(wordVector.getLength() - args.meanSize):]), 0)
+                if args.meanSize <1 and args.meanSize>0:
+                    mean_size = int(wordVector.getLength() * args.meanSize)                    
+                else:     
+                    mean_size = int(args.meanSize)
                 
-                               
+                unknownWordVector = numpy.mean(numpy.asarray(wordVector.getWordVectors()[wordVector.getLength()-mean_size:]), 0)           
                 lexiconIndex = lexicon.put(unknownName)
                 lexicon.setUnknownIndex(lexiconIndex)
                 wordVector.append(unknownWordVector.tolist())

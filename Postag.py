@@ -18,7 +18,7 @@ from WindowModelBasic import WindowModelBasic
 from Evaluate.EvaluateEveryNumEpoch import EvaluateEveryNumEpoch
 from DataOperation.ReaderLexiconAndWordVec import ReaderLexiconAndWordVec
 import importlib
-from NNet.Util import LearningRateUpdDivideByEpochStrategy,\
+from NNet.Util import LearningRateUpdDivideByEpochStrategy, \
     LearningRateUpdNormalStrategy
 from Evaluate.EvaluatePercPredictsCorrectNotInWordSet import EvaluatePercPredictsCorrectNotInWordSet
 
@@ -39,42 +39,42 @@ def main():
     parser = argparse.ArgumentParser();
     
     parser.add_argument('--train', dest='train', action='store',
-                       help='Training File Path',required=True)
+                       help='Training File Path', required=True)
     
     parser.add_argument('--test', dest='test', action='store',
-                       help='TypeTest File Path',required=True)
+                       help='TypeTest File Path', required=True)
         
     parser.add_argument('--numepochs', dest='numepochs', action='store', type=int, required=True,
                        help='Number of epochs: how many iterations over the training set.')
     
-    parser.add_argument('--withCharwnn',dest='withCharwnn',action='store_true',
+    parser.add_argument('--withCharwnn', dest='withCharwnn', action='store_true',
                        help='Set training with character embeddings')
     
-    algTypeChoices= ["window_word","window_sentence"]
+    algTypeChoices = ["window_word", "window_sentence"]
     
     parser.add_argument('--alg', dest='alg', action='store', default="window_sentence", choices=algTypeChoices,
                        help='The type of algorithm to train and test')
     
     parser.add_argument('--hiddenlayersize', dest='hiddenSize', action='store', type=int,
-                       help='The number of neurons in the hidden layer',default=300)
+                       help='The number of neurons in the hidden layer', default=300)
     
     parser.add_argument('--convolutionalLayerSize', dest='convSize', action='store', type=int,
-                       help='The number of neurons in the convolutional layer',default=50)
+                       help='The number of neurons in the convolutional layer', default=50)
     
     parser.add_argument('--wordWindowSize', dest='wordWindowSize', action='store', type=int,
-                       help='The size of words for the wordsWindow',default=5)
+                       help='The size of words for the wordsWindow', default=5)
     
     parser.add_argument('--charWindowSize', dest='charWindowSize', action='store', type=int,
-                       help='The size of char for the charsWindow',default=5)
+                       help='The size of char for the charsWindow', default=5)
     
     parser.add_argument('--numperepoch', dest='numPerEpoch', action='store', nargs='*', type=int,
                        help="The evaluation on the test corpus will "
                             + "be performed after a certain number of training epoch."
                             + "If the value is an integer, so the evalution will be performed after this value of training epoch "
-                            + "If the value is a list of integer, than the evaluation will be performed when the epoch is equal to one of list elements.  ",default=None)
+                            + "If the value is a list of integer, than the evaluation will be performed when the epoch is equal to one of list elements.  ", default=None)
 
     parser.add_argument('--batchSize', dest='batchSize', action='store', type=int,
-                       help='The size of the batch in the train',default=1)
+                       help='The size of the batch in the train', default=1)
     
     parser.add_argument('--lr', dest='lr', action='store', type=float , default=0.0075,
                        help='The value of the learning rate')
@@ -83,10 +83,10 @@ def main():
                        help='The larger C is the more the regularization pushes the weights of all our parameters to zero.')    
     
     parser.add_argument('--wordVecSize', dest='wordVecSize', action='store', type=int,
-                       help='Word vector size',default=100)
+                       help='Word vector size', default=100)
     
     parser.add_argument('--charVecSize', dest='charVecSize', action='store', type=int,
-                       help='Char vector size',default=10)
+                       help='Char vector size', default=10)
 
     parser.add_argument('--vocab', dest='vocab', action='store',
                        help='Vocabulary File Path')
@@ -103,49 +103,49 @@ def main():
     parser.add_argument('--startSymbol', dest='startSymbol', action='store', default="<s>",
                        help='The symbol that represents the beginning of a setence')
     
-    parser.add_argument('--endSymbol', dest='endSymbol', action='store',default="</s>",
+    parser.add_argument('--endSymbol', dest='endSymbol', action='store', default="</s>",
                        help='The symbol that represents the ending of a setence')
     
-    parser.add_argument('--filters', dest='filters', action='store',default=[],nargs='*',
-                       help='The filters which will be applied to the data. You have to pass the module and class name.'+
+    parser.add_argument('--filters', dest='filters', action='store', default=[], nargs='*',
+                       help='The filters which will be applied to the data. You have to pass the module and class name.' + 
                        ' Ex: modulename1 classname1 modulename2 classname2')
     
-    parser.add_argument('--testoosv', dest='testOOSV', action='store_true',default=False,
+    parser.add_argument('--testoosv', dest='testOOSV', action='store_true', default=False,
                        help='Do the test OOSV')
     
-    parser.add_argument('--testoouv', dest='testOOUV', action='store_true',default=False,
+    parser.add_argument('--testoouv', dest='testOOUV', action='store_true', default=False,
                        help='Do the test OOUV')
     
-    unknownWordStrategy= ["random","mean_all_vector","word_vocab"]
+    unknownWordStrategy = ["random", "mean_vector", "word_vocab"]
     
     
-    parser.add_argument('--unknownwordstrategy', dest='unknownWordStrategy', action='store',default=unknownWordStrategy[0]
-                        ,choices=unknownWordStrategy,
+    parser.add_argument('--unknownwordstrategy', dest='unknownWordStrategy', action='store', default=unknownWordStrategy[0]
+                        , choices=unknownWordStrategy,
                        help='Choose the strategy that will be used for constructing a word vector of a unknown word.'
-                       + 'There are three types of strategy: random(generate randomly a word vector) ,'+
-                       ' mean_all_vector(generate the word vector from the mean of all words)' +
+                       + 'There are three types of strategy: random(generate randomly a word vector) ,' + 
+                       ' mean_all_vector(generate the word vector from the mean of all words)' + 
                        ', word_vocab(use a word vector of one particular word. You have to use the parameter unknownword to set this word)')
     
-    parser.add_argument('--unknownword', dest='unknownWord', action='store',default=False,
+    parser.add_argument('--unknownword', dest='unknownWord', action='store', default=False,
                        help='The word which will be used to represent the unknown word')
     
-    lrStrategyChoices= ["normal","divide_epoch"]
+    lrStrategyChoices = ["normal", "divide_epoch"]
     
-    parser.add_argument('--lrupdstrategy', dest='lrUpdStrategy', action='store',default=lrStrategyChoices[0],choices=lrStrategyChoices,
+    parser.add_argument('--lrupdstrategy', dest='lrUpdStrategy', action='store', default=lrStrategyChoices[0], choices=lrStrategyChoices,
                        help='Set the learning rate update strategy. NORMAL and DIVIDE_EPOCH are the options available')
         
-    parser.add_argument('--filewithfeatures',dest='fileWithFeatures',action='store_true',
+    parser.add_argument('--filewithfeatures', dest='fileWithFeatures', action='store_true',
                        help='Set that the training e testing files have features')
     
-    vecsInitChoices= ["randomAll","random","zeros","normalize"]
+    vecsInitChoices = ["randomAll", "random", "zeros", "normalize"]
     
-    parser.add_argument('--charVecsInit', dest='charVecsInit', action='store',default=vecsInitChoices[1],choices=vecsInitChoices,
+    parser.add_argument('--charVecsInit', dest='charVecsInit', action='store', default=vecsInitChoices[1], choices=vecsInitChoices,
                        help='Set the way to initialize the char vectors. RANDOM and ZEROS are the options available')
     
-    parser.add_argument('--wordVecsInit', dest='wordVecsInit', action='store',default=vecsInitChoices[1],choices=vecsInitChoices,
+    parser.add_argument('--wordVecsInit', dest='wordVecsInit', action='store', default=vecsInitChoices[1], choices=vecsInitChoices,
                        help='Set the way to initialize the char vectors. RANDOM and ZEROS are the options available')
     
-    parser.add_argument('--charwnnwithact',dest='charwnnWithAct',action='store_true',
+    parser.add_argument('--charwnnwithact', dest='charwnnWithAct', action='store_true',
                        help='Set training with character embeddings')
     
 
@@ -166,8 +166,8 @@ def main():
     
     while a < len(args.filters):
         module_ = importlib.import_module(args.filters[a])
-        filters.append(getattr(module_, args.filters[a+1])())
-        a+=2
+        filters.append(getattr(module_, args.filters[a + 1])())
+        a += 2
         
     t0 = time.time()
     
@@ -183,16 +183,16 @@ def main():
     
     
     # charVars = [charcon, charVector, charIndexesOfLexiconRaw, numCharsOfLexiconRaw]  
-    charVars = [None,None,{},[]] 
+    charVars = [None, None, {}, []] 
     
     if args.loadModel is not None:
         print 'Loading model in ' + args.loadModel + ' ...'
         f = open(args.loadModel, "rb");
-        lexicon,lexiconOfLabel,lexiconRaw,model,charVars = pickle.load(f)
+        lexicon, lexiconOfLabel, lexiconRaw, model, charVars = pickle.load(f)
         
-        if isinstance(model,WindowModelByWord):
+        if isinstance(model, WindowModelByWord):
             separeSentence = False
-        elif isinstance(model,WindowModelBySentence): 
+        elif isinstance(model, WindowModelBySentence): 
             separeSentence = True
         
         if model.charModel == None:
@@ -206,14 +206,14 @@ def main():
                 
         if args.testOOSV:
             lexiconFindInTrain = set()
-            #datasetReader.readData(args.train,lexicon,lexiconOfLabel, separateSentences=separateSentence,filters=filters,lexiconFindInTrain=lexiconFindInTrain)
-            datasetReader.readData(args.train,lexicon,lexiconOfLabel,lexiconRaw, separateSentences=separeSentence, withCharwnn=args.withCharwnn,
-                                   charVars=charVars,filters=filters,setWordsInDataSet=lexiconFindInTrain)
+            # datasetReader.readData(args.train,lexicon,lexiconOfLabel, separateSentences=separateSentence,filters=filters,lexiconFindInTrain=lexiconFindInTrain)
+            datasetReader.readData(args.train, lexicon, lexiconOfLabel, lexiconRaw, separateSentences=separeSentence, withCharwnn=args.withCharwnn,
+                                   charVars=charVars, filters=filters, setWordsInDataSet=lexiconFindInTrain)
         if args.testOOUV:
             lexiconWV, wv = readVocabAndWord(args)
             lexiconFindInWV = set([ word for word in lexiconWV.getLexiconDict()])
-            #lexiconFindInWV = set()
-            #datasetReader.readData(args.train,lexiconWV,lexiconOfLabel, lexiconRaw, separateSentences=separeSentence,withCharwnn=args.withCharwnn,
+            # lexiconFindInWV = set()
+            # datasetReader.readData(args.train,lexiconWV,lexiconOfLabel, lexiconRaw, separateSentences=separeSentence,withCharwnn=args.withCharwnn,
             #                       charVars=charVars,filters=filters,setWordsInDataSet=lexiconFindInWV)
             
         f.close()
@@ -227,8 +227,8 @@ def main():
         charIndexesOfLexiconRaw = {}
         numCharsOfLexiconRaw = []
         
-        charVector = WordVector(wordSize=args.charVecSize,mode=args.charVecsInit)
-        #charVector = WordVector(wordSize=args.charVecSize)
+        charVector = WordVector(wordSize=args.charVecSize, mode=args.charVecsInit)
+        # charVector = WordVector(wordSize=args.charVecSize)
 
         if args.vocab is not None or args.wordVectors is not None:
             lexicon, wordVector = readVocabAndWord(args)
@@ -245,7 +245,7 @@ def main():
                 
             addWordUnknown = False
         else:
-            wordVector = WordVector(wordSize=args.wordVecSize,mode=args.wordVecsInit)
+            wordVector = WordVector(wordSize=args.wordVecSize, mode=args.wordVecsInit)
             lexicon = Lexicon()
             
             lexicon.put(WindowModelBasic.startSymbolStr)
@@ -274,8 +274,10 @@ def main():
                 wordVector.append(None)
                 
             elif args.unknownWordStrategy == unknownWordStrategy[1]:
-                unknownWordVector = numpy.mean(numpy.asarray(wordVector.getWordVectors()),0)
-            
+                unknownWordVector = numpy.mean(numpy.asarray(wordVector.getWordVectors()[(wordVector.getLength() - 10):]), 0)
+                
+                print wordVector.getWordVectors()[wordVector.getLength() - 10:]
+                print unknownWordVector
                 lexiconIndex = lexicon.put(unknownName)
                 lexicon.setUnknownIndex(lexiconIndex)
                 wordVector.append(unknownWordVector.tolist())
@@ -317,7 +319,7 @@ def main():
                 charVector.append(None)
             
             # charVars = [charcon,charVector, charIndexesOfLexiconRaw, numCharsOfLexiconRaw]  
-            charVars = [charcon,charVector,charIndexesOfLexiconRaw,numCharsOfLexiconRaw]
+            charVars = [charcon, charVector, charIndexesOfLexiconRaw, numCharsOfLexiconRaw]
         
         lexiconOfLabel = Lexicon()     
         charModel = None    
@@ -333,7 +335,7 @@ def main():
         if args.alg == algTypeChoices[0]:
             separeSentence = False
             print 'Loading train data...'
-            trainData = datasetReader.readData(args.train,lexicon,lexiconOfLabel,lexiconRaw, wordVector,separeSentence,
+            trainData = datasetReader.readData(args.train, lexicon, lexiconOfLabel, lexiconRaw, wordVector, separeSentence,
                                                addWordUnknown, args.withCharwnn, charVars, True, filters, lexiconFindInTrain)
     
             numClasses = lexiconOfLabel.getLen()
@@ -341,23 +343,23 @@ def main():
                 if args.charVecsInit == 'randomAll':
                     charVars[1].startAllRandom()
                     
-                charModel = CharWNN(charVars[0],charVars[1],charVars[2],charVars[3], args.charWindowSize,args.wordWindowSize, 
-                        args.convSize, numClasses, args.c,learningRateUpdStrategy,separeSentence,args.charwnnWithAct);
+                charModel = CharWNN(charVars[0], charVars[1], charVars[2], charVars[3], args.charWindowSize, args.wordWindowSize,
+                        args.convSize, numClasses, args.c, learningRateUpdStrategy, separeSentence, args.charwnnWithAct);
             
             if args.wordVecsInit == 'randomAll':
                 wordVector.startAllRandom()
             elif args.wordVecsInit == 'normalize':
                 wordVector.normalize()
             
-            model = WindowModelByWord(lexicon,wordVector,args.wordWindowSize, args.hiddenSize, args.lr,numClasses,
-                                      args.numepochs,args.batchSize, args.c,charModel,learningRateUpdStrategy);
+            model = WindowModelByWord(lexicon, wordVector, args.wordWindowSize, args.hiddenSize, args.lr, numClasses,
+                                      args.numepochs, args.batchSize, args.c, charModel, learningRateUpdStrategy);
         
         elif args.alg == algTypeChoices[1]:
             separeSentence = True
             print 'Loading train data...'
             
-            trainData = datasetReader.readData(args.train,lexicon,lexiconOfLabel,lexiconRaw,
-                            wordVector,separeSentence,addWordUnknown,args.withCharwnn,charVars,True,filters,lexiconFindInTrain);
+            trainData = datasetReader.readData(args.train, lexicon, lexiconOfLabel, lexiconRaw,
+                            wordVector, separeSentence, addWordUnknown, args.withCharwnn, charVars, True, filters, lexiconFindInTrain);
             
             
             
@@ -370,8 +372,8 @@ def main():
                     
                 
                     
-                charModel = CharWNN(charVars[0],charVars[1],charVars[2],charVars[3], args.charWindowSize,args.wordWindowSize, 
-                        args.convSize, numClasses, args.c,learningRateUpdStrategy,separeSentence,args.charwnnWithAct);
+                charModel = CharWNN(charVars[0], charVars[1], charVars[2], charVars[3], args.charWindowSize, args.wordWindowSize,
+                        args.convSize, numClasses, args.c, learningRateUpdStrategy, separeSentence, args.charwnnWithAct);
                         
             if args.wordVecsInit == 'randomAll':
                 wordVector.startAllRandom()
@@ -379,18 +381,18 @@ def main():
                 wordVector.normalize()
                 
                         
-            model = WindowModelBySentence(lexicon,wordVector, args.wordWindowSize, args.hiddenSize, args.lr,
-                                          numClasses,args.numepochs,args.batchSize, args.c,charModel,learningRateUpdStrategy)
+            model = WindowModelBySentence(lexicon, wordVector, args.wordWindowSize, args.hiddenSize, args.lr,
+                                          numClasses, args.numepochs, args.batchSize, args.c, charModel, learningRateUpdStrategy)
             
         
                    
         if args.numPerEpoch is not None and len(args.numPerEpoch) != 0 :
             print 'Loading test data...'
             unknownDataTestCharIdxs = []
-            testData = datasetReader.readTestData(args.test,lexicon,lexiconOfLabel,lexiconRaw,separeSentence,False,args.withCharwnn,charVars,False,filters,unknownDataTest,unknownDataTestCharIdxs)
+            testData = datasetReader.readTestData(args.test, lexicon, lexiconOfLabel, lexiconRaw, separeSentence, False, args.withCharwnn, charVars, False, filters, unknownDataTest, unknownDataTestCharIdxs)
             
             
-            evalListener = EvaluateEveryNumEpoch(args.numepochs,args.numPerEpoch,EvaluateAccuracy(),model,testData[0],testData[1],testData[2],unknownDataTestCharIdxs)
+            evalListener = EvaluateEveryNumEpoch(args.numepochs, args.numPerEpoch, EvaluateAccuracy(), model, testData[0], testData[1], testData[2], unknownDataTestCharIdxs)
             
             model.addListener(evalListener)
         
@@ -400,12 +402,12 @@ def main():
         print 'Training...'
         
         
-        model.train(trainData[0],trainData[1],trainData[2]);
+        model.train(trainData[0], trainData[1], trainData[2]);
         
         if args.saveModel is not None:
             print 'Saving Model...'
             f = open(args.saveModel, "wb");
-            pickle.dump([lexicon,lexiconOfLabel,lexiconRaw,model,charVars], f, pickle.HIGHEST_PROTOCOL)
+            pickle.dump([lexicon, lexiconOfLabel, lexiconRaw, model, charVars], f, pickle.HIGHEST_PROTOCOL)
             f.close()
             
             print 'Model save with sucess in ' + args.saveModel
@@ -417,24 +419,24 @@ def main():
     
     if testData is None:
         unknownDataTestCharIdxs = []     
-        testData = datasetReader.readTestData(args.test,lexicon,lexiconOfLabel,lexiconRaw,separeSentence,False,args.withCharwnn,charVars,False,filters,unknownDataTest,unknownDataTestCharIdxs)
+        testData = datasetReader.readTestData(args.test, lexicon, lexiconOfLabel, lexiconRaw, separeSentence, False, args.withCharwnn, charVars, False, filters, unknownDataTest, unknownDataTestCharIdxs)
         
         
         
     
     print 'Testing...'
-    predicts = model.predict(testData[0],testData[2],unknownDataTestCharIdxs);
+    predicts = model.predict(testData[0], testData[2], unknownDataTestCharIdxs);
     
     evalue = EvaluateAccuracy()
-    acc = evalue.evaluateWithPrint(predicts,testData[1]);
+    acc = evalue.evaluateWithPrint(predicts, testData[1]);
     
     if args.testOOSV:
-        oosv = EvaluatePercPredictsCorrectNotInWordSet(lexicon,lexiconFindInTrain,'OOSV')
-        oosv.evaluateWithPrint(predicts, testData[1], testData[0],unknownDataTest)
+        oosv = EvaluatePercPredictsCorrectNotInWordSet(lexicon, lexiconFindInTrain, 'OOSV')
+        oosv.evaluateWithPrint(predicts, testData[1], testData[0], unknownDataTest)
     
     if args.testOOUV:
-        oouv = EvaluatePercPredictsCorrectNotInWordSet(lexicon,lexiconFindInWV,'OOUV')
-        oouv.evaluateWithPrint(predicts, testData[1], testData[0],unknownDataTest)
+        oouv = EvaluatePercPredictsCorrectNotInWordSet(lexicon, lexiconFindInWV, 'OOUV')
+        oouv.evaluateWithPrint(predicts, testData[1], testData[0], unknownDataTest)
     
 
     t2 = time.time()

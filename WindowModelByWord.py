@@ -12,12 +12,12 @@ from CharWNN import *
 class WindowModelByWord(WindowModelBasic):
 
     def __init__(self, lexicon, wordVectors , windowSize, hiddenSize, _lr,numClasses,numEpochs, batchSize=1, c=0.0,
-                 charModel=None,learningRateUpdStrategy = LearningRateUpdNormalStrategy()):
+                 charModel=None,learningRateUpdStrategy = LearningRateUpdNormalStrategy(),wordVecsUpdStrategy='normal'):
         
         WindowModelBasic.__init__(self, lexicon, wordVectors, windowSize, hiddenSize, _lr, numClasses, numEpochs, 
-                                  batchSize, c, charModel,learningRateUpdStrategy)
-	
-	self.setTestValues = True
+                                  batchSize, c, charModel,learningRateUpdStrategy,False,wordVecsUpdStrategy)
+
+        self.setTestValues = True
         
         
         # Camada: softmax
@@ -80,11 +80,11 @@ class WindowModelByWord(WindowModelBasic):
                 raise Exception("The total number of words in batch exceeds the number of words in inputData")
             
             return np.asarray(self.batchSize);
-	  
-	num = numWords/self.batchSize  
+
+        num = numWords/self.batchSize  
         arr = np.full(num,self.batchSize,dtype=np.int64)
         if numWords%self.batchSize:
-	  arr = np.append(arr, numWords%self.batchSize)
+            arr = np.append(arr, numWords%self.batchSize)
         
         return arr
         #return np.full(numWords/self.batchSize + 1,self.batchSize,dtype=np.int64)
@@ -95,10 +95,10 @@ class WindowModelByWord(WindowModelBasic):
         predict = 0
         
         if self.setTestValues:
-	    
-	    self.testWordWindowIdxs = self.getAllWindowIndexes(inputData)
-	    if self.charModel:
-	        self.charModel.updateAllCharIndexes(unknownDataTest)
+            self.testWordWindowIdxs = self.getAllWindowIndexes(inputData)
+            
+            if self.charModel:
+                self.charModel.updateAllCharIndexes(unknownDataTest)
             
                 charmodelIdxPos = self.charModel.getAllWordCharWindowIndexes(indexesOfRawWord)
                 
@@ -117,7 +117,7 @@ class WindowModelByWord(WindowModelBasic):
             predict = f()[0]
             
         else:
-	    
+
             self.charModel.charWindowIdxs.set_value(self.testCharWindowIdxs,borrow=True)
             self.charModel.posMaxByWord.set_value(self.testPosMaxByWord,borrow=True)
             

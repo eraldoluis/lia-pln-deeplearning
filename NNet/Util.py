@@ -52,6 +52,7 @@ class WeightTanhGenerator:
     def generateWeight(self,fin, fout):
         eInit = self.getEInit(fin ,fout)
         
+        
         return  numpy.random.random_sample((fin, fout)) * 2 * eInit - eInit
     
     def generateVector(self,num):

@@ -14,7 +14,7 @@ from WindowModelBasic import WindowModelBasic
 class CharWNN():
 
     def __init__(self,charcon, charVectors, charIdxWord, numCharsOfWord, charWindowSize, wordWindowSize , convSize,
-                  numClasses, c=0.0,learningRateUpdStrategy = LearningRateUpdNormalStrategy(),separateSentence=False,withAct=False):
+                  numClasses, c=0.0,learningRateUpdStrategy = LearningRateUpdNormalStrategy(),separateSentence=False,withAct=False,charVecsUpdStrategy='normal'):
         
         
         self.CharIdxWord = charIdxWord
@@ -38,6 +38,7 @@ class CharWNN():
         self.cost = None
         self.output = None
         self.withAct = withAct
+        self.charVecsUpdStrategy = charVecsUpdStrategy
         
         self.regularizationFactor = theano.shared(c)
         self.convSize = convSize
@@ -63,7 +64,7 @@ class CharWNN():
                                    name="charWindowIdxs")
                 
         # Camada: lookup table.
-        self.wordToVector = WordToVectorLayer(self.charWindowIdxs,self.Cv, self.charSize, True)
+        self.wordToVector = WordToVectorLayer(self.charWindowIdxs,self.Cv, self.charSize, True,self.charVecsUpdStrategy)
         
         # Camada: hidden layer com a função Tanh como função de ativaçãos
         if self.withAct:

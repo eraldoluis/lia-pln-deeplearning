@@ -177,7 +177,7 @@ def main():
         sys.exit(0)
     
     
-    print "using" + os.environ['OMP_NUM_THREADS'] + " threads"
+    #print "using" + os.environ['OMP_NUM_THREADS'] + " threads"
     
     if args.seed != None:
         random.seed(args.seed)

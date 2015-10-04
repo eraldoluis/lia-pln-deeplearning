@@ -21,6 +21,8 @@ import importlib
 from NNet.Util import LearningRateUpdDivideByEpochStrategy, \
     LearningRateUpdNormalStrategy
 from Evaluate.EvaluatePercPredictsCorrectNotInWordSet import EvaluatePercPredictsCorrectNotInWordSet
+import random
+import os
 
 
 def readVocabAndWord(args):
@@ -159,6 +161,13 @@ def main():
     parser.add_argument('--charvecsupdstrategy', dest='charVecsUpdStrategy', action='store', default=vecsUpStrategyChoices[0], choices=vecsUpStrategyChoices,
                        help='Set the char vectors update strategy. NORMAL, NORMALIZE_MEAN and Z_SCORE are the options available')
 
+    parser.add_argument('--seed', dest='seed', action='store', type=long,
+                       help='', default=None)
+    
+
+    
+
+
     try:
         args = parser.parse_args();
         print args
@@ -166,7 +175,13 @@ def main():
     except:
         parser.print_help()
         sys.exit(0)
-        
+    
+    
+    print "using" + os.environ['OMP_NUM_THREADS'] + " threads"
+    
+    if args.seed != None:
+        random.seed(args.seed)
+        numpy.random.seed(args.seed)
     
     filters = []
     a = 0
@@ -175,6 +190,7 @@ def main():
     args.filters.append('TransformLowerCaseFilter')
     
     while a < len(args.filters):
+        print "Usando o filtro: " + args.filters[a] + " " + args.filters[a + 1]
         module_ = importlib.import_module(args.filters[a])
         filters.append(getattr(module_, args.filters[a + 1])())
         a += 2

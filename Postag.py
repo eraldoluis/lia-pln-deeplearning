@@ -150,8 +150,9 @@ def main():
     parser.add_argument('--charwnnwithact', dest='charwnnWithAct', action='store_true',
                        help='Set training with character embeddings')
     
-    parser.add_argument('--mean_size', dest='meanSize', action='store', type=float,
-                       help='The number of the least used words in the train for unknown word', default=0)
+    parser.add_argument('--mean_size', dest='meanSize', action='store', type=float, default=1.0,
+                       help='The number of the least used words in the train for unknown word' 
+                       + 'Number between 0 and 1 for percentage, number > 1 for literal number to make the mean and negative for mean_all')
     
     vecsUpStrategyChoices = ["normal", "normalize_mean","z_score"]
 
@@ -300,10 +301,13 @@ def main():
                 wordVector.append(None)
                 
             elif args.unknownWordStrategy == unknownWordStrategy[1]:
-                if args.meanSize <1 and args.meanSize>0:
-                    mean_size = int(wordVector.getLength() * args.meanSize)                    
+                if args.meanSize>0.0:
+                    if args.meanSize <1.0:
+                        mean_size = int(wordVector.getLength() * args.meanSize)
+                    else:
+                        mean_size = int(args.meanSize)
                 else:     
-                    mean_size = int(args.meanSize)
+                    mean_size = wordVector.getLength()
                 
                 unknownWordVector = numpy.mean(numpy.asarray(wordVector.getWordVectors()[wordVector.getLength()-mean_size:]), 0)           
                 lexiconIndex = lexicon.put(unknownName)

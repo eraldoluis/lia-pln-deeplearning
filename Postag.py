@@ -151,7 +151,7 @@ def main():
                        help='Set training with character embeddings')
     
     parser.add_argument('--mean_size', dest='meanSize', action='store', type=float,
-                       help='The size of the batch in the train', default=0)
+                       help='The number of the least used words in the train for unknown word', default=0)
     
     vecsUpStrategyChoices = ["normal", "normalize_mean","z_score"]
 

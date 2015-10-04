@@ -139,13 +139,13 @@ def main():
     parser.add_argument('--filewithfeatures', dest='fileWithFeatures', action='store_true',
                        help='Set that the training e testing files have features')
     
-    vecsInitChoices = ["randomAll", "random", "zeros"]
+    vecsInitChoices = ["randomAll", "random", "zeros","z_score","normalize_mean"]
     
     parser.add_argument('--charVecsInit', dest='charVecsInit', action='store', default=vecsInitChoices[1], choices=vecsInitChoices,
-                       help='Set the way to initialize the char vectors. RANDOM and ZEROS are the options available')
+                       help='Set the way to initialize the char vectors. RANDOM, RANDOMALL, ZEROS, Z_SCORE and NORMALIZE_MEAN are the options available')
     
     parser.add_argument('--wordVecsInit', dest='wordVecsInit', action='store', default=vecsInitChoices[1], choices=vecsInitChoices,
-                       help='Set the way to initialize the char vectors. RANDOM and ZEROS are the options available')
+                       help='Set the way to initialize the char vectors. RANDOM, RANDOMALL, ZEROS, Z_SCORE and NORMALIZE_MEAN are the options available')
     
     parser.add_argument('--charwnnwithact', dest='charwnnWithAct', action='store_true',
                        help='Set training with character embeddings')
@@ -371,10 +371,10 @@ def main():
                 if args.charVecsInit == 'randomAll':
                     charVars[1].startAllRandom()
                     
-                if args.charVecsUpdStrategy == 'normalize_mean':
+                if args.charVecsUpdStrategy == 'normalize_mean' or args.charVecsInit == 'normalize_mean':
                     charVars[1].normalizeMean()
                 
-                elif args.charVecsUpdStrategy == 'z_score':
+                elif args.charVecsUpdStrategy == 'z_score' or args.charVecsInit == 'z_score':
                     charVars[1].zScore()
                 
                     
@@ -384,10 +384,10 @@ def main():
             if args.wordVecsInit == 'randomAll':
                 wordVector.startAllRandom()
             
-            if args.wordVecsUpdStrategy == 'normalize_mean':
+            if args.wordVecsUpdStrategy == 'normalize_mean' or args.wordVecsInit == 'normalize_mean':
                 wordVector.normalizeMean()
                 
-            elif args.wordVecsUpdStrategy == 'z_score':
+            elif args.wordVecsUpdStrategy == 'z_score' or args.wordVecsInit == 'z_score':
                 wordVector.zScore()
                 
             
@@ -411,10 +411,10 @@ def main():
                 if args.charVecsInit == 'randomAll':
                     charVars[1].startAllRandom()
                     
-                if args.charVecsUpdStrategy == 'normalize_mean':
+                if args.charVecsUpdStrategy == 'normalize_mean' or args.charVecsInit == 'normalize_mean':
                     charVars[1].normalizeMean()
                 
-                elif args.charVecsUpdStrategy == 'z_score':
+                elif args.charVecsUpdStrategy == 'z_score' or args.charVecsInit == 'z_score':
                     charVars[1].zScore()
                 
                     
@@ -426,10 +426,10 @@ def main():
             if args.wordVecsInit == 'randomAll':
                 wordVector.startAllRandom()
             
-            if args.wordVecsUpdStrategy == 'normalize_mean':
+            if args.wordVecsUpdStrategy == 'normalize_mean' or args.wordVecsInit == 'normalize_mean':
                 wordVector.normalizeMean()
                 
-            elif args.wordVecsUpdStrategy == 'z_score':
+            elif args.wordVecsUpdStrategy == 'z_score' or args.wordVecsInit == 'z_score':
                 wordVector.zScore()
                 
                         

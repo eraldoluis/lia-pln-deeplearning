@@ -11,10 +11,10 @@ from itertools import chain
 class WindowModelBySentence(WindowModelBasic):
 
     def __init__(self, lexicon, wordVectors , windowSize, hiddenSize, _lr,numClasses,numEpochs, batchSize=1, c=0.0,
-                 charModel=None,learningRateUpdStrategy = LearningRateUpdNormalStrategy()):
+                 charModel=None,learningRateUpdStrategy = LearningRateUpdNormalStrategy(),wordVecsUpdStrategy='normal'):
         
         WindowModelBasic.__init__(self, lexicon, wordVectors, windowSize, hiddenSize, _lr, 
-                                  numClasses, numEpochs, batchSize, c,charModel,learningRateUpdStrategy,True)
+                                  numClasses, numEpochs, batchSize, c,charModel,learningRateUpdStrategy,True,wordVecsUpdStrategy)
     
         self.setTestValues = True
         # Camada: softmax

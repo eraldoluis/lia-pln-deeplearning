@@ -139,23 +139,35 @@ def main():
     parser.add_argument('--filewithfeatures', dest='fileWithFeatures', action='store_true',
                        help='Set that the training e testing files have features')
     
-    vecsInitChoices = ["randomAll", "random", "zeros", "normalize"]
+    vecsInitChoices = ["randomAll", "random", "zeros","z_score","normalize_mean"]
     
     parser.add_argument('--charVecsInit', dest='charVecsInit', action='store', default=vecsInitChoices[1], choices=vecsInitChoices,
-                       help='Set the way to initialize the char vectors. RANDOM and ZEROS are the options available')
+                       help='Set the way to initialize the char vectors. RANDOM, RANDOMALL, ZEROS, Z_SCORE and NORMALIZE_MEAN are the options available')
     
     parser.add_argument('--wordVecsInit', dest='wordVecsInit', action='store', default=vecsInitChoices[1], choices=vecsInitChoices,
-                       help='Set the way to initialize the char vectors. RANDOM and ZEROS are the options available')
+                       help='Set the way to initialize the char vectors. RANDOM, RANDOMALL, ZEROS, Z_SCORE and NORMALIZE_MEAN are the options available')
     
     parser.add_argument('--charwnnwithact', dest='charwnnWithAct', action='store_true',
                        help='Set training with character embeddings')
     
-    parser.add_argument('--mean_size', dest='meanSize', action='store', type=float,
-                       help='The size of the batch in the train', default=1)
+    parser.add_argument('--mean_size', dest='meanSize', action='store', type=float, default=1.0,
+                       help='The number of the least used words in the train for unknown word' 
+                       + 'Number between 0 and 1 for percentage, number > 1 for literal number to make the mean and negative for mean_all')
     
+    vecsUpStrategyChoices = ["normal", "normalize_mean","z_score"]
+
+    parser.add_argument('--wordvecsupdstrategy', dest='wordVecsUpdStrategy', action='store', default=vecsUpStrategyChoices[0], choices=vecsUpStrategyChoices,
+                       help='Set the word vectors update strategy. NORMAL, NORMALIZE_MEAN and Z_SCORE are the options available')
+    
+    parser.add_argument('--charvecsupdstrategy', dest='charVecsUpdStrategy', action='store', default=vecsUpStrategyChoices[0], choices=vecsUpStrategyChoices,
+                       help='Set the char vectors update strategy. NORMAL, NORMALIZE_MEAN and Z_SCORE are the options available')
+
     parser.add_argument('--seed', dest='seed', action='store', type=long,
                        help='', default=None)
     
+
+    
+
 
     try:
         args = parser.parse_args();
@@ -165,8 +177,8 @@ def main():
         parser.print_help()
         sys.exit(0)
     
-#     if os.environ['OMP_NUM_THREADS'] != None:
-#         print "using" + os.environ['OMP_NUM_THREADS'] + " threads"
+    
+    #print "using" + os.environ['OMP_NUM_THREADS'] + " threads"
     
     if args.seed != None:
         random.seed(args.seed)
@@ -282,10 +294,32 @@ def main():
         
         unknownNameDefault = u'UUUNKKK'
         
+<<<<<<< HEAD
         
         if args.unknownWordStrategy == unknownWordStrategy[0]:
             if lexicon.isWordExist(unknownNameDefault):
                 raise Exception(unknownNameDefault + u' already exists in the vocabulary.');
+=======
+        if lexicon.getLexiconIndex(unknownName) is lexicon.getUnknownIndex():
+            if args.unknownWordStrategy == unknownWordStrategy[0]:
+                lexiconIndex = lexicon.put(unknownName)
+                lexicon.setUnknownIndex(lexiconIndex)
+                wordVector.append(None)
+                
+            elif args.unknownWordStrategy == unknownWordStrategy[1]:
+                if args.meanSize>0.0:
+                    if args.meanSize <1.0:
+                        mean_size = int(wordVector.getLength() * args.meanSize)
+                    else:
+                        mean_size = int(args.meanSize)
+                else:     
+                    mean_size = wordVector.getLength()
+                
+                unknownWordVector = numpy.mean(numpy.asarray(wordVector.getWordVectors()[wordVector.getLength()-mean_size:]), 0)           
+                lexiconIndex = lexicon.put(unknownName)
+                lexicon.setUnknownIndex(lexiconIndex)
+                wordVector.append(unknownWordVector.tolist())
+>>>>>>> e5a6262398dd47b1f0f0862b72bfc926f86ab6fe
             
             lexiconIndex = lexicon.put(unknownNameDefault)
             lexicon.setUnknownIndex(lexiconIndex)
@@ -368,16 +402,29 @@ def main():
                 if args.charVecsInit == 'randomAll':
                     charVars[1].startAllRandom()
                     
+                if args.charVecsUpdStrategy == 'normalize_mean' or args.charVecsInit == 'normalize_mean':
+                    charVars[1].normalizeMean()
+                
+                elif args.charVecsUpdStrategy == 'z_score' or args.charVecsInit == 'z_score':
+                    charVars[1].zScore()
+                
+                    
                 charModel = CharWNN(charVars[0], charVars[1], charVars[2], charVars[3], args.charWindowSize, args.wordWindowSize,
-                        args.convSize, numClasses, args.c, learningRateUpdStrategy, separeSentence, args.charwnnWithAct);
+                        args.convSize, numClasses, args.c, learningRateUpdStrategy, separeSentence, args.charwnnWithAct,args.charVecsUpdStrategy);
             
             if args.wordVecsInit == 'randomAll':
                 wordVector.startAllRandom()
-            elif args.wordVecsInit == 'normalize':
-                wordVector.normalize()
+            
+            if args.wordVecsUpdStrategy == 'normalize_mean' or args.wordVecsInit == 'normalize_mean':
+                wordVector.normalizeMean()
+                
+            elif args.wordVecsUpdStrategy == 'z_score' or args.wordVecsInit == 'z_score':
+                wordVector.zScore()
+                
+            
             
             model = WindowModelByWord(lexicon, wordVector, args.wordWindowSize, args.hiddenSize, args.lr, numClasses,
-                                      args.numepochs, args.batchSize, args.c, charModel, learningRateUpdStrategy);
+                                      args.numepochs, args.batchSize, args.c, charModel, learningRateUpdStrategy,args.wordVecsUpdStrategy);
         
         elif args.alg == algTypeChoices[1]:
             separeSentence = True
@@ -395,19 +442,30 @@ def main():
                 if args.charVecsInit == 'randomAll':
                     charVars[1].startAllRandom()
                     
+                if args.charVecsUpdStrategy == 'normalize_mean' or args.charVecsInit == 'normalize_mean':
+                    charVars[1].normalizeMean()
+                
+                elif args.charVecsUpdStrategy == 'z_score' or args.charVecsInit == 'z_score':
+                    charVars[1].zScore()
+                
+                    
                 
                     
                 charModel = CharWNN(charVars[0], charVars[1], charVars[2], charVars[3], args.charWindowSize, args.wordWindowSize,
-                        args.convSize, numClasses, args.c, learningRateUpdStrategy, separeSentence, args.charwnnWithAct);
+                        args.convSize, numClasses, args.c, learningRateUpdStrategy, separeSentence, args.charwnnWithAct,args.charVecsUpdStrategy);
                         
             if args.wordVecsInit == 'randomAll':
                 wordVector.startAllRandom()
-            elif args.wordVecsInit == 'normalize':
-                wordVector.normalize()
+            
+            if args.wordVecsUpdStrategy == 'normalize_mean' or args.wordVecsInit == 'normalize_mean':
+                wordVector.normalizeMean()
+                
+            elif args.wordVecsUpdStrategy == 'z_score' or args.wordVecsInit == 'z_score':
+                wordVector.zScore()
                 
                         
             model = WindowModelBySentence(lexicon, wordVector, args.wordWindowSize, args.hiddenSize, args.lr,
-                                          numClasses, args.numepochs, args.batchSize, args.c, charModel, learningRateUpdStrategy)
+                                          numClasses, args.numepochs, args.batchSize, args.c, charModel, learningRateUpdStrategy,args.wordVecsUpdStrategy)
             
         
                    

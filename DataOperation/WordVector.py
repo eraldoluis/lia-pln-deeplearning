@@ -64,5 +64,10 @@ class WordVector:
     def startAllRandom(self):
         self.__wordVecs = self.__generatorWeight.generateWeight(self.__len,self.__wordSize)
         
-    def normalize(self):
+    def normalizeMean(self):
+        self.__wordVecs = (self.__wordVecs - np.mean(np.asarray(self.__wordVecs)))/np.ptp(np.asarray(self.__wordVecs))
+        
+    def zScore(self):
         self.__wordVecs = (self.__wordVecs - np.mean(np.asarray(self.__wordVecs)))/np.std(np.asarray(self.__wordVecs))
+        
+        

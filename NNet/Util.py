@@ -55,7 +55,6 @@ def generateRandomNumberUniformly(low,high,n_in, n_out):
         return numpy.random.uniform(low,high,(n_in,n_out))
 
 class WeightTanhGenerator:
-    
     def generateWeight(self,n_in, n_out):
         high = numpy.sqrt(6. / (n_in + n_out))
         return generateRandomNumberUniformly(-high, high, n_in, n_out)

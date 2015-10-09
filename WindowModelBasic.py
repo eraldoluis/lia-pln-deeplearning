@@ -30,9 +30,9 @@ class WindowModelBasic:
     def setEndSymbol(endSymbol):
         WindowModelBasic.endSymbolStr = endSymbol
 
+    def __init__(self, lexicon, wordVectors , windowSize, hiddenSize, _lr,numClasses,numEpochs, batchSize=1.0, c=0.0,charModel=None
+		 ,learningRateUpdStrategy = LearningRateUpdNormalStrategy(),randomizeInput=False,wordVecsUpdStrategy='normal'):
 
-    def __init__(self, lexicon, wordVectors , windowSize, hiddenSize, _lr, numClasses, numEpochs, batchSize=1.0, c=0.0, charModel=None
-		 , learningRateUpdStrategy=LearningRateUpdNormalStrategy(), randomizeInput=False):
 
         self.Wv = theano.shared(name='wordVecs',
                                 value=np.asarray(wordVectors.getWordVectors(), dtype=theano.config.floatX),
@@ -54,6 +54,7 @@ class WindowModelBasic:
         self.regularizationFactor = theano.shared(c)
         self.y = theano.shared(np.asarray([0]), "y", borrow=True)
         
+        self.wordVecsUpdStrategy = wordVecsUpdStrategy
         self.charModel = charModel
         self.isToRandomizeInput = randomizeInput
         self.numCharByWord = theano.shared(np.asarray([0]), 'numCharByWord', int)
@@ -86,7 +87,7 @@ class WindowModelBasic:
         
         
         # Camada: lookup table.
-        self.wordToVector = WordToVectorLayer(self.windowIdxs, self.Wv, self.wordSize, True)
+        self.wordToVector = WordToVectorLayer(self.windowIdxs, self.Wv, self.wordSize, True,self.wordVecsUpdStrategy)
         
         if self.charModel == None:
             # Camada: hidden layer com a funÃ§Ã£o Tanh como funÃ§Ã£o de ativaÃ§Ã£os

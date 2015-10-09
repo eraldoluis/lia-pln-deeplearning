@@ -165,8 +165,8 @@ def main():
         parser.print_help()
         sys.exit(0)
     
-    
-    print "using" + os.environ['OMP_NUM_THREADS'] + " threads"
+#     if os.environ['OMP_NUM_THREADS'] != None:
+#         print "using" + os.environ['OMP_NUM_THREADS'] + " threads"
     
     if args.seed != None:
         random.seed(args.seed)
@@ -280,32 +280,40 @@ def main():
         
         args.unknownWordStrategy
         
-        unknownName = u'UUUNKKK'
+        unknownNameDefault = u'UUUNKKK'
         
-        if lexicon.getLexiconIndex(unknownName) is lexicon.getUnknownIndex():
-            if args.unknownWordStrategy == unknownWordStrategy[0]:
-                lexiconIndex = lexicon.put(unknownName)
-                lexicon.setUnknownIndex(lexiconIndex)
-                wordVector.append(None)
-                
-            elif args.unknownWordStrategy == unknownWordStrategy[1]:
-                if args.meanSize <1 and args.meanSize>0:
-                    mean_size = int(wordVector.getLength() * args.meanSize)                    
-                else:     
-                    mean_size = int(args.meanSize)
-                
-                unknownWordVector = numpy.mean(numpy.asarray(wordVector.getWordVectors()[wordVector.getLength()-mean_size:]), 0)           
-                lexiconIndex = lexicon.put(unknownName)
-                lexicon.setUnknownIndex(lexiconIndex)
-                wordVector.append(unknownWordVector.tolist())
+        
+        if args.unknownWordStrategy == unknownWordStrategy[0]:
+            if lexicon.isWordExist(unknownNameDefault):
+                raise Exception(unknownNameDefault + u' already exists in the vocabulary.');
             
-            elif args.unknownWordStrategy == unknownWordStrategy[2]:
-                lexiconIndex = lexicon.getLexiconIndex(unicode(args.unknownWord, "utf-8"))
+            lexiconIndex = lexicon.put(unknownNameDefault)
+            lexicon.setUnknownIndex(lexiconIndex)
+            wordVector.append(None)
             
-                if lexicon.isUnknownIndex(lexiconIndex):
-                    raise Exception('Unknown Word Value passed does not exist in the unsupervised dictionary');
+        elif args.unknownWordStrategy == unknownWordStrategy[1]:
+            if lexicon.isWordExist(unknownNameDefault):
+                raise Exception(unknownNameDefault + u' already exists in the vocabulary.');
             
-                lexicon.setUnknownIndex(lexiconIndex)
+            if args.meanSize <1 and args.meanSize>0:
+                mean_size = int(wordVector.getLength() * args.meanSize)                    
+            else:     
+                mean_size = int(args.meanSize)
+            
+            unknownWordVector = numpy.mean(numpy.asarray(wordVector.getWordVectors()[wordVector.getLength()-mean_size:]), 0)           
+            lexiconIndex = lexicon.put(unknownNameDefault)
+            lexicon.setUnknownIndex(lexiconIndex)
+            wordVector.append(unknownWordVector.tolist())
+        
+        elif args.unknownWordStrategy == unknownWordStrategy[2]:
+            lexiconIndex = lexicon.getLexiconIndex(unicode(args.unknownWord, "utf-8"))
+        
+            if lexicon.isUnknownIndex(lexiconIndex):
+                raise Exception('Unknown Word Value passed does not exist in the unsupervised dictionary');
+        
+            lexicon.setUnknownIndex(lexiconIndex)
+        else:
+            raise Exception('Unknown Word Value passed does not exist in the unsupervised dictionary');
         
                 
                                
@@ -325,10 +333,10 @@ def main():
                 numCharsOfLexiconRaw.append(1) 
                 charIndexesOfLexiconRaw[idx] = [idx2]
             
-            if lexiconRaw.getLexiconIndex(unknownName) is lexiconRaw.getUnknownIndex():
-                idx = lexiconRaw.put(unknownName)
+            if lexiconRaw.getLexiconIndex(unknownNameDefault) is lexiconRaw.getUnknownIndex():
+                idx = lexiconRaw.put(unknownNameDefault)
                 lexiconRaw.setUnknownIndex(idx)
-                idx2 = charcon.put(unknownName)
+                idx2 = charcon.put(unknownNameDefault)
                 charcon.setUnknownIndex(idx2)
             
                 numCharsOfLexiconRaw.append(1)

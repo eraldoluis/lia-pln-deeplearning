@@ -1,4 +1,4 @@
-#import theano
+import theano
 import theano.tensor as T
 import numpy
 
@@ -47,20 +47,45 @@ def regularizationSquareSumParamaters(parameters,regularizationFactor,numberExam
 
 ################################ OBJECTS ########################
 
+
+def generateRandomNumberUniformly(low,high,n_in, n_out):
+    if n_out == 0.0:
+        return numpy.random.uniform(low,high,(n_in))
+    else:
+        return numpy.random.uniform(low,high,(n_in,n_out))
+
 class WeightTanhGenerator:
     
-    def generateWeight(self,fin, fout):
-        eInit = self.getEInit(fin ,fout)
-        
-        return  numpy.random.random_sample((fin, fout)) * 2 * eInit - eInit
+    def generateWeight(self,n_in, n_out):
+        high = numpy.sqrt(6. / (n_in + n_out))
+        return generateRandomNumberUniformly(-high, high, n_in, n_out)
     
-    def generateVector(self,num):
-        eInit = self.getEInit(num, 0);
-        
-        return  numpy.random.random_sample(num) * 2 * eInit - eInit
+class WeightBottou88Generator:
     
-    def getEInit(self,fin,fout):
-        return numpy.sqrt(6. / (fin + fout))
+    def generateWeight(self,n_in, n_out = 0.0):
+        high = 2.38 / numpy.sqrt(n_in)
+        
+        return generateRandomNumberUniformly(-high, high, n_in, n_out)
+    
+class WeightEqualZeroGenerator:
+    def generateWeight(self,n_in, n_out = 0.0): 
+        if n_out == 0.0:
+            return numpy.zeros(n_in,dtype=theano.config.floatX)
+        else:
+            return numpy.zeros((n_in,n_out),dtype=theano.config.floatX)
+
+class WeightEqualOneGenerator:
+    
+    def generateWeight(self,n_in, n_out = 0.0):  
+        if n_out == 0.0:
+            return numpy.ones(n_in,dtype=theano.config.floatX)
+        else:
+            return numpy.ones((n_in,n_out),dtype=theano.config.floatX)
+    
+class FeatureVectorsGenerator:
+    
+    def generateVector(self,num_features,min_value=-0.1, max_value=0.1 ):
+        return  (max_value * 2) * numpy.random.random_sample(num_features) + min_value
 
 class LearningRateUpdNormalStrategy:
     

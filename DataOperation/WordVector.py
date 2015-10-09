@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
 
-from NNet.Util import WeightTanhGenerator
+from NNet.Util import FeatureVectorsGenerator
 import codecs
 import numpy as np
 
@@ -10,7 +10,7 @@ class WordVector:
     
     def __init__(self,filePath='',wordSize=-1,mode=None):        
         self.__wordVecs = []
-        self.__generatorWeight = WeightTanhGenerator()
+        self.__generatorWeight = FeatureVectorsGenerator()
         if filePath:
             self.putUsingFile(filePath)
         else:

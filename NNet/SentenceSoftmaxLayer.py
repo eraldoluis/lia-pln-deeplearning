@@ -4,33 +4,29 @@
 import theano.tensor as T
 import numpy
 import theano
-from NNet.Util import defaultGradParameters, WeightTanhGenerator
+from NNet.Util import defaultGradParameters, WeightTanhGenerator,\
+    WeightEqualZeroGenerator, WeightBottou88Generator,\
+    generateRandomNumberUniformly
 from _collections import deque
 
 class SentenceSoftmaxLayer(object):
    
     def __init__(self, input, numberNeuronsPreviousLayer, numberClasses):
         self.W = theano.shared(
-            value=numpy.zeros(
-                (numberNeuronsPreviousLayer, numberClasses),
-                dtype=theano.config.floatX
-            ),
+            value = WeightBottou88Generator().generateWeight(numberNeuronsPreviousLayer, numberClasses),
             name='W_softmax',
             borrow=True
         )
 
         self.b = theano.shared(
-            value=numpy.zeros(
-                (numberClasses,),
-                dtype=theano.config.floatX
-            ),
+            value=WeightBottou88Generator().generateWeight(numberClasses),
             name='b_softmax',
             borrow=True
         )
         
         self.emissionValues = T.dot(input, self.W) + self.b
         self.transitionValues = theano.shared(
-                                    numpy.zeros((numberClasses, numberClasses + 1),dtype=theano.config.floatX),
+                                    generateRandomNumberUniformly(-1.0,1.0,numberClasses, numberClasses + 1),
                                     name="transitionValues",
                                     borrow=True)
         self.numClasses = numberClasses;

@@ -1,7 +1,8 @@
 import theano.tensor as T
 import numpy
 import theano 
-from NNet.Util import defaultGradParameters, WeightTanhGenerator
+from NNet.Util import defaultGradParameters, WeightTanhGenerator,\
+    WeightEqualZeroGenerator
 
 
 class HiddenLayer(object):
@@ -61,7 +62,7 @@ class HiddenLayer(object):
             W = theano.shared(value=W_values, name='W_hiddenLayer', borrow=True)
 
         if b is None:
-            b_values = numpy.zeros((numberClasses,), dtype=theano.config.floatX)
+            b_values = WeightEqualZeroGenerator().generateWeight(numberClasses)
             b = theano.shared(value=b_values, name='b_hiddenLayer', borrow=True)
 
         self.W = W

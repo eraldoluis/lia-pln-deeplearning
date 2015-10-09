@@ -70,6 +70,6 @@ class EvaluatePercPredictsCorrectNotInWordSet:
             i+=1
             
         if total == 0:
-            return NaN
+            return None
         
         return sum / float(total)

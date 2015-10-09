@@ -37,6 +37,9 @@ class MacMorphoReader:
             
         if lexicon.isUnknownIndex(lexiconIndex) and unknownData is not None:
             unknownData.append(word)
+            
+        if lexiconIndex < 0:
+            raise Exception(u'The lexiconIndex of ' + word + u' is negative. Probably the unknown word was not set');
         
         indexesBySentence.append(lexiconIndex)
         

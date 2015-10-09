@@ -72,8 +72,12 @@ class Lexicon:
     def isUnknownIndex(self,index):
         return index == self.unknown_index
     
+    def isWordExist(self,word):
+        return not self.isUnknownIndex(self.getLexiconIndex(word))
+    
     def setUnknownIndex(self,unknown_index):
         self.unknown_index = unknown_index
+        
     def printi(self):
         print self.__lexicon
         print self.__lexiconDict

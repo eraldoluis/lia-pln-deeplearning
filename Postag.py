@@ -294,32 +294,9 @@ def main():
         
         unknownNameDefault = u'UUUNKKK'
         
-<<<<<<< HEAD
-        
         if args.unknownWordStrategy == unknownWordStrategy[0]:
             if lexicon.isWordExist(unknownNameDefault):
                 raise Exception(unknownNameDefault + u' already exists in the vocabulary.');
-=======
-        if lexicon.getLexiconIndex(unknownName) is lexicon.getUnknownIndex():
-            if args.unknownWordStrategy == unknownWordStrategy[0]:
-                lexiconIndex = lexicon.put(unknownName)
-                lexicon.setUnknownIndex(lexiconIndex)
-                wordVector.append(None)
-                
-            elif args.unknownWordStrategy == unknownWordStrategy[1]:
-                if args.meanSize>0.0:
-                    if args.meanSize <1.0:
-                        mean_size = int(wordVector.getLength() * args.meanSize)
-                    else:
-                        mean_size = int(args.meanSize)
-                else:     
-                    mean_size = wordVector.getLength()
-                
-                unknownWordVector = numpy.mean(numpy.asarray(wordVector.getWordVectors()[wordVector.getLength()-mean_size:]), 0)           
-                lexiconIndex = lexicon.put(unknownName)
-                lexicon.setUnknownIndex(lexiconIndex)
-                wordVector.append(unknownWordVector.tolist())
->>>>>>> e5a6262398dd47b1f0f0862b72bfc926f86ab6fe
             
             lexiconIndex = lexicon.put(unknownNameDefault)
             lexicon.setUnknownIndex(lexiconIndex)

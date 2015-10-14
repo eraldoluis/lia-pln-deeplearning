@@ -120,7 +120,7 @@ def main():
     
     
     
-    networkChoices= ["complete","without_hidden_update_wv" ,"without_update"]
+    networkChoices= ["complete","without_hidden_update_wv" ,"without_update_wv"]
     
     parser.add_argument('--networkChoice', dest='networkChoice', action='store',default=networkChoices[0],choices=networkChoices)
     

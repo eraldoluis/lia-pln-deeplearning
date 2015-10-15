@@ -14,10 +14,10 @@ class EvaluatePercPredictsCorrectNotInWordSet:
         self.testName = testName
     
     
-    def evaluateWithPrint(self,predicts,corrects,inputData,unkwonDataTestVec):
-        print "Result " + str(self.testName) + ": " + str(self.evaluate(predicts,corrects,inputData,unkwonDataTestVec))
+    def evaluateWithPrint(self,predicts,corrects,inputData,unknwonDataTestVec):
+        print "Result " + str(self.testName) + ": " + str(self.evaluate(predicts,corrects,inputData,unknwonDataTestVec))
         
-    def evaluate(self,predicts,corrects,inputData,unkwonDataTestVec):
+    def evaluate(self,predicts,corrects,inputData,unknwonDataTestVec):
         predict = numpy.asarray(predicts)
         correct = numpy.asarray(corrects)
         inputData = numpy.asarray(inputData)
@@ -29,7 +29,7 @@ class EvaluatePercPredictsCorrectNotInWordSet:
         sum = 0
         i = 0
         
-        indexUnkownDataVec = 0
+        indexUnknownDataVec = 0
         
         while i < len(predict):
             if isinstance(predict[i], list) or isinstance(predict[i], ndarray) : 
@@ -37,13 +37,13 @@ class EvaluatePercPredictsCorrectNotInWordSet:
                 if len(predict[i]) != len(correct[i]):
                     raise Exception('O número de predições é diferente do número de exemplos')
                 
-                indexUnkownDataVec = 0
+                indexUnknownDataVec = 0
                        
                 for p,c,input in itertools.izip(predict[i],correct[i],inputData[i]):
                     
                     if self.lexicon.isUnknownIndex(input):
-                        word = unkwonDataTestVec[i][indexUnkownDataVec]
-                        indexUnkownDataVec += 1
+                        word = unknwonDataTestVec[i][indexUnknownDataVec]
+                        indexUnknownDataVec += 1
                     else:
                         word = self.lexicon.getLexicon(input)
                     
@@ -56,8 +56,8 @@ class EvaluatePercPredictsCorrectNotInWordSet:
             else:
                 
                 if self.lexicon.isUnknownIndex(inputData[i]):
-                    word = unkwonDataTestVec[indexUnkownDataVec]
-                    indexUnkownDataVec += 1
+                    word = unknwonDataTestVec[indexUnknownDataVec]
+                    indexUnknownDataVec += 1
                 else:
                     word = self.lexicon.getLexicon(inputData[i])
                 
@@ -70,6 +70,6 @@ class EvaluatePercPredictsCorrectNotInWordSet:
             i+=1
             
         if total == 0:
-            return NaN
+            return None
         
         return sum / float(total)

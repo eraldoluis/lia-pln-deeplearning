@@ -4,33 +4,29 @@
 import theano.tensor as T
 import numpy
 import theano
-from NNet.Util import defaultGradParameters, WeightTanhGenerator
+from NNet.Util import defaultGradParameters, WeightTanhGenerator,\
+    WeightEqualZeroGenerator, WeightBottou88Generator,\
+    generateRandomNumberUniformly
 from _collections import deque
 
 class SentenceSoftmaxLayer(object):
    
     def __init__(self, input, numberNeuronsPreviousLayer, numberClasses):
         self.W = theano.shared(
-            value=numpy.zeros(
-                (numberNeuronsPreviousLayer, numberClasses),
-                dtype=theano.config.floatX
-            ),
+            value = WeightBottou88Generator().generateWeight(numberNeuronsPreviousLayer, numberClasses),
             name='W_softmax',
             borrow=True
         )
 
         self.b = theano.shared(
-            value=numpy.zeros(
-                (numberClasses,),
-                dtype=theano.config.floatX
-            ),
+            value=WeightBottou88Generator().generateWeight(numberClasses),
             name='b_softmax',
             borrow=True
         )
         
         self.emissionValues = T.dot(input, self.W) + self.b
         self.transitionValues = theano.shared(
-                                    numpy.zeros((numberClasses, numberClasses + 1),dtype=theano.config.floatX),
+                                    generateRandomNumberUniformly(-1.0,1.0,numberClasses, numberClasses + 1),
                                     name="transitionValues",
                                     borrow=True)
         self.numClasses = numberClasses;
@@ -50,7 +46,7 @@ class SentenceSoftmaxLayer(object):
          
         """
         A primeira execução do scan é totalmente inútil. 
-        Foi necessário fazer deste jeito, pois as frases com uma só palavra fazem com que o n_steps do scan fosse igual 0,
+        Foi necessário fazer deste jeito, pois as frases com uma só palavra fazem com que o n_steps do scan fosse igual à 0,
         já que no código anterior n_steps = numWords - 1. Porém, o scan,na versão 0.7, não suporta n_steps igual a zero.
         """
         def stepToCalculateAllPath(posWord,delta):
@@ -94,12 +90,12 @@ class SentenceSoftmaxLayer(object):
               
             return [delta,argMax];
   
-        [max, argMax], updates =  theano.scan(fn= viterbiStep ,
+        [maxi, argMax], updates =  theano.scan(fn= viterbiStep ,
             sequences= T.arange(1,numWords),
             outputs_info= [delta,argMax],
             n_steps = numWords - 1)
 
-        lastClass = T.argmax(max[-1])
+        lastClass = T.argmax(maxi[-1])
              
         self.viterbi = theano.function(inputs=[],outputs=[lastClass,argMax[-1]] , updates=updates)
         

@@ -40,6 +40,7 @@ class Lexicon:
         Include a new word in the lexicon and return its index. If the word is
         already in the lexicon, then just return its index.
         '''
+
         idx = self.__lexiconDict.get(word)
         if idx is None:
             # Insert a unseen word in the lexicon.
@@ -61,12 +62,23 @@ class Lexicon:
         the return 0 (the unknown lexicon).
         '''
         return self.__lexiconDict.get(word, self.unknown_index)
+      
+    def getDict(self):
+        return self.__lexiconDict
     
-    def getUnkownIndex(self):
+    def getUnknownIndex(self):
         return self.unknown_index
     
     def isUnknownIndex(self,index):
         return index == self.unknown_index
     
-    def setUnkownIndex(self,unknown_index):
+    def isWordExist(self,word):
+        return not self.isUnknownIndex(self.getLexiconIndex(word))
+    
+    def setUnknownIndex(self,unknown_index):
         self.unknown_index = unknown_index
+        
+    def printi(self):
+        print self.__lexicon
+        print self.__lexiconDict
+        print self.unknown_index

@@ -37,10 +37,12 @@ class EvaluateAccuracy:
                     raise Exception('O número de predições é diferente do número de exemplos')
                        
                 for p,c in itertools.izip(predict[i],correct[i]):
+                    
                     if p == c:
                         sum += 1
                     total += 1
             else:
+                
                 if predict[i] == correct[i]:
                     sum += 1
                 

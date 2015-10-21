@@ -15,6 +15,7 @@ class WordVector:
             self.putUsingFile(filePath)
         else:
             self.__wordSize = wordSize
+        
         self.mode = mode
         self.__len = 0
         
@@ -24,7 +25,7 @@ class WordVector:
             if self.mode =='zeros':
                 wordVector = np.zeros(self.__wordSize)
             elif self.mode == 'randomAll':
-                self.__len +=1    
+                self.__len +=1
                 return
             else:    
                 wordVector = self.__generatorWeight.generateVector(self.__wordSize)

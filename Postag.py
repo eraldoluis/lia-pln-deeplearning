@@ -23,9 +23,23 @@ from NNet.Util import LearningRateUpdDivideByEpochStrategy, \
 from Evaluate.EvaluatePercPredictsCorrectNotInWordSet import EvaluatePercPredictsCorrectNotInWordSet
 import random
 import os
+import logging
+
+
+class ParametersChoices:
+    unknownWordStrategy = ["random", "mean_vector", "word_vocab"]
+    algTypeChoices = ["window_word", "window_sentence"]
+    lrStrategyChoices = ["normal", "divide_epoch"]
+    networkChoices = ["complete", "without_hidden_update_wv" , "without_update_wv"]
+
 
 
 def readVocabAndWord(args):
+    
+    """Este if só foi criado para permitir que DLIDPostag possa reusar o run do postag"""
+    if isinstance(args.vocab, Lexicon) and isinstance(args.wordVectors, WordVector): 
+        return args.vocab, args.wordVectors
+    
     if args.vocab == args.wordVectors or args.vocab is not None or args.wordVectors is not None:
         fi = args.wordVectors if args.wordVectors is not None else args.vocab
         lexicon, wordVector = ReaderLexiconAndWordVec().readData(fi)
@@ -35,6 +49,283 @@ def readVocabAndWord(args):
     
     return lexicon, wordVector
 
+
+
+def run(algTypeChoices, unknownWordStrategy, lrStrategyChoices, networkChoices, args):
+    
+    logger = logging.getLogger("Logger")
+    
+    filters = []
+    a = 0
+    args.filters.append('DataOperation.TransformLowerCaseFilter')
+    args.filters.append('TransformLowerCaseFilter')
+    while a < len(args.filters):
+        print "Usando o filtro: " + args.filters[a] + " " + args.filters[a + 1]
+        module_ = importlib.import_module(args.filters[a])
+        filters.append(getattr(module_, args.filters[a + 1])())
+        a += 2
+    
+    t0 = time.time()
+    datasetReader = MacMorphoReader(args.fileWithFeatures)
+    testData = None
+    if args.testOOUV:
+        unknownDataTest = []
+    else:
+        unknownDataTest = None
+# charVars = [charcon, charVector, charIndexesOfLexiconRaw, numCharsOfLexiconRaw]
+    charVars = [None, None, {}, []]
+    
+    if args.loadModel is not None:
+        print 'Loading model in ' + args.loadModel + ' ...'
+        f = open(args.loadModel, "rb")
+        lexicon, lexiconOfLabel, lexiconRaw, model, charVars = pickle.load(f)
+    
+        if isinstance(model, WindowModelByWord):
+            separeSentence = False
+        elif isinstance(model, WindowModelBySentence):
+            separeSentence = True
+        if model.charModel == None:
+            print "The loaded model does not have char embeddings"
+            args.withCharwnn = False
+        else:
+            print "The loaded model has char embeddings"
+            args.withCharwnn = True
+        
+        model.setTestValues = True
+        
+        if args.testOOSV:
+            lexiconFindInTrain = set()
+            # datasetReader.readData(args.train,lexicon,lexiconOfLabel, separateSentences=separateSentence,filters=filters,lexiconFindInTrain=lexiconFindInTrain)
+            datasetReader.readData(args.train, lexicon, lexiconOfLabel, lexiconRaw, separateSentences=separeSentence, withCharwnn=args.withCharwnn, charVars=charVars, filters=filters, setWordsInDataSet=lexiconFindInTrain)
+        if args.testOOUV:
+            lexiconWV, wv = readVocabAndWord(args)
+            lexiconFindInWV = set([word for word in lexiconWV.getLexiconDict()])
+            # lexiconFindInWV = set()
+            # datasetReader.readData(args.train,lexiconWV,lexiconOfLabel, lexiconRaw, separateSentences=separeSentence,withCharwnn=args.withCharwnn,
+            #                       charVars=charVars,filters=filters,setWordsInDataSet=lexiconFindInWV)
+        f.close()
+    else:
+        print 'Loading dictionary...'
+        
+        WindowModelBasic.setStartSymbol(args.startSymbol)
+        WindowModelBasic.setEndSymbol(args.endSymbol)
+        
+        lexiconRaw = Lexicon()
+        charcon = Lexicon()
+        charIndexesOfLexiconRaw = {}
+        
+        numCharsOfLexiconRaw = []
+        charVector = WordVector(wordSize=args.charVecSize, mode=args.charVecsInit)
+        # charVector = WordVector(wordSize=args.charVecSize)
+        
+        if args.vocab is not None or args.wordVectors is not None:
+            lexicon, wordVector = readVocabAndWord(args)
+            
+            if lexicon.isUnknownIndex(lexicon.getLexiconIndex(WindowModelBasic.startSymbolStr)):
+                raise Exception("O vocabulário não possui o símbolo de começo\"<s>)\"")
+            if lexicon.isUnknownIndex(lexicon.getLexiconIndex(WindowModelBasic.endSymbolStr)):
+                raise Exception("O vocabulário não possui o símbolo de final\"<\s>)\"")
+            if lexicon.getLen() != wordVector.getLength():
+                raise Exception("O número de palavras no vacabulário é diferente do número de palavras do word Vector")
+            if args.testOOUV:
+                lexiconFindInWV = set([word for word in lexicon.getLexiconDict()])
+            addWordUnknown = False
+        else:
+            wordVector = WordVector(wordSize=args.wordVecSize, mode=args.wordVecsInit)
+            lexicon = Lexicon()
+            
+            lexicon.put(WindowModelBasic.startSymbolStr)
+            wordVector.append(None)
+            
+            if WindowModelBasic.startSymbolStr != WindowModelBasic.endSymbolStr:
+                lexicon.put(WindowModelBasic.endSymbolStr)
+                wordVector.append(None)
+            if args.testOOUV:
+                lexiconFindInWV = set()
+            addWordUnknown = True
+        
+        unknownNameDefault = u'UUUNKKK'
+        
+        if args.unknownWordStrategy == unknownWordStrategy[0]:
+            if lexicon.isWordExist(unknownNameDefault):
+                raise Exception(unknownNameDefault + u' already exists in the vocabulary.')
+            
+            lexiconIndex = lexicon.put(unknownNameDefault)
+            lexicon.setUnknownIndex(lexiconIndex)
+            wordVector.append(None)
+        
+        elif args.unknownWordStrategy == unknownWordStrategy[1]:
+            if lexicon.isWordExist(unknownNameDefault):
+                raise Exception(unknownNameDefault + u' already exists in the vocabulary.')
+            if args.meanSize < 1 and args.meanSize > 0:
+                mean_size = int(wordVector.getLength() * args.meanSize)
+            else:
+                mean_size = int(args.meanSize)
+            
+            unknownWordVector = numpy.mean(numpy.asarray(wordVector.getWordVectors()[wordVector.getLength() - mean_size:]), 0)
+            lexiconIndex = lexicon.put(unknownNameDefault)
+            lexicon.setUnknownIndex(lexiconIndex)
+            wordVector.append(unknownWordVector.tolist())
+        
+        elif args.unknownWordStrategy == unknownWordStrategy[2]:
+            lexiconIndex = lexicon.getLexiconIndex(unicode(args.unknownWord, "utf-8"))
+            if lexicon.isUnknownIndex(lexiconIndex):
+                raise Exception('Unknown Word Value passed does not exist in the unsupervised dictionary')
+            lexicon.setUnknownIndex(lexiconIndex)
+        else:
+            raise Exception('Unknown Word Value passed does not exist in the unsupervised dictionary')
+        
+        if args.withCharwnn:
+            
+            idx = lexiconRaw.put(WindowModelBasic.startSymbolStr)
+            idx2 = charcon.put(WindowModelBasic.startSymbolStr)
+            charVector.append(None)
+            numCharsOfLexiconRaw.append(1)
+            charIndexesOfLexiconRaw[idx] = [idx2]
+            
+            if WindowModelBasic.startSymbolStr != WindowModelBasic.endSymbolStr:
+                idx = lexiconRaw.put(WindowModelBasic.endSymbolStr)
+                idx2 = charcon.put(WindowModelBasic.endSymbolStr)
+                charVector.append(None)
+                numCharsOfLexiconRaw.append(1)
+                charIndexesOfLexiconRaw[idx] = [idx2]
+            
+            if lexiconRaw.getLexiconIndex(unknownNameDefault) is lexiconRaw.getUnknownIndex():
+                idx = lexiconRaw.put(unknownNameDefault)
+                lexiconRaw.setUnknownIndex(idx)
+                idx2 = charcon.put(unknownNameDefault)
+                charcon.setUnknownIndex(idx2)
+                numCharsOfLexiconRaw.append(1)
+                charIndexesOfLexiconRaw[idx] = [idx2]
+                charVector.append(None)
+            # charVars = [charcon,charVector, charIndexesOfLexiconRaw, numCharsOfLexiconRaw]
+            charVars = [charcon, charVector, charIndexesOfLexiconRaw, numCharsOfLexiconRaw]
+        
+        lexiconOfLabel = Lexicon()
+        charModel = None
+        
+        if args.lrUpdStrategy == lrStrategyChoices[0]:
+            learningRateUpdStrategy = LearningRateUpdNormalStrategy()
+        elif args.lrUpdStrategy == lrStrategyChoices[1]:
+            learningRateUpdStrategy = LearningRateUpdDivideByEpochStrategy()
+        
+        lexiconFindInTrain = set() if args.testOOSV else None
+        
+        if args.alg == algTypeChoices[0]:
+            separeSentence = False
+            print 'Loading train data...'
+            
+            trainData = datasetReader.readData(args.train, lexicon, lexiconOfLabel, lexiconRaw, wordVector, separeSentence,
+                addWordUnknown, args.withCharwnn, charVars, True, filters, lexiconFindInTrain)
+            
+            numClasses = lexiconOfLabel.getLen()
+            
+            if args.withCharwnn:
+                if args.charVecsInit == 'randomAll':
+                    charVars[1].startAllRandom()
+                if args.charVecsUpdStrategy == 'normalize_mean' or args.charVecsInit == 'normalize_mean':
+                    charVars[1].normalizeMean()
+                elif args.charVecsUpdStrategy == 'z_score' or args.charVecsInit == 'z_score':
+                    charVars[1].zScore()
+                charModel = CharWNN(charVars[0], charVars[1], charVars[2], charVars[3], args.charWindowSize, args.wordWindowSize,
+                    args.convSize, numClasses, args.c, learningRateUpdStrategy, separeSentence, args.charwnnWithAct, args.charVecsUpdStrategy)
+            
+            if args.wordVecsInit == 'randomAll':
+                wordVector.startAllRandom()
+            if args.wordVecsUpdStrategy == 'normalize_mean' or args.wordVecsInit == 'normalize_mean':
+                wordVector.normalizeMean()
+            elif args.wordVecsUpdStrategy == 'z_score' or args.wordVecsInit == 'z_score':
+                wordVector.zScore()
+            
+            model = WindowModelByWord(lexicon, wordVector, args.wordWindowSize, args.hiddenSize, args.lr, numClasses,
+                args.numepochs, args.batchSize, args.c, charModel, learningRateUpdStrategy, args.wordVecsUpdStrategy)
+        
+        elif args.alg == algTypeChoices[1]:
+            separeSentence = True
+            
+            print 'Loading train data...'
+            
+            trainData = datasetReader.readData(args.train, lexicon, lexiconOfLabel, lexiconRaw,
+                wordVector, separeSentence, addWordUnknown, args.withCharwnn, charVars, True, filters, lexiconFindInTrain)
+            
+            if args.networkChoice == networkChoices[0]:
+                networkChoice = NeuralNetworkChoiceEnum.COMPLETE
+            elif args.networkChoice == networkChoices[1]:
+                networkChoice = NeuralNetworkChoiceEnum.WITHOUT_HIDDEN_LAYER_AND_UPD_WV
+            elif args.networkChoice == networkChoices[2]:
+                networkChoice = NeuralNetworkChoiceEnum.WITHOUT_UPD_WV
+            else:
+                networkChoice = NeuralNetworkChoiceEnum.COMPLETE
+            
+            numClasses = lexiconOfLabel.getLen()
+            
+            if args.withCharwnn:
+                if args.charVecsInit == 'randomAll':
+                    charVars[1].startAllRandom()
+                if args.charVecsUpdStrategy == 'normalize_mean' or args.charVecsInit == 'normalize_mean':
+                    charVars[1].normalizeMean()
+                elif args.charVecsUpdStrategy == 'z_score' or args.charVecsInit == 'z_score':
+                    charVars[1].zScore()
+                charModel = CharWNN(charVars[0], charVars[1], charVars[2], charVars[3], args.charWindowSize, args.wordWindowSize,
+                    args.convSize, numClasses, args.c, learningRateUpdStrategy, separeSentence, args.charwnnWithAct, args.charVecsUpdStrategy)
+            
+            if args.wordVecsInit == 'randomAll':
+                wordVector.startAllRandom()
+            if args.wordVecsUpdStrategy == 'normalize_mean' or args.wordVecsInit == 'normalize_mean':
+                wordVector.normalizeMean()
+            elif args.wordVecsUpdStrategy == 'z_score' or args.wordVecsInit == 'z_score':
+                wordVector.zScore()
+            
+            model = WindowModelBySentence(lexicon, wordVector, args.wordWindowSize, args.hiddenSize, args.lr,
+                numClasses, args.numepochs, args.batchSize, args.c, charModel, learningRateUpdStrategy, args.wordVecsUpdStrategy, networkChoice)
+        
+        if args.numPerEpoch is not None and len(args.numPerEpoch) != 0:
+            print 'Loading test data...'
+            unknownDataTestCharIdxs = []
+            
+            testData = datasetReader.readTestData(args.test, lexicon, lexiconOfLabel, lexiconRaw, separeSentence, False, args.withCharwnn, charVars, False, filters, unknownDataTest, unknownDataTestCharIdxs)
+            
+            evalListener = EvaluateEveryNumEpoch(args.numepochs, args.numPerEpoch, EvaluateAccuracy(), model, testData[0], testData[1], testData[2], unknownDataTestCharIdxs)
+            
+            model.addListener(evalListener)
+        
+        print 'Training...'
+        model.train(trainData[0], trainData[1], trainData[2])
+        
+        if args.saveModel is not None:
+            print 'Saving Model...'
+            f = open(args.saveModel, "wb")
+            pickle.dump([lexicon, lexiconOfLabel, lexiconRaw, model, charVars], f, pickle.HIGHEST_PROTOCOL)
+            f.close()
+            print 'Model save with sucess in ' + args.saveModel
+    
+    t1 = time.time()
+    
+    print "Train time: %s seconds" % (str(t1 - t0))
+    print 'Loading test data...'
+    
+    if testData is None:
+        unknownDataTestCharIdxs = []
+        testData = datasetReader.readTestData(args.test, lexicon, lexiconOfLabel, lexiconRaw, separeSentence, False, args.withCharwnn, charVars, False, filters, unknownDataTest, unknownDataTestCharIdxs)
+    
+    print 'Testing...'
+    
+    predicts = model.predict(testData[0], testData[2], unknownDataTestCharIdxs)
+    evalue = EvaluateAccuracy()
+    acc = evalue.evaluateWithPrint(predicts, testData[1])
+    
+    if args.testOOSV:
+        oosv = EvaluatePercPredictsCorrectNotInWordSet(lexicon, lexiconFindInTrain, 'OOSV')
+        oosv.evaluateWithPrint(predicts, testData[1], testData[0], unknownDataTest)
+    
+    if args.testOOUV:
+        oouv = EvaluatePercPredictsCorrectNotInWordSet(lexicon, lexiconFindInWV, 'OOUV')
+        oouv.evaluateWithPrint(predicts, testData[1], testData[0], unknownDataTest)
+    
+    t2 = time.time()
+    
+    print "Test  time: %s seconds" % (str(t2 - t1))
+    print "Total time: %s seconds" % (str(t2 - t0))
 
 def main():
     
@@ -52,9 +343,9 @@ def main():
     parser.add_argument('--withCharwnn', dest='withCharwnn', action='store_true',
                        help='Set training with character embeddings')
     
-    algTypeChoices = ["window_word", "window_sentence"]
     
-    parser.add_argument('--alg', dest='alg', action='store', default="window_sentence", choices=algTypeChoices,
+    
+    parser.add_argument('--alg', dest='alg', action='store', default="window_sentence", choices=ParametersChoices.algTypeChoices,
                        help='The type of algorithm to train and test')
     
     parser.add_argument('--hiddenlayersize', dest='hiddenSize', action='store', type=int,
@@ -118,11 +409,9 @@ def main():
     parser.add_argument('--testoouv', dest='testOOUV', action='store_true', default=False,
                        help='Do the test OOUV')
     
-    unknownWordStrategy = ["random", "mean_vector", "word_vocab"]
     
-    
-    parser.add_argument('--unknownwordstrategy', dest='unknownWordStrategy', action='store', default=unknownWordStrategy[0]
-                        , choices=unknownWordStrategy,
+    parser.add_argument('--unknownwordstrategy', dest='unknownWordStrategy', action='store', default=ParametersChoices.unknownWordStrategy[0]
+                        , choices=ParametersChoices.unknownWordStrategy,
                        help='Choose the strategy that will be used for constructing a word vector of a unknown word.'
                        + 'There are three types of strategy: random(generate randomly a word vector) ,' + 
                        ' mean_all_vector(generate the word vector from the mean of all words)' + 
@@ -131,15 +420,16 @@ def main():
     parser.add_argument('--unknownword', dest='unknownWord', action='store', default=False,
                        help='The word which will be used to represent the unknown word')
     
-    lrStrategyChoices = ["normal", "divide_epoch"]
     
-    parser.add_argument('--lrupdstrategy', dest='lrUpdStrategy', action='store', default=lrStrategyChoices[0], choices=lrStrategyChoices,
+    
+    parser.add_argument('--lrupdstrategy', dest='lrUpdStrategy', action='store', default=ParametersChoices.lrStrategyChoices[0]
+                        , choices=ParametersChoices.lrStrategyChoices,
                        help='Set the learning rate update strategy. NORMAL and DIVIDE_EPOCH are the options available')
         
     parser.add_argument('--filewithfeatures', dest='fileWithFeatures', action='store_true',
                        help='Set that the training e testing files have features')
     
-    vecsInitChoices = ["randomAll", "random", "zeros","z_score","normalize_mean"]
+    vecsInitChoices = ["randomAll", "random", "zeros", "z_score", "normalize_mean"]
     
     parser.add_argument('--charVecsInit', dest='charVecsInit', action='store', default=vecsInitChoices[1], choices=vecsInitChoices,
                        help='Set the way to initialize the char vectors. RANDOM, RANDOMALL, ZEROS, Z_SCORE and NORMALIZE_MEAN are the options available')
@@ -151,15 +441,13 @@ def main():
                        help='Set training with character embeddings')
     
     
-    networkChoices= ["complete","without_hidden_update_wv" ,"without_update_wv"]
-    
-    parser.add_argument('--networkChoice', dest='networkChoice', action='store',default=networkChoices[0],choices=networkChoices)
+    parser.add_argument('--networkChoice', dest='networkChoice', action='store', default=ParametersChoices.networkChoices[0], choices=ParametersChoices.networkChoices)
     
     parser.add_argument('--mean_size', dest='meanSize', action='store', type=float, default=1.0,
                        help='The number of the least used words in the train for unknown word' 
                        + 'Number between 0 and 1 for percentage, number > 1 for literal number to make the mean and negative for mean_all')
     
-    vecsUpStrategyChoices = ["normal", "normalize_mean","z_score"]
+    vecsUpStrategyChoices = ["normal", "normalize_mean", "z_score"]
 
     parser.add_argument('--wordvecsupdstrategy', dest='wordVecsUpdStrategy', action='store', default=vecsUpStrategyChoices[0], choices=vecsUpStrategyChoices,
                        help='Set the word vectors update strategy. NORMAL, NORMALIZE_MEAN and Z_SCORE are the options available')
@@ -170,6 +458,16 @@ def main():
     parser.add_argument('--seed', dest='seed', action='store', type=long,
                        help='', default=None)
     
+    logger = logging.getLogger("Logger")
+    formatter = logging.Formatter('[%(asctime)s]\t%(message)s')
+    
+    ch = logging.StreamHandler()
+    ch.setLevel(logging.INFO)
+    ch.setFormatter(formatter)
+    logger.addHandler(ch)
+    
+    logger.setLevel(logging.INFO)
+    
     try:
         args = parser.parse_args();
         print args
@@ -179,337 +477,14 @@ def main():
         sys.exit(0)
     
     
-    #print "using" + os.environ['OMP_NUM_THREADS'] + " threads"
+    # print "using" + os.environ['OMP_NUM_THREADS'] + " threads"
+    
     
     if args.seed != None:
         random.seed(args.seed)
         numpy.random.seed(args.seed)
     
-    filters = []
-    a = 0
-    
-    args.filters.append('DataOperation.TransformLowerCaseFilter')
-    args.filters.append('TransformLowerCaseFilter')
-    
-    while a < len(args.filters):
-        print "Usando o filtro: " + args.filters[a] + " " + args.filters[a + 1]
-        module_ = importlib.import_module(args.filters[a])
-        filters.append(getattr(module_, args.filters[a + 1])())
-        a += 2
-        
-    t0 = time.time()
-    
-    
-    datasetReader = MacMorphoReader(args.fileWithFeatures)
-    
-    testData = None
-    
-    if args.testOOUV:
-        unknownDataTest = []
-    else:
-        unknownDataTest = None
-    
-    
-    # charVars = [charcon, charVector, charIndexesOfLexiconRaw, numCharsOfLexiconRaw]  
-    charVars = [None, None, {}, []] 
-    
-    if args.loadModel is not None:
-        print 'Loading model in ' + args.loadModel + ' ...'
-        f = open(args.loadModel, "rb");
-        lexicon, lexiconOfLabel, lexiconRaw, model, charVars = pickle.load(f)
-        
-        if isinstance(model, WindowModelByWord):
-            separeSentence = False
-        elif isinstance(model, WindowModelBySentence): 
-            separeSentence = True
-        
-        if model.charModel == None:
-            print "The loaded model does not have char embeddings"
-            args.withCharwnn = False
-        else:
-            print "The loaded model has char embeddings"
-            args.withCharwnn = True
-        
-        model.setTestValues = True    
-                
-        if args.testOOSV:
-            lexiconFindInTrain = set()
-            # datasetReader.readData(args.train,lexicon,lexiconOfLabel, separateSentences=separateSentence,filters=filters,lexiconFindInTrain=lexiconFindInTrain)
-            datasetReader.readData(args.train, lexicon, lexiconOfLabel, lexiconRaw, separateSentences=separeSentence, withCharwnn=args.withCharwnn,
-                                   charVars=charVars, filters=filters, setWordsInDataSet=lexiconFindInTrain)
-        if args.testOOUV:
-            lexiconWV, wv = readVocabAndWord(args)
-            lexiconFindInWV = set([ word for word in lexiconWV.getLexiconDict()])
-            # lexiconFindInWV = set()
-            # datasetReader.readData(args.train,lexiconWV,lexiconOfLabel, lexiconRaw, separateSentences=separeSentence,withCharwnn=args.withCharwnn,
-            #                       charVars=charVars,filters=filters,setWordsInDataSet=lexiconFindInWV)
-            
-        f.close()
-    else:        
-        print 'Loading dictionary...'
-        
-        WindowModelBasic.setStartSymbol(args.startSymbol)
-        WindowModelBasic.setEndSymbol(args.endSymbol)
-        lexiconRaw = Lexicon()
-        charcon = Lexicon()
-        charIndexesOfLexiconRaw = {}
-        numCharsOfLexiconRaw = []
-        
-        charVector = WordVector(wordSize=args.charVecSize, mode=args.charVecsInit)
-        # charVector = WordVector(wordSize=args.charVecSize)
-
-        if args.vocab is not None or args.wordVectors is not None:
-            lexicon, wordVector = readVocabAndWord(args)
-            
-            if lexicon.isUnknownIndex(lexicon.getLexiconIndex(WindowModelBasic.startSymbolStr)):
-                raise Exception("O vocabulário não possui o símbolo de começo\"<s>)\"")
-            if lexicon.isUnknownIndex(lexicon.getLexiconIndex(WindowModelBasic.endSymbolStr)):
-                raise Exception("O vocabulário não possui o símbolo de final\"<\s>)\"")
-            if lexicon.getLen() != wordVector.getLength():
-                raise Exception("O número de palavras no vacabulário é diferente do número de palavras do word Vector")
-            
-            if args.testOOUV:
-                lexiconFindInWV = set([ word for word in lexicon.getLexiconDict()])
-                
-            addWordUnknown = False
-        else:
-            wordVector = WordVector(wordSize=args.wordVecSize, mode=args.wordVecsInit)
-            lexicon = Lexicon()
-            
-            lexicon.put(WindowModelBasic.startSymbolStr)
-            wordVector.append(None)
-            
-            
-            if WindowModelBasic.startSymbolStr != WindowModelBasic.endSymbolStr: 
-                lexicon.put(WindowModelBasic.endSymbolStr)
-                wordVector.append(None)
-                     
-                
-            if args.testOOUV:
-                lexiconFindInWV = set()
-            
-            addWordUnknown = True
-            
-        
-        args.unknownWordStrategy
-        
-        unknownNameDefault = u'UUUNKKK'
-        
-        if args.unknownWordStrategy == unknownWordStrategy[0]:
-            if lexicon.isWordExist(unknownNameDefault):
-                raise Exception(unknownNameDefault + u' already exists in the vocabulary.');
-            
-            lexiconIndex = lexicon.put(unknownNameDefault)
-            lexicon.setUnknownIndex(lexiconIndex)
-            wordVector.append(None)
-            
-        elif args.unknownWordStrategy == unknownWordStrategy[1]:
-            if lexicon.isWordExist(unknownNameDefault):
-                raise Exception(unknownNameDefault + u' already exists in the vocabulary.');
-            
-            if args.meanSize <1 and args.meanSize>0:
-                mean_size = int(wordVector.getLength() * args.meanSize)                    
-            else:     
-                mean_size = int(args.meanSize)
-            
-            unknownWordVector = numpy.mean(numpy.asarray(wordVector.getWordVectors()[wordVector.getLength()-mean_size:]), 0)           
-            lexiconIndex = lexicon.put(unknownNameDefault)
-            lexicon.setUnknownIndex(lexiconIndex)
-            wordVector.append(unknownWordVector.tolist())
-        
-        elif args.unknownWordStrategy == unknownWordStrategy[2]:
-            lexiconIndex = lexicon.getLexiconIndex(unicode(args.unknownWord, "utf-8"))
-        
-            if lexicon.isUnknownIndex(lexiconIndex):
-                raise Exception('Unknown Word Value passed does not exist in the unsupervised dictionary');
-        
-            lexicon.setUnknownIndex(lexiconIndex)
-        else:
-            raise Exception('Unknown Word Value passed does not exist in the unsupervised dictionary');
-        
-                
-                               
-        if args.withCharwnn:
-            
-            idx = lexiconRaw.put(WindowModelBasic.startSymbolStr)
-            idx2 = charcon.put(WindowModelBasic.startSymbolStr)
-            charVector.append(None)
-            numCharsOfLexiconRaw.append(1)
-            charIndexesOfLexiconRaw[idx] = [idx2]
-                        
-            if WindowModelBasic.startSymbolStr != WindowModelBasic.endSymbolStr:   
-        
-                idx = lexiconRaw.put(WindowModelBasic.endSymbolStr)
-                idx2 = charcon.put(WindowModelBasic.endSymbolStr)
-                charVector.append(None)
-                numCharsOfLexiconRaw.append(1) 
-                charIndexesOfLexiconRaw[idx] = [idx2]
-            
-            if lexiconRaw.getLexiconIndex(unknownNameDefault) is lexiconRaw.getUnknownIndex():
-                idx = lexiconRaw.put(unknownNameDefault)
-                lexiconRaw.setUnknownIndex(idx)
-                idx2 = charcon.put(unknownNameDefault)
-                charcon.setUnknownIndex(idx2)
-            
-                numCharsOfLexiconRaw.append(1)
-                charIndexesOfLexiconRaw[idx] = [idx2]
-                charVector.append(None)
-            
-            # charVars = [charcon,charVector, charIndexesOfLexiconRaw, numCharsOfLexiconRaw]  
-            charVars = [charcon, charVector, charIndexesOfLexiconRaw, numCharsOfLexiconRaw]
-        
-        lexiconOfLabel = Lexicon()     
-        charModel = None    
-        
-        if args.lrUpdStrategy == lrStrategyChoices[0]:
-            learningRateUpdStrategy = LearningRateUpdNormalStrategy()
-        elif args.lrUpdStrategy == lrStrategyChoices[1]:
-            learningRateUpdStrategy = LearningRateUpdDivideByEpochStrategy()
-        
-        lexiconFindInTrain = set() if args.testOOSV else None
-        
-        
-        if args.alg == algTypeChoices[0]:
-            separeSentence = False
-            print 'Loading train data...'
-            trainData = datasetReader.readData(args.train, lexicon, lexiconOfLabel, lexiconRaw, wordVector, separeSentence,
-                                               addWordUnknown, args.withCharwnn, charVars, True, filters, lexiconFindInTrain)
-    
-            numClasses = lexiconOfLabel.getLen()
-            if args.withCharwnn:
-                if args.charVecsInit == 'randomAll':
-                    charVars[1].startAllRandom()
-                    
-                if args.charVecsUpdStrategy == 'normalize_mean' or args.charVecsInit == 'normalize_mean':
-                    charVars[1].normalizeMean()
-                
-                elif args.charVecsUpdStrategy == 'z_score' or args.charVecsInit == 'z_score':
-                    charVars[1].zScore()
-                
-                    
-                charModel = CharWNN(charVars[0], charVars[1], charVars[2], charVars[3], args.charWindowSize, args.wordWindowSize,
-                        args.convSize, numClasses, args.c, learningRateUpdStrategy, separeSentence, args.charwnnWithAct,args.charVecsUpdStrategy);
-            
-            if args.wordVecsInit == 'randomAll':
-                wordVector.startAllRandom()
-            
-            if args.wordVecsUpdStrategy == 'normalize_mean' or args.wordVecsInit == 'normalize_mean':
-                wordVector.normalizeMean()
-                
-            elif args.wordVecsUpdStrategy == 'z_score' or args.wordVecsInit == 'z_score':
-                wordVector.zScore()
-                
-            
-            
-            model = WindowModelByWord(lexicon, wordVector, args.wordWindowSize, args.hiddenSize, args.lr, numClasses,
-                                      args.numepochs, args.batchSize, args.c, charModel, learningRateUpdStrategy,args.wordVecsUpdStrategy);
-        
-        elif args.alg == algTypeChoices[1]:
-            separeSentence = True
-            print 'Loading train data...'
-            
-            trainData = datasetReader.readData(args.train, lexicon, lexiconOfLabel, lexiconRaw,
-                            wordVector, separeSentence, addWordUnknown, args.withCharwnn, charVars, True, filters, lexiconFindInTrain);
-            
-            
-            
-            if args.networkChoice == networkChoices[0]:
-                networkChoice = NeuralNetworkChoiceEnum.COMPLETE
-            elif args.networkChoice == networkChoices[1]:
-                networkChoice = NeuralNetworkChoiceEnum.WITHOUT_HIDDEN_LAYER_AND_UPD_WV
-            elif args.networkChoice == networkChoices[2]:
-                networkChoice = NeuralNetworkChoiceEnum.WITHOUT_UPD_WV
-            else:
-                networkChoice = NeuralNetworkChoiceEnum.COMPLETE
-            
-            numClasses = lexiconOfLabel.getLen()            
-            
-            if args.withCharwnn:
-                if args.charVecsInit == 'randomAll':
-                    charVars[1].startAllRandom()
-                    
-                if args.charVecsUpdStrategy == 'normalize_mean' or args.charVecsInit == 'normalize_mean':
-                    charVars[1].normalizeMean()
-                
-                elif args.charVecsUpdStrategy == 'z_score' or args.charVecsInit == 'z_score':
-                    charVars[1].zScore()
-                
-                    
-                
-                    
-                charModel = CharWNN(charVars[0], charVars[1], charVars[2], charVars[3], args.charWindowSize, args.wordWindowSize,
-                        args.convSize, numClasses, args.c, learningRateUpdStrategy, separeSentence, args.charwnnWithAct,args.charVecsUpdStrategy);
-                        
-            if args.wordVecsInit == 'randomAll':
-                wordVector.startAllRandom()
-            
-            if args.wordVecsUpdStrategy == 'normalize_mean' or args.wordVecsInit == 'normalize_mean':
-                wordVector.normalizeMean()
-                
-            elif args.wordVecsUpdStrategy == 'z_score' or args.wordVecsInit == 'z_score':
-                wordVector.zScore()
-                        
-            model = WindowModelBySentence(lexicon, wordVector, args.wordWindowSize, args.hiddenSize, args.lr,
-                                          numClasses, args.numepochs, args.batchSize, args.c, charModel, learningRateUpdStrategy,args.wordVecsUpdStrategy,networkChoice)
-            
-        
-                   
-        if args.numPerEpoch is not None and len(args.numPerEpoch) != 0 :
-            print 'Loading test data...'
-            unknownDataTestCharIdxs = []
-            testData = datasetReader.readTestData(args.test, lexicon, lexiconOfLabel, lexiconRaw, separeSentence, False, args.withCharwnn, charVars, False, filters, unknownDataTest, unknownDataTestCharIdxs)
-            
-            
-            evalListener = EvaluateEveryNumEpoch(args.numepochs, args.numPerEpoch, EvaluateAccuracy(), model, testData[0], testData[1], testData[2], unknownDataTestCharIdxs)
-            
-            model.addListener(evalListener)
-        
-        
-        
-        
-        print 'Training...'
-        
-        
-        model.train(trainData[0], trainData[1], trainData[2]);
-        
-        if args.saveModel is not None:
-            print 'Saving Model...'
-            f = open(args.saveModel, "wb");
-            pickle.dump([lexicon, lexiconOfLabel, lexiconRaw, model, charVars], f, pickle.HIGHEST_PROTOCOL)
-            f.close()
-            
-            print 'Model save with sucess in ' + args.saveModel
-
-    t1 = time.time()
-    print ("Train time: %s seconds" % (str(t1 - t0)))
-    
-    print 'Loading test data...'
-    
-    if testData is None:
-        unknownDataTestCharIdxs = []     
-        testData = datasetReader.readTestData(args.test, lexicon, lexiconOfLabel, lexiconRaw, separeSentence, False, args.withCharwnn, charVars, False, filters, unknownDataTest, unknownDataTestCharIdxs)
-        
-        
-        
-    
-    print 'Testing...'
-    predicts = model.predict(testData[0], testData[2], unknownDataTestCharIdxs);
-    
-    evalue = EvaluateAccuracy()
-    acc = evalue.evaluateWithPrint(predicts, testData[1]);
-    
-    if args.testOOSV:
-        oosv = EvaluatePercPredictsCorrectNotInWordSet(lexicon, lexiconFindInTrain, 'OOSV')
-        oosv.evaluateWithPrint(predicts, testData[1], testData[0], unknownDataTest)
-    
-    if args.testOOUV:
-        oouv = EvaluatePercPredictsCorrectNotInWordSet(lexicon, lexiconFindInWV, 'OOUV')
-        oouv.evaluateWithPrint(predicts, testData[1], testData[0], unknownDataTest)
-    
-
-    t2 = time.time()
-    print ("Test  time: %s seconds" % (str(t2 - t1)))
-    print ("Total time: %s seconds" % (str(t2 - t0)))
+    run(ParametersChoices.algTypeChoices, ParametersChoices.unknownWordStrategy, ParametersChoices.lrStrategyChoices, ParametersChoices.networkChoices, args)
     
 if __name__ == '__main__':
     main()

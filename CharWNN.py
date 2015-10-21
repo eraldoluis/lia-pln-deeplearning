@@ -147,7 +147,7 @@ class CharWNN():
             numChar.append(numCharSentence)      
         
         
-        return [np.array(charWindowOfWord),np.asarray(maxPosByWord),np.array(numChar)]
+        return [np.array(charWindowOfWord),np.asarray(maxPosByWord,dtype="int64"),np.array(numChar)]
 
         
     #esta funcao monta a janela de chars de uma palavra    

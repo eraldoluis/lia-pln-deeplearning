@@ -4,7 +4,7 @@
 import argparse
 import time
 
-from DataOperation.MacMophorReader import MacMorphoReader
+from DataOperation.TokenLabelReader import TokenLabelReader
 from DataOperation.WordVector import WordVector
 from Evaluate.EvaluateAccuracy import EvaluateAccuracy
 from WindowModelBySentence import WindowModelBySentence, NeuralNetworkChoiceEnum
@@ -66,7 +66,7 @@ def run(algTypeChoices, unknownWordStrategy, lrStrategyChoices, networkChoices, 
         a += 2
     
     t0 = time.time()
-    datasetReader = MacMorphoReader(args.fileWithFeatures)
+    datasetReader = TokenLabelReader(args.fileWithFeatures,args.tokenLabelSeparator)
     testData = None
     if args.testOOUV:
         unknownDataTest = []
@@ -343,7 +343,8 @@ def main():
     parser.add_argument('--withCharwnn', dest='withCharwnn', action='store_true',
                        help='Set training with character embeddings')
     
-    
+    parser.add_argument('--tokenLabelSeparator', dest='tokenLabelSeparator', action='store', required=False, default="_",
+                            help="Specify the character that is being used to separate the token from the label in the dataset.")
     
     parser.add_argument('--alg', dest='alg', action='store', default="window_sentence", choices=ParametersChoices.algTypeChoices,
                        help='The type of algorithm to train and test')

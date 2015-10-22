@@ -5,11 +5,13 @@
 '''
 import re
 import codecs
+import logging
 
-class MacMorphoReader:
+class TokenLabelReader:
     
-    def __init__(self,fileWithFeatures):
-        self.fileWithFeatures = fileWithFeatures 
+    def __init__(self,fileWithFeatures,tokenLabelSeparator):
+        self.fileWithFeatures = fileWithFeatures
+        self.__tokenLabelSeparator = tokenLabelSeparator
      
     def readTestData(self, filename,lexicon,lexiconOfLabel,lexiconRaw,separateSentences=True,addWordUnknown=False,withCharwnn=False,charVars=[None,None,{},[]],addCharUnknown=False,filters=[],unknownDataTest=None,unknownDataTestCharIdxs=None):
         return self.readData(filename, lexicon, lexiconOfLabel,lexiconRaw,None,separateSentences,False,withCharwnn,charVars,False,filters,None,unknownDataTest,unknownDataTestCharIdxs)
@@ -81,10 +83,16 @@ class MacMorphoReader:
             self.addLabel(lexiconOfLabel, labelsBySentence, token)
                                 
     def readTokenAndLabelOfRawFile(self, lexicon, lexiconOfLabel, wordVecs, addWordUnknown, filters, indexesBySentence, labelsBySentence,lexiconRaw, indexesOfRawBySentence, numCharsOfRawBySentence,token, setWordsInDataSet,unknownData,withCharwnn,charVars,addCharUnknown,unknownDataCharIdxs):
+    
+        s = token.rsplit(self.__tokenLabelSeparator,1)
         
-            
-        s = token.split('_')
-        
+        if len(s[1]) == 0:
+            logging.getLogger("Logger").warn("It was not found the label from "\
+                         "the token " + token + ". We give to this token "\
+                         " a label equal to"\
+                         " the tokenLabelSeparator( " + self.__tokenLabelSeparator +")" )
+              
+            s[1] = self.__tokenLabelSeparator
                 
         if (len(s[0]) and len(s[1])):
             self.addToken(lexicon, wordVecs, addWordUnknown, filters, indexesBySentence, s[0],setWordsInDataSet,unknownData,

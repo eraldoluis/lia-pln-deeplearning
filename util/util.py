@@ -14,7 +14,7 @@ def execProcess(cmd, logger, working_director=None):
 def unicodeToSrt(s):
     return str(s.encode('utf-8'))
 
-def getFileNameInPath():
+def getFileNameInPath(str):
     return os.path.split(str)[1]
 
 def removeExtension(file):    

@@ -11,6 +11,7 @@ import util
 import re
 import sys
 import NNet
+import logging
 
 
 class UnknownGenerateStrategy:
@@ -42,8 +43,11 @@ class MeanLessShowedWordsUnknownStrategy(UnknownGenerateStrategy):
         words = []
         dim =  len(wv.itervalues().next())
         
+        wordVectorFile.readline()
+        
         for line in wordVectorFile:
-            words.append(line.rstrip().split(maxsplit=1)[0])
+            
+            words.append(line.rstrip().split(' ', 1 )[0])
         
         
         if self.meanSize <1 and self.meanSize>0:
@@ -52,16 +56,17 @@ class MeanLessShowedWordsUnknownStrategy(UnknownGenerateStrategy):
             numberWordToUse = int(self.meanSize)
         
         if numberWordToUse > len(words):
-            raise NameError('O número de palavras para serem usadas na construção  é maior que o número de palavras no dicionário')
+            raise NameError('O nï¿½mero de palavras para serem usadas na construï¿½ï¿½o  ï¿½ maior que o nï¿½mero de palavras no dicionï¿½rio')
         
         
         averageWordVector = [0.0] * dim
         numberWordToUseAux = numberWordToUse
         
         while numberWordToUseAux > 0:
-            for w in wv[words.pop()]:
-                for i in range(len(w)):
-                    averageWordVector[i] += w[i]
+            w  = wv[words.pop()]
+
+            for i in range(len(w)):
+                averageWordVector[i] += w[i]
             
             numberWordToUseAux -= 1
             
@@ -75,17 +80,17 @@ class MeanLessShowedWordsUnknownStrategy(UnknownGenerateStrategy):
 class ChosenUnknownStrategy(UnknownGenerateStrategy):
     
     def __init__(self,unknownName):
-        self.unknownName= unknownName
-        self.randomUnknownStrategy = RandomUnknownStrategy()
+        self.__unknownName= unknownName
+        self.__randomUnknownStrategy = RandomUnknownStrategy()
     
     def getUnknownStr(self):
-        return self.unknownName
+        return self.__unknownName
     
     def generateUnkown(self,wv,wvFile):
-        if self.unknown in wv:
-            return wv[self.unknown]
+        if self.__unknownName in wv:
+            return wv[self.__unknownName]
         
-        return self.randomUnknownStrategy.generateUnkown(wv)
+        return self.__randomUnknownStrategy.generateUnkown(wv,wvFile)
 
 
 class WordFeatureGenerator:
@@ -102,13 +107,14 @@ class WordFeatureGenerator:
     
 class Word2VecGenerate(WordFeatureGenerator):
     
-    def __init__(self, w2vPath, unknownGenerateStrategy):
+    def __init__(self, w2vPath, unknownGenerateStrategy,logger):
         self.__w2vPath = w2vPath
         self.__filters = []
         self.__unknownGenerateStrategy = unknownGenerateStrategy
+        self.__logger = logger
     
     def addFilter(self, filter):
-        self.__datasetModifier.append(filter)
+        self.__filters.append(filter)
     
     @staticmethod
     def readW2VFile(filename):
@@ -121,7 +127,7 @@ class Word2VecGenerate(WordFeatureGenerator):
         for line in file:
             if re.search('^[0-9]+ [0-9]+$', line):
                 if a > 0:
-                    raise Exception('Foi encontrado mais de uma linha no arquivo que contém o número de exemplos e tamanho do word vector')
+                    raise Exception('Foi encontrado mais de uma linha no arquivo que contï¿½m o nï¿½mero de exemplos e tamanho do word vector')
                 a += 1
                 continue;
             line = line.rstrip()
@@ -147,12 +153,7 @@ class Word2VecGenerate(WordFeatureGenerator):
             else:
                 index = 0
             
-            if len(optionName) < 3:
-                end = len(optionName)
-            else:
-                end = 4
-            
-            parStrW2v[optionName[index:end]] = parStrW2vPassed[i + 1]
+            parStrW2v[optionName[index:]] = parStrW2vPassed[i + 1]
                 
             i += 2
         
@@ -164,44 +165,46 @@ class Word2VecGenerate(WordFeatureGenerator):
             
         return token
     
-    def __iterateByToken(self, lines, tokenLabelSeparator):
-        for line in lines:
-            tokensWithLabels = line.split(' ')
+    def __iterateByToken(self, line, tokenLabelSeparator):
+        tokensWithLabels = line.split(' ')
+        
+        i = 0
+        
+        for token in tokensWithLabels:
+            if token.isspace() or not token:
+                continue
             
-            i = 0
+            # Removendo as tags dos token
+            if tokenLabelSeparator != None and tokenLabelSeparator != "":
+                t = token.rsplit(tokenLabelSeparator,1)
+                
+                if len(t[1]) == 0:
+                    logging.getLogger("Logger").warn("It was not found the label from "\
+                                 "the token " + token + ". We give to this token "\
+                                 " a label equal to"\
+                                 " the tokenLabelSeparator( " + tokenLabelSeparator +")" )
+                      
+                    t[1] = tokenLabelSeparator
+                str = t[0]
+            else:
+                str = token
             
-            for token in tokensWithLabels:
-                if token.isspace() or not token:
-                    continue
-                
-                # Removendo as tags dos token
-                if tokenLabelSeparator != None and tokenLabelSeparator != "":
-                    t = token.split(tokenLabelSeparator)
-                    if len(t) != 2:
-                        if not t[0] and len(t) == 3:
-                            str = '/'
-                        else:  
-                            raise NameError(u'O token não tem label ou tem um' + tokenLabelSeparator + ' adicional.\nToken: ' + token + u"\nLinha: " + line)
-                    else:
-                        str = t[0]
-                else:
-                    str = token
-                
-                i += 1
-                char = ' ' if i != len(tokensWithLabels) else '\n'
-                
-                yield str, char
+            i += 1
+            char = ' ' if i != len(tokensWithLabels) else '\n'
+            
+            yield str, char
     
     def __createDicitionary(self, lines, perc, tokenLabelSeparator):
         databaseDict = {}
         
-        for token, separator in self.__iterateByToken(lines, tokenLabelSeparator):
-            token = self.__preprocessText(token)
-            
-            if token not in databaseDict:
-                databaseDict[token] = 1
-            else:
-                databaseDict[token] += 1
+        for line in lines:
+            for token, separator in self.__iterateByToken(line, tokenLabelSeparator):
+                token = self.__preprocessText(token)
+                
+                if token not in databaseDict:
+                    databaseDict[token] = 1
+                else:
+                    databaseDict[token] += 1
                     
         sortedVec = sorted(databaseDict.items(), key=lambda item: item[1])
         
@@ -227,34 +230,33 @@ class Word2VecGenerate(WordFeatureGenerator):
         datasetFilteredFilePath = codecs.open(datasetFilteredFilePath, 'w', 'utf-8')
         
         if percWordsBeRemoved > 0.0:
-            lines = []
+            lines = dataset.readlines()
+            dictionary = self.__createDicitionary(lines,percWordsBeRemoved,tokenLabelSeparator)
+        else:
+            dictionary = None
+            lines = dataset
         
-        for line in dataset:
-            line = self.__preprocessText()
+        for line in lines:
+            line = self.__preprocessText(line)
             
-            if percWordsBeRemoved > 0.0:
-                lines.append(line)
-            else:
-                datasetFilteredFilePath.write(line)
-                     
-        
-        if percWordsBeRemoved > 0.0:
-            dictionary = self.__createDicitionary(lines)
-            lines = file.readlines()
-            
-    
-            for token, separator in self.__iterateByToken(lines):
-                if token not in dictionary:
-                    token = self.__unknownToken
+            for token, separator in self.__iterateByToken(line,tokenLabelSeparator):
+                if dictionary != None and token not in dictionary:
+                    token = self.__unknownGenerateStrategy.getUnknownStr()
                 
                 datasetFilteredFilePath.write(token)
                 datasetFilteredFilePath.write(separator)
-    
+                
     @staticmethod
     def parsedW2vArgumentsToString(parsedw2vArguments):
         parStrW2v = ""
-        for key, value in parsedw2vArguments:
-            parStrW2v += key + "_" + value + "_"
+        for key, value in parsedw2vArguments.iteritems():
+            
+            if len(key) < 3:
+                end = len(key)
+            else:
+                end = 3
+                
+            parStrW2v += key[:end] + "_" + value + "_"
             
         return parStrW2v
     
@@ -269,15 +271,18 @@ class Word2VecGenerate(WordFeatureGenerator):
     
     def dataExist(self, datasetPath, dirDataWillBeSaved, fileNamePattern, w2vArguments, percWordsBeRemoved=0.0):
         wvFileOutputPath = self.__getFileNameAndPath(datasetPath, dirDataWillBeSaved, fileNamePattern, 
-                                                       w2vArguments, percWordsBeRemoved,True)[0]
+                                                       w2vArguments, percWordsBeRemoved,False)[1]
     
         
         return os.path.isfile(wvFileOutputPath)
     
     def __addUnknownToW2v(self,wordVector,wvFileOutputPath):
-        
         unknownToken = self.__unknownGenerateStrategy.getUnknownStr()
-        unknownWordVector = self.__unknownGenerateStrategy.generate(wordVector,wvFileOutputPath)
+        
+        if unknownToken in wordVector:
+            return
+        
+        unknownWordVector = self.__unknownGenerateStrategy.generateUnkown(wordVector,wvFileOutputPath)
         
         wordVectorFile = codecs.open(wvFileOutputPath , "a", encoding='utf8');
         
@@ -291,21 +296,23 @@ class Word2VecGenerate(WordFeatureGenerator):
         wordVectorFile.write('\n')
         wordVector[unknownToken] = unknownWordVector
         
-    def generate(self, datasetPath, dirDataWillBeSaved, fileNamePattern, w2vArguments, seed, percWordsBeRemoved=0.0, tokenLabelSeparator=""):        
+    def generate(self, datasetPath, dirDataWillBeSaved, fileNamePattern, w2vArguments, seed, percWordsBeRemoved=0.0, 
+                 tokenLabelSeparator=""):        
         
         if percWordsBeRemoved > 1.0 or percWordsBeRemoved < 0:
-            raise NameError("O valor do numberWordToUse tem intervalor de [0,1] quando é passado como uma percentagem. Valor atual " + str(percWordsBeRemoved))
+            raise NameError("O valor do numberWordToUse tem intervalor de [0,1] quando ï¿½ passado como uma percentagem. Valor atual " + str(percWordsBeRemoved))
         
-        if percWordsBeRemoved != None and (self.__unkownToken == None or self.__unkownToken == ""): 
+        if percWordsBeRemoved != None and (self.__unknownGenerateStrategy == None or self.__unknownGenerateStrategy == ""): 
             raise NameError("The value of percentage of words be removed was set, but the unkownToken was not set.")
         
-        datasetFilteredInfo =  self.__getFileNameAndPath(datasetPath, dirDataWillBeSaved, fileNamePattern, w2vArguments, percWordsBeRemoved,False)
+        datasetFilteredInfo =  self.__getFileNameAndPath(datasetPath, dirDataWillBeSaved, fileNamePattern, w2vArguments, percWordsBeRemoved,True)
         datasetFilteredFileOutputName = datasetFilteredInfo[0]
         datasetFilteredFilePath = datasetFilteredInfo[1]
                 
-        self.__createDatasetFiltered(datasetPath, datasetFilteredFilePath, percWordsBeRemoved)
+                
+        self.__createDatasetFiltered(datasetPath, datasetFilteredFilePath, percWordsBeRemoved, tokenLabelSeparator)
         
-        wvFileInfo = self.__getFileNameAndPath(datasetPath, dirDataWillBeSaved, fileNamePattern, w2vArguments, percWordsBeRemoved,True) 
+        wvFileInfo = self.__getFileNameAndPath(datasetPath, dirDataWillBeSaved, fileNamePattern, w2vArguments, percWordsBeRemoved,False) 
         wvFileOutputName = wvFileInfo[0]
         wvFileOutputPath = wvFileInfo[1]  
         
@@ -319,7 +326,7 @@ class Word2VecGenerate(WordFeatureGenerator):
             normally is a big string, so was decided to executed the w2v direct in the directory to just be necessary
             to pass the file name to w2v. 
             """
-            util.util.execProcess([self.__w2vPath] + arguments.split(), dirDataWillBeSaved)
+            util.util.execProcess([self.__w2vPath] + arguments.split(), self.__logger, dirDataWillBeSaved)
             
             isWVNew = True
             
@@ -330,7 +337,7 @@ class Word2VecGenerate(WordFeatureGenerator):
             self.__addUnknownToW2v(wordVector,wvFileOutputPath)
         
                 
-        return 
+        return wordVector
         
 
 class InterporlationGenerate(WordFeatureGenerator):
@@ -363,14 +370,15 @@ class InterporlationGenerate(WordFeatureGenerator):
         databaseTargetLines = [];
         
         for line in fileSource:
-            databaseSourceLines.append(line)
+            databaseSourceLines.append(line.strip())
             
         for line in fileTarget:
-            databaseTargetLines.append(line)
+            databaseTargetLines.append(line.strip())
         
         files = []
         
-        for fileNamePath,numberLinesToGetInSource,numberLinesToGetInTarget in self.__getIntermediaryFilePath(nmIntermediaryFile, dirWVWillBeSaved, fileNamePattern):
+        for fileNamePath,numberLinesToGetInSource,numberLinesToGetInTarget in self.__getIntermediaryFilePath(nmIntermediaryFile, 
+                                                                                    dirWVWillBeSaved, fileNamePattern):
             indexLineSource = range(len(databaseSourceLines))
             indexLineTarget = range(len(databaseTargetLines))
             
@@ -396,6 +404,7 @@ class InterporlationGenerate(WordFeatureGenerator):
                         break
                     
                     fileToWrite.write(databaseSourceLines[indexLineSource.pop()])
+                    fileToWrite.write("\n")
                     numberLineWriteSource += 1
                     
                 for i in range(numberLinesToGetInTarget):
@@ -404,15 +413,18 @@ class InterporlationGenerate(WordFeatureGenerator):
                         break
                     
                     fileToWrite.write(databaseTargetLines[indexLineTarget.pop()])
+                    fileToWrite.write("\n")
                     numberLineWriteTarget += 1
-            
-            
+                
+                if len(indexLineTarget) == 0 or len(indexLineSource) == 0:
+                    keepGoing = False
+                
         return files
     
     def dataExist(self, sourceFilePath, targetFilePath, nmIntermediaryFile, dirDataWillBeSaved, fileNamePattern, w2vArguments, percWordsBeRemoved=0.0):
         for fileNamePath,numberLinesToGetInSource,numberLinesToGetInTarget in self.__getIntermediaryFilePath(nmIntermediaryFile, dirDataWillBeSaved, fileNamePattern):
-            if not self.__word2VecGenerate.dataExist(self, fileNamePath, dirDataWillBeSaved, fileNamePattern, 
-                                                 w2vArguments,  percWordsBeRemoved=0.0):
+            if not self.__word2VecGenerate.dataExist(fileNamePath, dirDataWillBeSaved, fileNamePattern, 
+                                                 w2vArguments,  percWordsBeRemoved):
                 return False
             
             return True
@@ -436,7 +448,8 @@ class InterporlationGenerate(WordFeatureGenerator):
         wvs = []
         
         for f in intermediaryFiles:
-            wv = self.__word2VecGenerate.generate(self, f, dirFilesWillBeSaved, fileNamePattern, 
+            fileNamePatternIntermediary = util.util.removeExtension(util.util.getFileNameInPath(f))
+            wv = self.__word2VecGenerate.generate(f, dirFilesWillBeSaved, fileNamePatternIntermediary, 
                                                   w2vArguments, seed, percWordsBeRemoved, tokenLabelSeparator)
             wvs.append(wv)
         
@@ -446,7 +459,7 @@ class InterporlationGenerate(WordFeatureGenerator):
     
 class AverageGenerator(WordFeatureGenerator):
     def __getFilePath(self, dirFilesWillBeSaved, fileNamePattern):
-        avgName = "avg_" + fileNamePattern + ".txt"
+        avgName = "avg_" + fileNamePattern + ".wv"
         return  os.path.join(dirFilesWillBeSaved, avgName)
         
     def dataExist(self, dirFilesWillBeSaved, fileNamePattern):
@@ -511,7 +524,7 @@ class AverageGenerator(WordFeatureGenerator):
     
 class RandomWeightGenerator(WordFeatureGenerator):
     def __getFilePath(self, dirFilesWillBeSaved, fileNamePattern):
-        avgName = "random_inter_" + fileNamePattern + ".txt"
+        avgName = "random_inter_" + fileNamePattern + ".wv"
         return  os.path.join(dirFilesWillBeSaved, avgName)
         
     def dataExist(self, dirFilesWillBeSaved, fileNamePattern):

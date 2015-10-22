@@ -9,6 +9,7 @@ import time
 from util.util import unicodeToSrt
 import itertools
 import re
+import codecs
 
 # Inherit crfsuite.Trainer to implement message() function, which receives
 # progress messages from a training process.
@@ -28,20 +29,25 @@ class CRFSuite:
         )
 
     
-    def __init__(self):
+    def __init__(self,unknownTokens,startSentenceSymbol,endSentenceSymbol,tokenLabelSeparator,filters):
         self.__logger = logging.getLogger("Logger")
+        self.__unknownTokens = unknownTokens
+        self.__startSentenceSymbol = startSentenceSymbol
+        self.__endSentenceSymbol = endSentenceSymbol
+        self.__tokenLabelSeparator = tokenLabelSeparator
+        self.__filters = filters
         
     def __createFeature(self,label, value):
         return unicodeToSrt(label) + "=" + str(value)
         
-    def __instances(self,fileRead, wordVectors, windowSize, useManualFeature,unknownTokens):
+    def __instances(self,fileRead, wordVectors, windowSize, useManualFeature):
         xseq = crfsuite.ItemSequence()
         yseq = crfsuite.StringList()
         defval = u''
-        beginEndSentenceToken = u"</s>"
+        dataset = codecs.open(fileRead, 'r', 'utf-8')
         
         
-        for line in fileRead:
+        for line in dataset:
             i = 0
             tokens = []
             labels = []
@@ -57,21 +63,23 @@ class CRFSuite:
                 if token.isspace() or not token:
                     continue
                 
-                t = token.split('/')
+                t = token.rsplit(self.__tokenLabelSeparator,1)
                 
-                if len(t) != 2:
-                    if not t[0] and len(t) == 3:
-                        tokens.append('/')
-                        labels.append(t[2])
-                    else:  
-                        raise NameError(u'O token não tem label ou tem uma barra(/) adicional.\nToken: ' + token + u"\nLinha: " + line)
-                else:
-                    try:
-                        tokens.append(t[0])
-                        labels.append(t[1])
-                    except Exception:
-                        print t
-                        print line
+                if len(t[1]) == 0:
+                    logging.getLogger("Logger").warn("It was not found the label from "\
+                                 "the token " + token + ". We give to this token "\
+                                 " a label equal to"\
+                                 " the tokenLabelSeparator( " + self.__tokenLabelSeparator +")" )
+                      
+                    t[1] = self.__tokenLabelSeparator
+                
+                try:
+                    tokens.append(t[0])
+                    labels.append(t[1])
+                except Exception:
+                    print t
+                    print line
+                    
                     
             
             halfWindowSize = windowSize / 2
@@ -116,21 +124,22 @@ class CRFSuite:
                     index = beginIndex + j
                     label = str(j) + u'|'
                     
-                    if index < 0 or index >= len(tokens):
-                        token = beginEndSentenceToken
+                    if index < 0:
+                        token = self.__startSentenceSymbol
+                    elif index >= len(tokens):
+                        token = self.__endSentenceSymbol
                     else:
                         token = tokens[index]
                         
-                        token = token.lower()
-                        token = re.sub('[0-9]', '0', token)
-                        
+                        for filter in self.__filters:
+                            token = filter.filter(token)
                     
                     k = 0
                     for wordvector in wordVectors:
                         if token in wordvector:
                             wv = wordvector[token]
                         else:
-                            for unknownToken in unknownTokens:
+                            for unknownToken in self.__unknownTokens:
                                 if unknownToken in wordvector:
                                     wv = wordvector[unknownToken]
                                     break;
@@ -167,7 +176,7 @@ class CRFSuite:
         self.__logger.info("Gerando featuresdo treino")
         trainer = Trainer()
         
-        for xseq, yseq in self.__instances(source, wordVectors, windowSizeFeatures, useManualFeature,unknownTokens):
+        for xseq, yseq in self.__instances(source, wordVectors, windowSizeFeatures, useManualFeature):
             trainer.append(xseq, yseq, 0)
             if nmFeatureSentenceToPrint > 0:
                 self.__printFeatures(xseq, yseq)
@@ -182,16 +191,16 @@ class CRFSuite:
             trainer.set('max_iterations', str(numberEpoch))
         
         for name in trainer.params():
-            self.__logger.info(name, trainer.get(name), trainer.help(name))
+            self.__logger.info(name + " " + trainer.get(name) + " " + trainer.help(name))
          
         
-        sleep(100)
+        sleep(5)
     
         if not noTestByEpoch:
             holdout = 2
             
             self.__logger.info( "Gerando features do teste")
-            for xseq, yseq in self.__instances(dev, wordVectors, windowSizeFeatures, useManualFeature,unknownTokens):
+            for xseq, yseq in self.__instances(dev, wordVectors, windowSizeFeatures, useManualFeature):
                 trainer.append(xseq, yseq, 1)
                 
                 if nmFeatureSentenceToPrint > 0:
@@ -211,7 +220,7 @@ class CRFSuite:
     def test(self,target,modelPath,wordVectors,windowSizeFeatures,useManualFeature,numberEpoch,
              noTestByEpoch,unknownTokens,nmFeatureSentenceToPrint = 2):
         
-        sleep(100)
+        sleep(5)
     
         tagger = crfsuite.Tagger()
         tagger.open(modelPath)
@@ -220,7 +229,7 @@ class CRFSuite:
         numberCorrect = 0;
         
         self.__logger.info( "Comecando teste: " + time.ctime())
-        for xseq, yseqcor in self.__instances(target, wordVectors, windowSizeFeatures, useManualFeature,unknownTokens):
+        for xseq, yseqcor in self.__instances(target, wordVectors, windowSizeFeatures, useManualFeature):
             # Tag the sequence.
             if nmFeatureSentenceToPrint > 0:
                 self.__printFeatures(xseq, yseqcor)
@@ -240,3 +249,4 @@ class CRFSuite:
         
         
         return (numberCorrect,total)
+    

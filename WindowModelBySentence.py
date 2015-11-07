@@ -27,10 +27,10 @@ class WindowModelBySentence(WindowModelBasic):
 
 
     def __init__(self, lexicon, wordVectors , windowSize, hiddenSize, _lr,numClasses,numEpochs, batchSize=1, c=0.0,
-                 charModel=None,learningRateUpdStrategy = LearningRateUpdNormalStrategy(),wordVecsUpdStrategy='normal', choice = NeuralNetworkChoiceEnum.COMPLETE):
+                 charModel=None,learningRateUpdStrategy = LearningRateUpdNormalStrategy(),wordVecsUpdStrategy='normal', choice = NeuralNetworkChoiceEnum.COMPLETE,networkAct = 'tanh',norm_coef=1.0):
         
         WindowModelBasic.__init__(self, lexicon, wordVectors, windowSize, hiddenSize, _lr, 
-                                  numClasses, numEpochs, batchSize, c,charModel,learningRateUpdStrategy,True,wordVecsUpdStrategy,NeuralNetworkChoiceEnum.withoutHiddenLayer(choice))
+                                  numClasses, numEpochs, batchSize, c,charModel,learningRateUpdStrategy,True,wordVecsUpdStrategy,NeuralNetworkChoiceEnum.withoutHiddenLayer(choice),networkAct,norm_coef)
     
         self.setTestValues = True
         # Camada: softmax

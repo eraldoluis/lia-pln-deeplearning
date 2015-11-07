@@ -31,7 +31,7 @@ class WindowModelBasic:
         WindowModelBasic.endSymbolStr = endSymbol
 
     def __init__(self, lexicon, wordVectors , windowSize, hiddenSize, _lr,numClasses,numEpochs, batchSize=1.0, c=0.0,charModel=None
-                 ,learningRateUpdStrategy = LearningRateUpdNormalStrategy(),randomizeInput=False,wordVecsUpdStrategy='normal',withoutHiddenLayer = False):
+                 ,learningRateUpdStrategy = LearningRateUpdNormalStrategy(),randomizeInput=False,wordVecsUpdStrategy='normal',withoutHiddenLayer = False,networkAct='tanh',norm_coef=1.0):
 
 
         self.Wv = theano.shared(name='wordVecs',
@@ -58,6 +58,9 @@ class WindowModelBasic:
         self.charModel = charModel
         self.isToRandomizeInput = randomizeInput
         self.numCharByWord = theano.shared(np.asarray([0]), 'numCharByWord', int)
+        
+        self.networkAct = networkAct
+        self.norm_coef = norm_coef
         # Nós casos em que é feita a predição a cada certo número de épocas de um treinamento,
         # ocorre uma concorrência no uso do atributo windowIdxs pelos métodos predict e train. O problema
         # é que o método predict sobrescreve o valor do windowIdxs, que contém os valores da janela do train.
@@ -86,18 +89,18 @@ class WindowModelBasic:
         
         
         # Camada: lookup table.
-        self.wordToVector = WordToVectorLayer(self.windowIdxs, self.Wv, self.wordSize, True,self.wordVecsUpdStrategy)
+        self.wordToVector = WordToVectorLayer(self.windowIdxs, self.Wv, self.wordSize, True,self.wordVecsUpdStrategy,self.norm_coef)
         
         # Camada: hidden layer com a função Tanh como função de ativaçãos
         if not withoutHiddenLayer:
             print 'With Hidden Layer'
             
             if self.charModel == None:
-                # Camada: hidden layer com a funÃ§Ã£o Tanh como funÃ§Ã£o de ativaÃ§Ã£os
-                self.hiddenLayer = HiddenLayer(self.wordToVector.getOutput(), self.wordSize * self.windowSize , self.hiddenSize);
+                # Camada: hidden layer com a função Tanh como função de ativação
+                self.hiddenLayer = HiddenLayer(self.wordToVector.getOutput(), self.wordSize * self.windowSize , self.hiddenSize, activation=self.networkAct);
             else:    
-                # Camada: hidden layer com a funÃ§Ã£o Tanh como funÃ§Ã£o de ativaÃ§Ã£os
-                self.hiddenLayer = HiddenLayer(T.concatenate([self.wordToVector.getOutput(), self.charModel.getOutput()], axis=1), (self.wordSize + self.charModel.convSize) * self.windowSize , self.hiddenSize);
+                # Camada: hidden layer com a função Tanh como função de ativação
+                self.hiddenLayer = HiddenLayer(T.concatenate([self.wordToVector.getOutput(), self.charModel.getOutput()], axis=1), (self.wordSize + self.charModel.convSize) * self.windowSize , self.hiddenSize, activation=self.networkAct);
             
         else:
             print 'Without Hidden Layer'

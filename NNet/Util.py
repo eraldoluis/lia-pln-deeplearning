@@ -45,6 +45,13 @@ def regularizationSquareSumParamaters(parameters,regularizationFactor,numberExam
     
     return regularizationFactor * p / (2 * numberExamples)
 
+
+
+def hard_tanh(x):
+    x = T.switch(x < -1.0, -1.0, x)
+    return T.switch(x > 1.0, 1.0, x)
+
+
 ################################ OBJECTS ########################
 
 
@@ -95,5 +102,3 @@ class LearningRateUpdDivideByEpochStrategy:
     
     def getCurrentLearninRate(self,learningRate ,numEpoch):
         return learningRate/numEpoch
-
-    

@@ -50,8 +50,6 @@ class HiddenLayer(object):
         elif activation == 'hard_sigmoid':
             activation = T.nnet.hard_sigmoid
         
-        elif activation == 'ultra_fast_sigmoid':
-            activation = T.nnet.ultra_fast_sigmoid
         
         # end-snippet-1
 

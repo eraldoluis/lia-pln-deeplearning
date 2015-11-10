@@ -245,17 +245,19 @@ class DLIDExperiments:
         
         nnParser.add_argument('--networkChoice', dest='networkChoice', action='store',default=networkChoices[0],choices=networkChoices)
         
-        networkActivation = ["tanh","hard_tanh","sigmoid","hard_sigmoid","ultra_fast_sigmoid"]
+        networkActivation = ["tanh","hard_tanh","sigmoid","hard_sigmoid"]
         
-        nnParser.add_argument('--networkAct', dest='networkAct', action='store', default=networkActivation[0],choices=networkActivation)
+        nnParser.add_argument('--wordNetAct', dest='wordNetAct', action='store', default=networkActivation[0],choices=networkActivation)
+        
+        nnParser.add_argument('--charNetAct', dest='charNetAct', action='store', default=networkActivation[0],choices=networkActivation)
        
-        vecsUpStrategyChoices = ["normal", "normalize_mean","z_score"]
+        vecsUpStrategyChoices = ["normal", "min_max","z_score"]
     
         nnParser.add_argument('--wordvecsupdstrategy', dest='wordVecsUpdStrategy', action='store', default=vecsUpStrategyChoices[0], choices=vecsUpStrategyChoices,
-                           help='Set the word vectors update strategy. NORMAL, NORMALIZE_MEAN and Z_SCORE are the options available')
+                           help='Set the word vectors update strategy. NORMAL, MIN_MAX and Z_SCORE are the options available')
         
         nnParser.add_argument('--charvecsupdstrategy', dest='charVecsUpdStrategy', action='store', default=vecsUpStrategyChoices[0], choices=vecsUpStrategyChoices,
-                           help='Set the char vectors update strategy. NORMAL, NORMALIZE_MEAN and Z_SCORE are the options available')
+                           help='Set the char vectors update strategy. NORMAL, MIN_MAX and Z_SCORE are the options available')
         
         nnParser.add_argument('--norm_coef', dest='norm_coef', action='store', type=float, default=1.0,
                        help='The coefficient that will be multiplied to the normalized vectors')

@@ -14,7 +14,7 @@ from WindowModelBasic import WindowModelBasic
 class CharWNN():
 
     def __init__(self,charcon, charVectors, charIdxWord, numCharsOfWord, charWindowSize, wordWindowSize , convSize,
-                  numClasses, c=0.0,learningRateUpdStrategy = LearningRateUpdNormalStrategy(),separateSentence=False,withAct=False,charVecsUpdStrategy='normal'):
+                  numClasses, c=0.0,learningRateUpdStrategy = LearningRateUpdNormalStrategy(),separateSentence=False,withAct=False,charVecsUpdStrategy='normal',charAct="tanh",norm_coef=1.0):
         
         
         self.CharIdxWord = charIdxWord
@@ -46,6 +46,9 @@ class CharWNN():
         self.maxLenWord = max(numCharsOfWord)
         self.posMaxByWord = theano.shared(np.zeros((2,self.maxLenWord),dtype="int64"),'posMaxByWord',int)
         
+        self.charAct = charAct
+        self.norm_coef = norm_coef
+        
         # Inicializando as camadas básicas 
         self.initWithBasicLayers()
         
@@ -64,12 +67,12 @@ class CharWNN():
                                    name="charWindowIdxs")
                 
         # Camada: lookup table.
-        self.wordToVector = WordToVectorLayer(self.charWindowIdxs,self.Cv, self.charSize, True,self.charVecsUpdStrategy)
+        self.wordToVector = WordToVectorLayer(self.charWindowIdxs,self.Cv, self.charSize, True,self.charVecsUpdStrategy,self.norm_coef)
         
         # Camada: hidden layer com a função Tanh como função de ativaçãos
         if self.withAct:
             print 'Charwnn with Activation'
-            self.hiddenLayer = HiddenLayer(self.wordToVector.getOutput(),self.charSize * self.charWindowSize , self.convSize);
+            self.hiddenLayer = HiddenLayer(self.wordToVector.getOutput(),self.charSize * self.charWindowSize , self.convSize, activation=self.charAct);
         else:
             print 'Charwnn without Activation'
             self.hiddenLayer = HiddenLayer(self.wordToVector.getOutput(),self.charSize * self.charWindowSize , self.convSize, activation=None);
@@ -147,7 +150,7 @@ class CharWNN():
             numChar.append(numCharSentence)      
         
         
-        return [np.array(charWindowOfWord),np.asarray(maxPosByWord),np.array(numChar)]
+        return [np.array(charWindowOfWord),np.asarray(maxPosByWord,dtype="int64"),np.array(numChar)]
 
         
     #esta funcao monta a janela de chars de uma palavra    

@@ -3,25 +3,15 @@
 .classpath
 .project
 .settings/
-<<<<<<< HEAD
 data/
 .metadata/
 dataset/
 .pydevproject
 .settings/
 dataset/
-
-*.pyc
-*.txt
-*.p
-*.model
-*.pyc
-=======
-dataset/
-
 .classpath
 *.pyc
 *.txt
 *.p
 *.model
->>>>>>> origin/irving
+*.zip

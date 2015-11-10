@@ -12,10 +12,10 @@ from CharWNN import *
 class WindowModelByWord(WindowModelBasic):
 
     def __init__(self, lexicon, wordVectors , windowSize, hiddenSize, _lr,numClasses,numEpochs, batchSize=1, c=0.0,
-                 charModel=None,learningRateUpdStrategy = LearningRateUpdNormalStrategy(),wordVecsUpdStrategy='normal'):
+                 charModel=None,learningRateUpdStrategy = LearningRateUpdNormalStrategy(),wordVecsUpdStrategy='normal',networkAct='tanh',norm_coef=1.0):
         
         WindowModelBasic.__init__(self, lexicon, wordVectors, windowSize, hiddenSize, _lr, numClasses, numEpochs, 
-                                  batchSize, c, charModel,learningRateUpdStrategy,False,wordVecsUpdStrategy)
+                                  batchSize, c, charModel,learningRateUpdStrategy,False,wordVecsUpdStrategy,False,networkAct,norm_coef)
 
         self.setTestValues = True
         

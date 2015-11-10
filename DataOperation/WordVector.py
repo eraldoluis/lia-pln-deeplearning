@@ -15,16 +15,17 @@ class WordVector:
             self.putUsingFile(filePath)
         else:
             self.__wordSize = wordSize
+        
         self.mode = mode
         self.__len = 0
-        
+                
             
     def append(self,wordVector):            
         if  wordVector is None:
             if self.mode =='zeros':
                 wordVector = np.zeros(self.__wordSize)
             elif self.mode == 'randomAll':
-                self.__len +=1    
+                self.__len +=1
                 return
             else:    
                 wordVector = self.__generatorWeight.generateVector(self.__wordSize)
@@ -64,10 +65,10 @@ class WordVector:
     def startAllRandom(self):
         self.__wordVecs = self.__generatorWeight.generateWeight(self.__len,self.__wordSize)
         
-    def normalizeMean(self):
-        self.__wordVecs = (self.__wordVecs - np.mean(np.asarray(self.__wordVecs)))/np.ptp(np.asarray(self.__wordVecs))
+    def normalizeMean(self,norm_coef):
+        self.__wordVecs = norm_coef *(self.__wordVecs - np.mean(np.asarray(self.__wordVecs),axis=0))/np.ptp(np.asarray(self.__wordVecs),axis=0)
         
-    def zScore(self):
-        self.__wordVecs = (self.__wordVecs - np.mean(np.asarray(self.__wordVecs)))/np.std(np.asarray(self.__wordVecs))
+    def zScore(self,norm_coef):
+        self.__wordVecs = norm_coef * (self.__wordVecs - np.mean(np.asarray(self.__wordVecs),axis=0))/np.std(np.asarray(self.__wordVecs),axis=0)
         
         

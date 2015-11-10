@@ -65,10 +65,10 @@ class WordVector:
     def startAllRandom(self):
         self.__wordVecs = self.__generatorWeight.generateWeight(self.__len,self.__wordSize)
         
-    def normalizeMean(self,norm_coef):
-        self.__wordVecs = norm_coef *(self.__wordVecs - np.mean(np.asarray(self.__wordVecs)))/np.ptp(np.asarray(self.__wordVecs))
+    def normalizeMean(self,norm_coef):       
+        self.__wordVecs = norm_coef *(self.__wordVecs - np.mean(np.asarray(self.__wordVecs),axis=0))/np.ptp(np.asarray(self.__wordVecs),axis=0)
         
     def zScore(self,norm_coef):
-        self.__wordVecs = norm_coef * (self.__wordVecs - np.mean(np.asarray(self.__wordVecs)))/np.std(np.asarray(self.__wordVecs))
+        self.__wordVecs = norm_coef * (self.__wordVecs - np.mean(np.asarray(self.__wordVecs),axis=0))/np.std(np.asarray(self.__wordVecs),axis=0)
         
         

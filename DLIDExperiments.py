@@ -34,8 +34,7 @@ class DLIDExperiments:
     intermediateStrategy = ["random_interpolation", "avg", "files", "random"]
     unknownWordStrategy = ["random", "mean_vector", "word_vocab"]
     typeOfNormalizationStrategy = ["none", "mean", "without_change_signal", "z_score"]
-    
-    
+     
     @staticmethod
     def getArgumentParser():
         parser = argparse.ArgumentParser();
@@ -245,9 +244,6 @@ class DLIDExperiments:
         
         nnParser.add_argument('--networkChoice', dest='networkChoice', action='store',default=networkChoices[0],choices=networkChoices)
         
-        networkActivation = ["tanh","hard_tanh","sigmoid","hard_sigmoid","ultra_fast_sigmoid"]
-        
-        nnParser.add_argument('--networkAct', dest='networkAct', action='store', default=networkActivation[0],choices=networkActivation)
        
         vecsUpStrategyChoices = ["normal", "normalize_mean","z_score"]
     
@@ -256,9 +252,6 @@ class DLIDExperiments:
         
         nnParser.add_argument('--charvecsupdstrategy', dest='charVecsUpdStrategy', action='store', default=vecsUpStrategyChoices[0], choices=vecsUpStrategyChoices,
                            help='Set the char vectors update strategy. NORMAL, NORMALIZE_MEAN and Z_SCORE are the options available')
-        
-        nnParser.add_argument('--norm_coef', dest='norm_coef', action='store', type=float, default=1.0,
-                       help='The coefficient that will be multiplied to the normalized vectors')
         
         return parser
 

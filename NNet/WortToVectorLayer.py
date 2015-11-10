@@ -32,10 +32,10 @@ class WordToVectorLayer:
         up = T.inc_subtensor(self.__Wv[widowsIdxsFlatten], T.reshape(gwordVectorFlatten, reshapeSize))
         
         if self.__updStrategy == 'normalize_mean':
-            up = self.__norm_coef *(up - T.mean(up))/T.ptp(up)
+            up = self.__norm_coef *(up - T.mean(up,axis=0))/T.ptp(up,axis=0)
             
         elif self.__updStrategy == 'zScore':
-            up = self.__norm_coef * (up - T.mean(up))/T.std(up)
+            up = self.__norm_coef * (up - T.mean(up,axis=0))/T.std(up,axis=0)
             
         
         return [(self.__Wv, 

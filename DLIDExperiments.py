@@ -175,7 +175,7 @@ class DLIDExperiments:
         crfSuiteParser.add_argument('--windowSize', dest='windowSize', type=int, action='store',
                            help='', default=5)
         
-        parser.add_argument('--withCharwnn', dest='withCharwnn', action='store_true',
+        nnParser.add_argument('--withCharwnn', dest='withCharwnn', action='store_true',
                            help='Set training with character embeddings')
         
         nnParser = subparsers.add_parser('nn', help='Neural Network', 

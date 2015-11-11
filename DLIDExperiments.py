@@ -175,11 +175,12 @@ class DLIDExperiments:
         crfSuiteParser.add_argument('--windowSize', dest='windowSize', type=int, action='store',
                            help='', default=5)
         
-        nnParser.add_argument('--withCharwnn', dest='withCharwnn', action='store_true',
-                           help='Set training with character embeddings')
-        
+                
         nnParser = subparsers.add_parser('nn', help='Neural Network', 
                                        parents=[base_parser])
+        
+        nnParser.add_argument('--withCharwnn', dest='withCharwnn', action='store_true',
+                           help='Set training with character embeddings')
         
         algTypeChoices = ["window_word", "window_sentence"]
         

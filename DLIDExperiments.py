@@ -229,10 +229,10 @@ class DLIDExperiments:
         nnParser.add_argument('--filewithfeatures', dest='fileWithFeatures', action='store_true',
                            help='Set that the training e testing files have features')
         
-        vecsInitChoices = ["randomAll", "random", "zeros","z_score","normalize_mean"]
+        vecsInitChoices = ["randomAll", "random", "zeros","z_score","min_max"]
         
         nnParser.add_argument('--charVecsInit', dest='charVecsInit', action='store', default=vecsInitChoices[1], choices=vecsInitChoices,
-                           help='Set the way to initialize the char vectors. RANDOM, RANDOMALL, ZEROS, Z_SCORE and NORMALIZE_MEAN are the options available')
+                           help='Set the way to initialize the char vectors. RANDOM, RANDOMALL, ZEROS, Z_SCORE and MIN_MAX are the options available')
         
 #         nnParser.add_argument('--wordVecsInit', dest='wordVecsInit', action='store', default=vecsInitChoices[1], choices=vecsInitChoices,
 #                            help='Set the way to initialize the char vectors. RANDOM, RANDOMALL, ZEROS, Z_SCORE and NORMALIZE_MEAN are the options available')

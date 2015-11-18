@@ -175,11 +175,12 @@ class DLIDExperiments:
         crfSuiteParser.add_argument('--windowSize', dest='windowSize', type=int, action='store',
                            help='', default=5)
         
-        parser.add_argument('--withCharwnn', dest='withCharwnn', action='store_true',
-                           help='Set training with character embeddings')
-        
+                
         nnParser = subparsers.add_parser('nn', help='Neural Network', 
                                        parents=[base_parser])
+        
+        nnParser.add_argument('--withCharwnn', dest='withCharwnn', action='store_true',
+                           help='Set training with character embeddings')
         
         algTypeChoices = ["window_word", "window_sentence"]
         
@@ -229,14 +230,14 @@ class DLIDExperiments:
         nnParser.add_argument('--filewithfeatures', dest='fileWithFeatures', action='store_true',
                            help='Set that the training e testing files have features')
         
-        vecsInitChoices = ["randomAll", "random", "zeros","z_score","normalize_mean"]
+        vecsInitChoices = ["randomAll", "random", "zeros","z_score","min_max"]
         
         nnParser.add_argument('--charVecsInit', dest='charVecsInit', action='store', default=vecsInitChoices[1], choices=vecsInitChoices,
-                           help='Set the way to initialize the char vectors. RANDOM, RANDOMALL, ZEROS, Z_SCORE and NORMALIZE_MEAN are the options available')
+                           help='Set the way to initialize the char vectors. RANDOM, RANDOMALL, ZEROS, Z_SCORE and MIN_MAX are the options available')
         
-#         nnParser.add_argument('--wordVecsInit', dest='wordVecsInit', action='store', default=vecsInitChoices[1], choices=vecsInitChoices,
-#                            help='Set the way to initialize the char vectors. RANDOM, RANDOMALL, ZEROS, Z_SCORE and NORMALIZE_MEAN are the options available')
-#         
+        nnParser.add_argument('--wordVecsInit', dest='wordVecsInit', action='store', default=vecsInitChoices[1], choices=vecsInitChoices,
+                            help='Set the way to initialize the char vectors. RANDOM, RANDOMALL, ZEROS, Z_SCORE and MIN_MAX are the options available')
+         
         nnParser.add_argument('--charwnnwithact', dest='charwnnWithAct', action='store_true',
                            help='Set training with character embeddings')
         
@@ -245,17 +246,19 @@ class DLIDExperiments:
         
         nnParser.add_argument('--networkChoice', dest='networkChoice', action='store',default=networkChoices[0],choices=networkChoices)
         
-        networkActivation = ["tanh","hard_tanh","sigmoid","hard_sigmoid","ultra_fast_sigmoid"]
+        networkActivation = ["tanh","hard_tanh","sigmoid","hard_sigmoid"]
         
-        nnParser.add_argument('--networkAct', dest='networkAct', action='store', default=networkActivation[0],choices=networkActivation)
+        nnParser.add_argument('--wordNetAct', dest='wordNetAct', action='store', default=networkActivation[0],choices=networkActivation)
+        
+        nnParser.add_argument('--charNetAct', dest='charNetAct', action='store', default=networkActivation[0],choices=networkActivation)
        
-        vecsUpStrategyChoices = ["normal", "normalize_mean","z_score"]
+        vecsUpStrategyChoices = ["normal", "min_max","z_score"]
     
         nnParser.add_argument('--wordvecsupdstrategy', dest='wordVecsUpdStrategy', action='store', default=vecsUpStrategyChoices[0], choices=vecsUpStrategyChoices,
-                           help='Set the word vectors update strategy. NORMAL, NORMALIZE_MEAN and Z_SCORE are the options available')
+                           help='Set the word vectors update strategy. NORMAL, MIN_MAX and Z_SCORE are the options available')
         
         nnParser.add_argument('--charvecsupdstrategy', dest='charVecsUpdStrategy', action='store', default=vecsUpStrategyChoices[0], choices=vecsUpStrategyChoices,
-                           help='Set the char vectors update strategy. NORMAL, NORMALIZE_MEAN and Z_SCORE are the options available')
+                           help='Set the char vectors update strategy. NORMAL, MIN_MAX and Z_SCORE are the options available')
         
         nnParser.add_argument('--norm_coef', dest='norm_coef', action='store', type=float, default=1.0,
                        help='The coefficient that will be multiplied to the normalized vectors')

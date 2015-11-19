@@ -242,8 +242,8 @@ class CharWNN():
             #    charIdx += batch[idx]        
 
     def setUpdates(self):
-        updates = self.hiddenLayer.getUpdate(self.cost, self.lr);
-        updates += self.embedding.getUpdate(self.cost, self.lr)
+        updates = self.hiddenLayer.getUpdates(self.cost, self.lr);
+        updates += self.embedding.getUpdates(self.cost, self.lr)
         
         # Add normalization update.
         if (self.charVecsUpdStrategy != 'normal'):

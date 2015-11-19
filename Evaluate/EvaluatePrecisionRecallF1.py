@@ -5,8 +5,8 @@ import numpy
 
 class EvaluatePrecisionRecallF1:
         
-    def __init__(self,numberClasses):
-        self.numClasses = numberClasses
+    def __init__(self,lenOut):
+        self.numClasses = lenOut
         self.cl_idx = numpy.arange(self.numClasses)[:, numpy.newaxis]
         
     def evaluate(self,predicts,corrects):

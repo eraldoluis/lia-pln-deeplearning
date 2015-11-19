@@ -4,61 +4,70 @@
 import numpy as np
 import theano
 from NNet.SoftmaxLayer import SoftmaxLayer
-from NNet.Util import negative_log_likelihood, regularizationSquareSumParamaters, \
-    LearningRateUpdNormalStrategy
+from NNet.Util import negative_log_likelihood, LearningRateUpdNormalStrategy, \
+    defaultGradParameters
 from WindowModelBasic import WindowModelBasic
 import theano.tensor as T
 
 class WindowModelByWord(WindowModelBasic):
 
-    def __init__(self, lexicon, wordVectors , windowSize, hiddenSize, _lr, numClasses, numEpochs, batchSize=1, c=0.0,
-                 charModel=None, learningRateUpdStrategy=LearningRateUpdNormalStrategy(), wordVecsUpdStrategy='normal', networkAct='tanh', norm_coef=1.0):
-        
-        WindowModelBasic.__init__(self, lexicon, wordVectors, windowSize, hiddenSize, _lr, numClasses, numEpochs,
-                                  batchSize, c, charModel, learningRateUpdStrategy, False, wordVecsUpdStrategy, False, networkAct, norm_coef)
+    def __init__(self, lexicon, wordVectors , windowSize, hiddenSize, _lr,
+                 numClasses, numEpochs, batchSize=1, c=0.0, charModel=None,
+                 learningRateUpdStrategy=LearningRateUpdNormalStrategy(),
+                 wordVecsUpdStrategy='normal', networkAct='tanh', norm_coef=1.0):
+        #
+        # Base class constructor.
+        #
+        WindowModelBasic.__init__(self, lexicon, wordVectors, windowSize,
+                                  hiddenSize, _lr, numClasses, numEpochs,
+                                  batchSize, c, charModel,
+                                  learningRateUpdStrategy, False,
+                                  wordVecsUpdStrategy, False, networkAct,
+                                  norm_coef)
 
         self.setTestValues = True
+
+        # A camada de saída é um softmax sobre as classes.
+        self.softmax = SoftmaxLayer(self.hiddenLayer.getOutput(),
+                                    self.hiddenSize,
+                                    numClasses)
+
+        # Saída da rede.
+        output = self.softmax.getOutput()
+
+        # Training cost function.
+        cost = negative_log_likelihood(output, self.y)
         
-        
-        # Camada: softmax
-        self.softmax = SoftmaxLayer(self.hiddenLayer.getOutput(), self.hiddenSize, numClasses);
-        
-        # Pega o resultado do foward
-        foward = self.softmax.getOutput();
-        
-        parameters = self.softmax.getParameters() + self.hiddenLayer.getParameters()
-        
-        
-        
-        if charModel == None:
-            
-            # Custo
-            cost = negative_log_likelihood(foward, self.y) + regularizationSquareSumParamaters(parameters, self.regularizationFactor, self.y.shape[0]);
-            updates = self.hiddenLayer.getUpdate(cost, self.lr);
-        
-        else:
-            
-            parameters += self.charModel.hiddenLayer.getParameters()
-            
-            # Custo 
-            cost = negative_log_likelihood(foward, self.y) + regularizationSquareSumParamaters(parameters, self.regularizationFactor, self.y.shape[0]);
+        #
+        # TODO: criar uma forma de integrar a regularização.
+        # + regularizationSquareSumParamaters(self.parameters, self.regularizationFactor, self.y.shape[0])
+        #
+
+        updates = []
+
+        if charModel != None:
             self.charModel.setCost(cost)
             self.charModel.setUpdates()
-            
-            updates = self.hiddenLayer.getUpdate(cost, self.lr);
             updates += self.charModel.updates
 
-        updates += self.softmax.getUpdate(cost, self.lr)
-        updates += self.embedding.getUpdate(cost, self.lr)
+        # Parameters of the ordinary layers (non-structured).
+        parameters = self.softmax.getParameters() + self.hiddenLayer.getParameters()
+
+        # Updates of the structured layers.
+        updates += self.embedding.getUpdates(cost, self.lr)
+        # TODO: considerar a parte estruturada do CharWNN
         
         # Add normalization updates.
         if (self.wordVecsUpdStrategy != 'normal'):
-            self.embedding.getNormalizationUpdate(self.wordVecsUpdStrategy, self.norm_coef)
+            updates += self.embedding.getNormalizationUpdate(self.wordVecsUpdStrategy, self.norm_coef)
+        
+        # Adiciona o update padrão dos parâmetros não estruturados.
+        updates += defaultGradParameters(cost, parameters, self.lr)
+        
+        self.cost = cost
+        self.updates = updates
+        self.paramters = parameters
 
-        self.setCost(cost)
-        self.setUpdates(updates)
-    
-    
     def reshapeCorrectData(self, correctData):
         return np.asarray(correctData, dtype=np.int32)
       

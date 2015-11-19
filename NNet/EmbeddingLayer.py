@@ -1,6 +1,7 @@
 import theano.tensor as T
+from NNet.Layer import Layer
 
-class EmbeddingLayer:
+class EmbeddingLayer(Layer):
     """
     Layer that represents a lookup table for some feature embedding.
     It converts a set of sparse features (binary, categorical, etc.)
@@ -45,8 +46,9 @@ class EmbeddingLayer:
         embedding.shape = (numVectors, szEmb)
 
         """
+        Layer.__init__(self, examples)
+        
         self.__embedding = embedding
-        self.__examples = examples
 
         # Matrix of the active parameters for the given examples.
         # Its shape is (numExs * szEx, szEmb).
@@ -63,8 +65,11 @@ class EmbeddingLayer:
 
     def getOutput(self):
         return self.__output
+    
+    def getParameters(self):
+        return self.__embedding
 
-    def getUpdate(self, cost, learningRate):
+    def getUpdates(self, cost, learningRate):
         # shape = (numExs, szEx * szEmb)
         gWordVector = -learningRate * T.grad(cost, self.__output)
 
@@ -89,7 +94,7 @@ class EmbeddingLayer:
         elif strategy == "zscore":
             norm = normFactor * (emb - emb.mean(axis=0)) / emb.std(axis=0)
         elif strategy == "sphere":
-            norm = normFactor * (emb / (emb**2).sum(axis=0).sqrt())
+            norm = normFactor * (emb / (emb ** 2).sum(axis=0).sqrt())
         else:
             raise Exception("Unknown normalization strategy: %s" % strategy)
 

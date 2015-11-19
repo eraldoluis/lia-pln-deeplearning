@@ -64,17 +64,17 @@ class WindowModelBySentence(WindowModelBasic):
         cost =   negativeLogLikehood + regularizationSquareSumParamaters(parameters, self.regularizationFactor, self.y.shape[0]);
         
         # Gradiente dos pesos e do bias
-        updates = self.sentenceSoftmax.getUpdate(cost, self.lr);
+        updates = self.sentenceSoftmax.getUpdates(cost, self.lr);
         
         if not NeuralNetworkChoiceEnum.withoutHiddenLayer(choice):
             print 'With update hidden layer vector'
-            updates += self.hiddenLayer.getUpdate(cost, self.lr);
+            updates += self.hiddenLayer.getUpdates(cost, self.lr);
         else:
             print 'Without update hidden layer vector'
             
         if not NeuralNetworkChoiceEnum.withoutUpdateWv(choice):
             print 'With update vector'
-            updates += self.embedding.getUpdate(cost, self.lr); 
+            updates += self.embedding.getUpdates(cost, self.lr); 
         else:
             print 'Without update vector'
             

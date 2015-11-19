@@ -24,11 +24,14 @@ class WindowModelBasic:
     def setEndSymbol(endSymbol):
         WindowModelBasic.endSymbolStr = endSymbol
 
-    def __init__(self, lexicon, wordVectors , windowSize, hiddenSize, _lr, numClasses, numEpochs, batchSize=1.0, c=0.0, charModel=None
-                 , learningRateUpdStrategy=LearningRateUpdNormalStrategy(), randomizeInput=False, wordVecsUpdStrategy='normal', withoutHiddenLayer=False, networkAct='tanh', norm_coef=1.0):
-
-
-        self.Wv = theano.shared(np.asarray(wordVectors.getWordVectors(), dtype=theano.config.floatX),
+    def __init__(self, lexicon, wordVectors , windowSize, hiddenSize, _lr,
+                 numClasses, numEpochs, batchSize=1.0, c=0.0, charModel=None,
+                 learningRateUpdStrategy=LearningRateUpdNormalStrategy(),
+                 randomizeInput=False, wordVecsUpdStrategy='normal',
+                 withoutHiddenLayer=False, networkAct='tanh', norm_coef=1.0):
+        # Word vectors (embeddings).
+        self.Wv = theano.shared(np.asarray(wordVectors.getWordVectors(),
+                                           dtype=theano.config.floatX),
                                 'wordVecs',
                                 borrow=True)
         self.wordSize = wordVectors.getLenWordVector()
@@ -46,6 +49,7 @@ class WindowModelBasic:
         self.cost = None
         self.update = None
         self.regularizationFactor = theano.shared(c)
+        # TODO: transformar esta variável em simbólica (não shared)
         self.y = theano.shared(np.asarray([0], dtype="int32"), "y", borrow=True)
         
         self.wordVecsUpdStrategy = wordVecsUpdStrategy

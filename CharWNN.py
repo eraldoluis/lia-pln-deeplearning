@@ -13,8 +13,8 @@ from WindowModelBasic import WindowModelBasic
 
 class CharWNN():
 
-    def __init__(self,charcon, charVectors, charIdxWord, numCharsOfWord, charWindowSize, wordWindowSize , convSize,
-                  numClasses, c=0.0,learningRateUpdStrategy = LearningRateUpdNormalStrategy(),separateSentence=False,withAct=False,charVecsUpdStrategy='normal',charAct="tanh",norm_coef=1.0):
+    def __init__(self, charcon, charVectors, charIdxWord, numCharsOfWord, charWindowSize, wordWindowSize , convSize,
+                  numClasses, c=0.0, learningRateUpdStrategy=LearningRateUpdNormalStrategy(), separateSentence=False, withAct=False, charVecsUpdStrategy='normal', charAct="tanh", norm_coef=1.0):
         
         
         self.CharIdxWord = charIdxWord
@@ -25,7 +25,7 @@ class CharWNN():
                                 borrow=True)
         
         self.charSize = charVectors.getLenWordVector()
-        self.lr =  T.dscalar('lr')
+        self.lr = T.dscalar('lr')
         self.charWindowSize = charWindowSize
         self.wordWindowSize = wordWindowSize
         self.startSymbol = charcon.getLexiconIndex(WindowModelBasic.startSymbolStr)
@@ -44,7 +44,7 @@ class CharWNN():
         self.convSize = convSize
         
         self.maxLenWord = max(numCharsOfWord)
-        self.posMaxByWord = theano.shared(np.zeros((2,self.maxLenWord),dtype="int64"),'posMaxByWord',int)
+        self.posMaxByWord = theano.shared(np.zeros((2, self.maxLenWord), dtype="int64"), 'posMaxByWord', int)
         
         self.charAct = charAct
         self.norm_coef = norm_coef
@@ -52,34 +52,35 @@ class CharWNN():
         # Inicializando as camadas básicas 
         self.initWithBasicLayers()
         
-        #Montar uma lista com as janelas de char de cada palavra do dicionario
+        # Montar uma lista com as janelas de char de cada palavra do dicionario
         self.AllCharWindowIndexes = self.getAllCharIndexes(charIdxWord)
         
         
-        #definir a saída da camada Charwnn, a representação da janela de palavras à nível de caracter
-        self.output = T.max(self.hiddenLayer.getOutput()[self.posMaxByWord], axis=1).reshape((self.batchSize,self.wordWindowSize * self.convSize))
+        # definir a saída da camada Charwnn, a representação da janela de palavras à nível de caracter
+        self.output = T.max(self.hiddenLayer.getOutput()[self.posMaxByWord], axis=1).reshape((self.batchSize, self.wordWindowSize * self.convSize))
         
     
     def initWithBasicLayers(self):
         
         # Camada: char window
-        self.charWindowIdxs = theano.shared(value=np.zeros((2,self.charWindowSize),dtype="int64"),
+        self.charWindowIdxs = theano.shared(value=np.zeros((2, self.charWindowSize), dtype="int64"),
                                    name="charWindowIdxs")
                 
         # Camada: lookup table.
-        self.wordToVector = WordToVectorLayer(self.charWindowIdxs,self.Cv, self.charSize, True,self.charVecsUpdStrategy,self.norm_coef)
+        #self.wordToVector = WordToVectorLayer(self.charWindowIdxs, self.Cv, self.charSize, True, self.charVecsUpdStrategy, self.norm_coef)
+        self.wordToVector = WordToVectorLayer(self.charWindowIdxs, self.Cv)
         
         # Camada: hidden layer com a função Tanh como função de ativaçãos
         if self.withAct:
             print 'Charwnn with Activation'
-            self.hiddenLayer = HiddenLayer(self.wordToVector.getOutput(),self.charSize * self.charWindowSize , self.convSize, activation=self.charAct);
+            self.hiddenLayer = HiddenLayer(self.wordToVector.getOutput(), self.charSize * self.charWindowSize , self.convSize, activation=self.charAct);
         else:
             print 'Charwnn without Activation'
-            self.hiddenLayer = HiddenLayer(self.wordToVector.getOutput(),self.charSize * self.charWindowSize , self.convSize, activation=None);
+            self.hiddenLayer = HiddenLayer(self.wordToVector.getOutput(), self.charSize * self.charWindowSize , self.convSize, activation=None);
         
 
     # Esta função retorna o índice das janelas dos caracteres de todas as palavras 
-    def getAllWordCharWindowIndexes(self,inputData):
+    def getAllWordCharWindowIndexes(self, inputData):
         
         if self.separateSentence:
             return self.getAllWordCharWindowIndexesBySentence(inputData)
@@ -87,7 +88,7 @@ class CharWNN():
         return self.getAllWordCharWindowIndexesByWord(inputData)
         
         
-    def getAllWordCharWindowIndexesByWord(self,inputData):
+    def getAllWordCharWindowIndexesByWord(self, inputData):
         
         numChar = []
         charWindowOfWord = []
@@ -105,19 +106,19 @@ class CharWNN():
                 numChar.append(self.numCharsOfWord[j])
                 
                 line = []
-                for ii in range(min(self.numCharsOfWord[j],self.maxLenWord)):
+                for ii in range(min(self.numCharsOfWord[j], self.maxLenWord)):
                     line.append(jj)
                     jj += 1
-                while ii+1 < self.maxLenWord:
-                    line.append(jj-1)
+                while ii + 1 < self.maxLenWord:
+                    line.append(jj - 1)
                     ii += 1
                 maxPosByWord.append(line)     
                        
         
-        return [np.array(charWindowOfWord),np.asarray(maxPosByWord),np.array(numChar)]
+        return [np.array(charWindowOfWord), np.asarray(maxPosByWord), np.array(numChar)]
         
     
-    def getAllWordCharWindowIndexesBySentence(self,inputData):
+    def getAllWordCharWindowIndexesBySentence(self, inputData):
         
         numChar = []            
         charWindowOfWord = []
@@ -137,11 +138,11 @@ class CharWNN():
                     
                     
                     line = []
-                    for ii in range(min(self.numCharsOfWord[j],self.maxLenWord)):
+                    for ii in range(min(self.numCharsOfWord[j], self.maxLenWord)):
                         line.append(jj)
                         jj += 1
-                    while ii+1 < self.maxLenWord:
-                        line.append(jj-1)
+                    while ii + 1 < self.maxLenWord:
+                        line.append(jj - 1)
                         ii += 1
                     
       
@@ -150,34 +151,34 @@ class CharWNN():
             numChar.append(numCharSentence)      
         
         
-        return [np.array(charWindowOfWord),np.asarray(maxPosByWord,dtype="int64"),np.array(numChar)]
+        return [np.array(charWindowOfWord), np.asarray(maxPosByWord, dtype="int64"), np.array(numChar)]
 
         
-    #esta funcao monta a janela de chars de uma palavra    
-    def getAllCharIndexes(self,charIdxWord):
+    # esta funcao monta a janela de chars de uma palavra    
+    def getAllCharIndexes(self, charIdxWord):
         allWindowIndexes = []
         
         for Idx in range(len(charIdxWord)):
             indexes = []
            
             for charIdx in range(len(charIdxWord[Idx])):
-                indexes.append(self.getCharIndexes(charIdx,charIdxWord[Idx]))
+                indexes.append(self.getCharIndexes(charIdx, charIdxWord[Idx]))
             allWindowIndexes.append(indexes)
             
         return allWindowIndexes;
     
-    def updateAllCharIndexes(self,charIdxWord):
+    def updateAllCharIndexes(self, charIdxWord):
         
         for Idx in range(len(charIdxWord)):
             indexes = []
            
             for charIdx in range(len(charIdxWord[Idx])):
-                indexes.append(self.getCharIndexes(charIdx,charIdxWord[Idx]))
+                indexes.append(self.getCharIndexes(charIdx, charIdxWord[Idx]))
                 
             self.AllCharWindowIndexes.append(indexes)
     
 
-    def getCharIndexes(self, idxWord,data):
+    def getCharIndexes(self, idxWord, data):
         lenData = len(data)
         windowNums = []
         contextSize = int(np.floor((self.charWindowSize - 1) / 2))
@@ -207,7 +208,7 @@ class CharWNN():
             i += 1
         return windowNums
     
-    def confBatchSize(self,inputData,batch):
+    def confBatchSize(self, inputData, batch):
         
         # Configura o batch size
         
@@ -225,29 +226,32 @@ class CharWNN():
                 if charIdx >= numWords:
                     break;
                 
-                step = sum(inputData[charIdx:charIdx+(self.wordWindowSize*batch[idx])])
+                step = sum(inputData[charIdx:charIdx + (self.wordWindowSize * batch[idx])])
                 
                 batchStep.append(step)
-                charIdx += (self.wordWindowSize*batch[idx])
+                charIdx += (self.wordWindowSize * batch[idx])
             
         return np.asarray(batchStep);
-            #batcheSize==windowSize??
-            #for idx in range(len(batch)):
+            # batcheSize==windowSize??
+            # for idx in range(len(batch)):
             #    if charIdx >= numWords:
             #        break;
             #    
             #    step = sum(inputData[charIdx:charIdx+batch[idx]])
             #    batchStep.append(step)
             #    charIdx += batch[idx]        
-    
-    
-     
+
     def setUpdates(self):
-        updates = self.hiddenLayer.getUpdate(self.cost, self.lr);    
-        updates += self.wordToVector.getUpdate(self.cost, self.lr);
+        updates = self.hiddenLayer.getUpdate(self.cost, self.lr);
+        updates += self.wordToVector.getUpdate(self.cost, self.lr)
+        
+        # Add normalization update.
+        if (self.charVecsUpdStrategy != 'normal'):
+            self.wordToVector.getNormalizationUpdate(self.charVecsUpdStrategy, self.norm_coef)
+
         self.updates = updates
         
-    def setCost(self,cost):
+    def setCost(self, cost):
         self.cost = cost
         
              

@@ -4,18 +4,18 @@
 import numpy as np
 import theano
 from NNet.SoftmaxLayer import SoftmaxLayer
-from NNet.Util import negative_log_likelihood, regularizationSquareSumParamaters,\
+from NNet.Util import negative_log_likelihood, regularizationSquareSumParamaters, \
     LearningRateUpdNormalStrategy
 from WindowModelBasic import WindowModelBasic
-from CharWNN import *
+import theano.tensor as T
 
 class WindowModelByWord(WindowModelBasic):
 
-    def __init__(self, lexicon, wordVectors , windowSize, hiddenSize, _lr,numClasses,numEpochs, batchSize=1, c=0.0,
-                 charModel=None,learningRateUpdStrategy = LearningRateUpdNormalStrategy(),wordVecsUpdStrategy='normal',networkAct='tanh',norm_coef=1.0):
+    def __init__(self, lexicon, wordVectors , windowSize, hiddenSize, _lr, numClasses, numEpochs, batchSize=1, c=0.0,
+                 charModel=None, learningRateUpdStrategy=LearningRateUpdNormalStrategy(), wordVecsUpdStrategy='normal', networkAct='tanh', norm_coef=1.0):
         
-        WindowModelBasic.__init__(self, lexicon, wordVectors, windowSize, hiddenSize, _lr, numClasses, numEpochs, 
-                                  batchSize, c, charModel,learningRateUpdStrategy,False,wordVecsUpdStrategy,False,networkAct,norm_coef)
+        WindowModelBasic.__init__(self, lexicon, wordVectors, windowSize, hiddenSize, _lr, numClasses, numEpochs,
+                                  batchSize, c, charModel, learningRateUpdStrategy, False, wordVecsUpdStrategy, False, networkAct, norm_coef)
 
         self.setTestValues = True
         
@@ -47,20 +47,22 @@ class WindowModelByWord(WindowModelBasic):
             
             updates = self.hiddenLayer.getUpdate(cost, self.lr);
             updates += self.charModel.updates
-            
-            
+
+        updates += self.softmax.getUpdate(cost, self.lr)
+        updates += self.wordToVector.getUpdate(cost, self.lr)
         
-        updates += self.softmax.getUpdate(cost, self.lr);
-        updates += self.wordToVector.getUpdate(cost, self.lr); 
-        
+        # Add normalization updates.
+        if (self.wordVecsUpdStrategy != 'normal'):
+            self.wordToVector.getNormalizationUpdate(self.wordVecsUpdStrategy, self.norm_coef)
+
         self.setCost(cost)
         self.setUpdates(updates)
     
     
-    def reshapeCorrectData(self,correctData):
+    def reshapeCorrectData(self, correctData):
         return np.asarray(correctData)
       
-    #Esta funcao retorna todos os indices das janelas de palavras  
+    # Esta funcao retorna todos os indices das janelas de palavras  
     def getAllWindowIndexes(self, data):
         allWindowIndexes = [];
         
@@ -69,7 +71,7 @@ class WindowModelByWord(WindowModelBasic):
             
         return np.array(allWindowIndexes);
     
-    def confBatchSize(self,inputData):
+    def confBatchSize(self, inputData):
         numWords = len(inputData)
         
         # Configura o batch size
@@ -81,15 +83,15 @@ class WindowModelByWord(WindowModelBasic):
             
             return np.asarray(self.batchSize);
 
-        num = numWords/self.batchSize  
-        arr = np.full(num,self.batchSize,dtype=np.int64)
-        if numWords%self.batchSize:
-            arr = np.append(arr, numWords%self.batchSize)
+        num = numWords / self.batchSize  
+        arr = np.full(num, self.batchSize, dtype=np.int64)
+        if numWords % self.batchSize:
+            arr = np.append(arr, numWords % self.batchSize)
         
         return arr
-        #return np.full(numWords/self.batchSize + 1,self.batchSize,dtype=np.int64)
+        # return np.full(numWords/self.batchSize + 1,self.batchSize,dtype=np.int64)
         
-    def predict(self, inputData,indexesOfRawWord,unknownDataTest):
+    def predict(self, inputData, indexesOfRawWord, unknownDataTest):
       
         self.reloadWindowIds = True  
         predict = 0
@@ -108,18 +110,18 @@ class WindowModelByWord(WindowModelBasic):
                 
             self.setTestValues = False    
         
-        self.windowIdxs.set_value(self.testWordWindowIdxs,borrow=True)
+        self.windowIdxs.set_value(self.testWordWindowIdxs, borrow=True)
         if self.charModel == None:
             
             y_pred = self.softmax.getPrediction();
-            f = theano.function([],[y_pred]);
+            f = theano.function([], [y_pred]);
             
             predict = f()[0]
             
         else:
 
-            self.charModel.charWindowIdxs.set_value(self.testCharWindowIdxs,borrow=True)
-            self.charModel.posMaxByWord.set_value(self.testPosMaxByWord,borrow=True)
+            self.charModel.charWindowIdxs.set_value(self.testCharWindowIdxs, borrow=True)
+            self.charModel.posMaxByWord.set_value(self.testPosMaxByWord, borrow=True)
             
             index = T.iscalar("index")
             charIndex = T.iscalar("charIndex")
@@ -128,19 +130,19 @@ class WindowModelByWord(WindowModelBasic):
             
             self.charModel.batchSize.set_value(1)
             
-            f = theano.function(inputs=[index,charIndex,step],
+            f = theano.function(inputs=[index, charIndex, step],
                                     outputs=self.softmax.getPrediction(),
                                     givens={
-                                            self.charModel.charWindowIdxs: self.charModel.charWindowIdxs[charIndex:charIndex+step],
-                                            self.charModel.posMaxByWord:self.charModel.posMaxByWord[index*self.windowSize:(index+1)*self.windowSize],
+                                            self.charModel.charWindowIdxs: self.charModel.charWindowIdxs[charIndex:charIndex + step],
+                                            self.charModel.posMaxByWord:self.charModel.posMaxByWord[index * self.windowSize:(index + 1) * self.windowSize],
                                             self.windowIdxs: self.windowIdxs[index : index + 1],
                                             
                                     })
             predict = []
             j = 0
             for i in range(len(inputData)):
-                predict.append(f(i,j,sum(self.testNumCharByWord[i*self.windowSize:(i+1)*self.windowSize]))[0]);
-                j += sum(self.testNumCharByWord[i*self.windowSize:(i+1)*self.windowSize])
+                predict.append(f(i, j, sum(self.testNumCharByWord[i * self.windowSize:(i + 1) * self.windowSize]))[0]);
+                j += sum(self.testNumCharByWord[i * self.windowSize:(i + 1) * self.windowSize])
             
             
         return predict

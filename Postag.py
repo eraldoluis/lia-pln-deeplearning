@@ -22,21 +22,17 @@ from NNet.Util import LearningRateUpdDivideByEpochStrategy, \
     LearningRateUpdNormalStrategy
 from Evaluate.EvaluatePercPredictsCorrectNotInWordSet import EvaluatePercPredictsCorrectNotInWordSet
 import random
-import os
 import logging
-
 
 class ParametersChoices:
     unknownWordStrategy = ["random", "mean_vector", "word_vocab"]
     algTypeChoices = ["window_word", "window_sentence"]
     lrStrategyChoices = ["normal", "divide_epoch"]
     networkChoices = ["complete", "without_hidden_update_wv" , "without_update_wv"]
-    networkActivation = ["tanh","hard_tanh","sigmoid","hard_sigmoid","ultra_fast_sigmoid"]
-
+    networkActivation = ["tanh", "hard_tanh", "sigmoid", "hard_sigmoid", "ultra_fast_sigmoid"]
 
 def readVocabAndWord(args):
-    
-    """Este if só foi criado para permitir que DLIDPostag possa reusar o run do postag"""
+    # Este if só foi criado para permitir que DLIDPostag possa reusar o run do postag
     if isinstance(args.vocab, Lexicon) and isinstance(args.wordVectors, WordVector): 
         return args.vocab, args.wordVectors
     
@@ -53,8 +49,6 @@ def readVocabAndWord(args):
 
 def run(algTypeChoices, unknownWordStrategy, lrStrategyChoices, networkChoices, args):
     
-    logger = logging.getLogger("Logger")
-    
     filters = []
     a = 0
     args.filters.append('DataOperation.TransformLowerCaseFilter')
@@ -66,15 +60,15 @@ def run(algTypeChoices, unknownWordStrategy, lrStrategyChoices, networkChoices, 
         a += 2
     
     t0 = time.time()
-    datasetReader = TokenLabelReader(args.fileWithFeatures,args.tokenLabelSeparator)
+    datasetReader = TokenLabelReader(args.fileWithFeatures, args.tokenLabelSeparator)
     testData = None
     if args.testOOUV:
         unknownDataTest = []
     else:
         unknownDataTest = None
-# charVars = [charcon, charVector, charIndexesOfLexiconRaw, numCharsOfLexiconRaw]
+    # charVars = [charcon, charVector, charIndexesOfLexiconRaw, numCharsOfLexiconRaw]
     charVars = [None, None, {}, []]
-    
+
     if args.loadModel is not None:
         print 'Loading model in ' + args.loadModel + ' ...'
         f = open(args.loadModel, "rb")
@@ -98,7 +92,7 @@ def run(algTypeChoices, unknownWordStrategy, lrStrategyChoices, networkChoices, 
             # datasetReader.readData(args.train,lexicon,lexiconOfLabel, separateSentences=separateSentence,filters=filters,lexiconFindInTrain=lexiconFindInTrain)
             datasetReader.readData(args.train, lexicon, lexiconOfLabel, lexiconRaw, separateSentences=separeSentence, withCharwnn=args.withCharwnn, charVars=charVars, filters=filters, setWordsInDataSet=lexiconFindInTrain)
         if args.testOOUV:
-            lexiconWV, wv = readVocabAndWord(args)
+            lexiconWV, _ = readVocabAndWord(args)
             lexiconFindInWV = set([word for word in lexiconWV.getLexiconDict()])
             # lexiconFindInWV = set()
             # datasetReader.readData(args.train,lexiconWV,lexiconOfLabel, lexiconRaw, separateSentences=separeSentence,withCharwnn=args.withCharwnn,
@@ -228,7 +222,7 @@ def run(algTypeChoices, unknownWordStrategy, lrStrategyChoices, networkChoices, 
                 elif args.charVecsUpdStrategy == 'z_score' or args.charVecsInit == 'z_score':
                     charVars[1].zScore(args.norm_coef)
                 charModel = CharWNN(charVars[0], charVars[1], charVars[2], charVars[3], args.charWindowSize, args.wordWindowSize,
-                    args.convSize, numClasses, args.c, learningRateUpdStrategy, separeSentence, args.charwnnWithAct, args.charVecsUpdStrategy,args.networkAct,args.norm_coef)
+                    args.convSize, numClasses, args.c, learningRateUpdStrategy, separeSentence, args.charwnnWithAct, args.charVecsUpdStrategy, args.networkAct, args.norm_coef)
             
             if args.wordVecsInit == 'randomAll':
                 wordVector.startAllRandom()
@@ -238,7 +232,7 @@ def run(algTypeChoices, unknownWordStrategy, lrStrategyChoices, networkChoices, 
                 wordVector.zScore(args.norm_coef)
             
             model = WindowModelByWord(lexicon, wordVector, args.wordWindowSize, args.hiddenSize, args.lr, numClasses,
-                args.numepochs, args.batchSize, args.c, charModel, learningRateUpdStrategy, args.wordVecsUpdStrategy,args.networkAct,args.norm_coef)
+                args.numepochs, args.batchSize, args.c, charModel, learningRateUpdStrategy, args.wordVecsUpdStrategy, args.networkAct, args.norm_coef)
         
         elif args.alg == algTypeChoices[1]:
             separeSentence = True
@@ -267,7 +261,7 @@ def run(algTypeChoices, unknownWordStrategy, lrStrategyChoices, networkChoices, 
                 elif args.charVecsUpdStrategy == 'z_score' or args.charVecsInit == 'z_score':
                     charVars[1].zScore(args.norm_coef)
                 charModel = CharWNN(charVars[0], charVars[1], charVars[2], charVars[3], args.charWindowSize, args.wordWindowSize,
-                    args.convSize, numClasses, args.c, learningRateUpdStrategy, separeSentence, args.charwnnWithAct, args.charVecsUpdStrategy,args.networkAct,args.norm_coef)
+                    args.convSize, numClasses, args.c, learningRateUpdStrategy, separeSentence, args.charwnnWithAct, args.charVecsUpdStrategy, args.networkAct, args.norm_coef)
             
             if args.wordVecsInit == 'randomAll':
                 wordVector.startAllRandom()
@@ -277,7 +271,7 @@ def run(algTypeChoices, unknownWordStrategy, lrStrategyChoices, networkChoices, 
                 wordVector.zScore(args.norm_coef)
             
             model = WindowModelBySentence(lexicon, wordVector, args.wordWindowSize, args.hiddenSize, args.lr,
-                numClasses, args.numepochs, args.batchSize, args.c, charModel, learningRateUpdStrategy, args.wordVecsUpdStrategy, networkChoice,args.networkAct,args.norm_coef)
+                numClasses, args.numepochs, args.batchSize, args.c, charModel, learningRateUpdStrategy, args.wordVecsUpdStrategy, networkChoice, args.networkAct, args.norm_coef)
         
         if args.numPerEpoch is not None and len(args.numPerEpoch) != 0:
             print 'Loading test data...'
@@ -312,8 +306,8 @@ def run(algTypeChoices, unknownWordStrategy, lrStrategyChoices, networkChoices, 
     
     predicts = model.predict(testData[0], testData[2], unknownDataTestCharIdxs)
     evalue = EvaluateAccuracy()
-    acc = evalue.evaluateWithPrint(predicts, testData[1])
-    
+    evalue.evaluateWithPrint(predicts, testData[1])
+
     if args.testOOSV:
         oosv = EvaluatePercPredictsCorrectNotInWordSet(lexicon, lexiconFindInTrain, 'OOSV')
         oosv.evaluateWithPrint(predicts, testData[1], testData[0], unknownDataTest)

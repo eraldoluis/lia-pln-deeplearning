@@ -49,18 +49,18 @@ class WindowModelByWord(WindowModelBasic):
             updates += self.charModel.updates
 
         updates += self.softmax.getUpdate(cost, self.lr)
-        updates += self.wordToVector.getUpdate(cost, self.lr)
+        updates += self.embedding.getUpdate(cost, self.lr)
         
         # Add normalization updates.
         if (self.wordVecsUpdStrategy != 'normal'):
-            self.wordToVector.getNormalizationUpdate(self.wordVecsUpdStrategy, self.norm_coef)
+            self.embedding.getNormalizationUpdate(self.wordVecsUpdStrategy, self.norm_coef)
 
         self.setCost(cost)
         self.setUpdates(updates)
     
     
     def reshapeCorrectData(self, correctData):
-        return np.asarray(correctData)
+        return np.asarray(correctData, dtype=np.int32)
       
     # Esta funcao retorna todos os indices das janelas de palavras  
     def getAllWindowIndexes(self, data):
@@ -69,7 +69,7 @@ class WindowModelByWord(WindowModelBasic):
         for idxWord in range(len(data)):
             allWindowIndexes.append(self.getWindowIndexes(idxWord, data))
             
-        return np.array(allWindowIndexes)
+        return np.array(allWindowIndexes, dtype=np.int32)
     
     def confBatchSize(self, inputData):
         numWords = len(inputData)
@@ -81,20 +81,20 @@ class WindowModelByWord(WindowModelBasic):
             else:
                 raise Exception("The total number of words in batch exceeds the number of words in inputData")
             
-            return np.asarray(self.batchSize);
+            return np.asarray(self.batchSize, dtype=np.int32);
 
         num = numWords / self.batchSize  
-        arr = np.full(num, self.batchSize, dtype=np.int64)
+        arr = np.full(num, self.batchSize, dtype=np.int32)
         if numWords % self.batchSize:
             arr = np.append(arr, numWords % self.batchSize)
-        
+
         return arr
-        # return np.full(numWords/self.batchSize + 1,self.batchSize,dtype=np.int64)
+        # return np.full(numWords/self.batchSize + 1,self.batchSize,dtype=np.int32)
         
     def predict(self, inputData, indexesOfRawWord, unknownDataTest):
       
         self.reloadWindowIds = True  
-        predict = 0
+        y = 0
         
         if self.setTestValues:
             self.testWordWindowIdxs = self.getAllWindowIndexes(inputData)
@@ -110,14 +110,13 @@ class WindowModelByWord(WindowModelBasic):
                 
             self.setTestValues = False    
         
-        self.windowIdxs.set_value(self.testWordWindowIdxs, borrow=True)
+        # self.windowIdxs.set_value(self.testWordWindowIdxs, borrow=True)
         if self.charModel == None:
             
-            y_pred = self.softmax.getPrediction();
-            f = theano.function([], [y_pred]);
-            
-            predict = f()[0]
-            
+            y_pred = self.softmax.getPrediction()
+            pred = theano.function([], [y_pred], givens={self.windowIdxs: self.testWordWindowIdxs})
+            y = pred()[0]
+
         else:
 
             self.charModel.charWindowIdxs.set_value(self.testCharWindowIdxs, borrow=True)
@@ -130,7 +129,7 @@ class WindowModelByWord(WindowModelBasic):
             
             self.charModel.batchSize.set_value(1)
             
-            f = theano.function(inputs=[index, charIndex, step],
+            pred = theano.function(inputs=[index, charIndex, step],
                                     outputs=self.softmax.getPrediction(),
                                     givens={
                                             self.charModel.charWindowIdxs: self.charModel.charWindowIdxs[charIndex:charIndex + step],
@@ -138,12 +137,12 @@ class WindowModelByWord(WindowModelBasic):
                                             self.windowIdxs: self.windowIdxs[index : index + 1],
                                             
                                     })
-            predict = []
+            y = []
             j = 0
             for i in range(len(inputData)):
-                predict.append(f(i, j, sum(self.testNumCharByWord[i * self.windowSize:(i + 1) * self.windowSize]))[0]);
+                y.append(pred(i, j, sum(self.testNumCharByWord[i * self.windowSize:(i + 1) * self.windowSize]))[0]);
                 j += sum(self.testNumCharByWord[i * self.windowSize:(i + 1) * self.windowSize])
             
             
-        return predict
+        return y
         

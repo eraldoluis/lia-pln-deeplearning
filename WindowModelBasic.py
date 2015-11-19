@@ -28,8 +28,8 @@ class WindowModelBasic:
                  , learningRateUpdStrategy=LearningRateUpdNormalStrategy(), randomizeInput=False, wordVecsUpdStrategy='normal', withoutHiddenLayer=False, networkAct='tanh', norm_coef=1.0):
 
 
-        self.Wv = theano.shared(name='wordVecs',
-                                value=np.asarray(wordVectors.getWordVectors(), dtype=theano.config.floatX),
+        self.Wv = theano.shared(np.asarray(wordVectors.getWordVectors(), dtype=theano.config.floatX),
+                                'wordVecs',
                                 borrow=True)
         self.wordSize = wordVectors.getLenWordVector()
         self.lrValue = _lr
@@ -46,7 +46,7 @@ class WindowModelBasic:
         self.cost = None
         self.update = None
         self.regularizationFactor = theano.shared(c)
-        self.y = theano.shared(np.asarray([0]), "y", borrow=True)
+        self.y = theano.shared(np.asarray([0], dtype="int32"), "y", borrow=True)
         
         self.wordVecsUpdStrategy = wordVecsUpdStrategy
         self.charModel = charModel
@@ -77,14 +77,14 @@ class WindowModelBasic:
         self.updates = updates
     
     def initWithBasicLayers(self, withoutHiddenLayer):
-        # Camada: word window.
-        self.windowIdxs = theano.shared(value=np.zeros((1, self.windowSize), dtype="int64"),
-                                   name="windowIdxs")
-        
-        
+        # Variável que representa uma entrada para a rede. A primeira camada é 
+        # a camada de embedding que recebe um batch de janelas de palavras.
+        # self.windowIdxs = theano.shared(value=np.zeros((1, self.windowSize), dtype="int64"), name="windowIdxs")
+        self.windowIdxs = T.imatrix("windowIdxs")
+
         # Word embedding layer
-        # self.wordToVector = EmbeddingLayer(self.windowIdxs, self.Wv, self.wordSize, True,self.wordVecsUpdStrategy,self.norm_coef)
-        self.wordToVector = EmbeddingLayer(self.windowIdxs, self.Wv)
+        # self.embedding = EmbeddingLayer(self.windowIdxs, self.Wv, self.wordSize, True,self.wordVecsUpdStrategy,self.norm_coef)
+        self.embedding = EmbeddingLayer(self.windowIdxs, self.Wv)
         
         # Camada: hidden layer com a função Tanh como função de ativaçãos
         if not withoutHiddenLayer:
@@ -92,10 +92,18 @@ class WindowModelBasic:
             
             if self.charModel == None:
                 # Camada: hidden layer com a função Tanh como função de ativação
-                self.hiddenLayer = HiddenLayer(self.wordToVector.getOutput(), self.wordSize * self.windowSize , self.hiddenSize, activation=self.networkAct);
+                self.hiddenLayer = HiddenLayer(self.embedding.getOutput(),
+                                               self.wordSize * self.windowSize,
+                                               self.hiddenSize,
+                                               activation=self.networkAct)
             else:    
                 # Camada: hidden layer com a função Tanh como função de ativação
-                self.hiddenLayer = HiddenLayer(T.concatenate([self.wordToVector.getOutput(), self.charModel.getOutput()], axis=1), (self.wordSize + self.charModel.convSize) * self.windowSize , self.hiddenSize, activation=self.networkAct);
+                self.hiddenLayer = HiddenLayer(T.concatenate([self.embedding.getOutput(),
+                                                              self.charModel.getOutput()],
+                                                             axis=1),
+                                               (self.wordSize + self.charModel.convSize) * self.windowSize,
+                                               self.hiddenSize,
+                                               activation=self.networkAct);
             
         else:
             print 'Without Hidden Layer'
@@ -123,8 +131,7 @@ class WindowModelBasic:
     
     def confBatchSize(self, inputData):
         raise NotImplementedError();
-     
-
+    
     def train(self, inputData, correctData, indexesOfRawWord):
         self.reloadWindowIds = False
         
@@ -134,33 +141,31 @@ class WindowModelBasic:
         numCharByWord = None
         
         self.charBeginBlock = None
-        
-                      
-        # Label
-        self.y.set_value(self.reshapeCorrectData(correctData), borrow=True)
-        
-        # Camada: word window.
-        windowIdxs = self.getAllWindowIndexes(inputData)
-                
-        self.windowIdxs.set_value(windowIdxs, borrow=True)
-        
-        batchesSize = self.confBatchSize(inputData)
-        
 
-        batchSize = theano.shared(1, "batchSize")
-        index = T.iscalar("index")
+        # Labels
+        self.y.set_value(self.reshapeCorrectData(correctData), borrow=True)
+
+        # Matrix with training data.
+        windowIdxs = theano.shared(self.getAllWindowIndexes(inputData), borrow=True)
+
+        batchesSize = self.confBatchSize(inputData)
+
+        # This is the index of the batch to be trained.
+        # It is multiplied by self.batchSize to provide the correct slice
+        # for each training iteration.
+        batchIndex = T.iscalar("batchIndex")
 
         charBatchesSize = None
         charBatchS = theano.shared(1, "charBatchS")
 
         # Train function.
         if self.charModel == None:
-            train = theano.function(inputs=[index, self.lr],
+            train = theano.function(inputs=[batchIndex, self.lr],
                                     outputs=self.cost,
                                     updates=self.updates,
                                     givens={     
-                                            self.windowIdxs: self.windowIdxs[index : index + batchSize],
-                                            self.y: self.y[index : index + batchSize]
+                                            self.windowIdxs: windowIdxs[batchIndex * self.batchSize : (batchIndex + 1) * self.batchSize],
+                                            self.y: self.y[batchIndex * self.batchSize : (batchIndex + 1) * self.batchSize]
                                     })  # , mode='DebugMode')
         else:
             charmodelIdxsPos = self.charModel.getAllWordCharWindowIndexes(indexesOfRawWord)
@@ -174,14 +179,14 @@ class WindowModelBasic:
             charBatchesSize = self.charModel.confBatchSize(numCharByWord, batchesSize)
             
                     
-            train = theano.function(inputs=[index, self.lr, self.charModel.lr, charIndex],
+            train = theano.function(inputs=[batchIndex, self.lr, self.charModel.lr, charIndex],
                                     outputs=self.cost,
                                     updates=self.updates,
                                     givens={
                                             self.charModel.charWindowIdxs: self.charModel.charWindowIdxs[charIndex:charIndex + charBatchS],
-                                            self.charModel.posMaxByWord:self.charModel.posMaxByWord[index * self.windowSize:(index + batchSize) * self.windowSize],
-                                            self.windowIdxs: self.windowIdxs[index : index + batchSize],
-                                            self.y: self.y[index : index + batchSize]
+                                            self.charModel.posMaxByWord:self.charModel.posMaxByWord[batchIndex * self.windowSize:(batchIndex + batchSize) * self.windowSize],
+                                            self.windowIdxs: self.windowIdxs[batchIndex : batchIndex + batchSize],
+                                            self.y: self.y[batchIndex : batchIndex + batchSize]
                                     })
             
             self.charBeginBlock = []    
@@ -216,11 +221,12 @@ class WindowModelBasic:
 
             if self.charModel == None:                
                 for idx in idxList:
-                    batchSize.set_value(batchesSize[idx])
-                    train(self.beginBlock[idx], lr)     
+                    # batchSize.set_value(batchesSize[idx])
+                    # train(self.beginBlock[idx], lr)     
+                    train(idx, lr)
             else:
                 for idx in idxList:
-                    batchSize.set_value(batchesSize[idx])
+                    # batchSize.set_value(batchesSize[idx])
                     charBatchS.set_value(charBatchesSize[idx])
      
                     self.charModel.batchSize.set_value(batchesSize[idx])

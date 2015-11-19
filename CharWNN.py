@@ -67,16 +67,16 @@ class CharWNN():
                                    name="charWindowIdxs")
                 
         # Camada: lookup table.
-        #self.wordToVector = EmbeddingLayer(self.charWindowIdxs, self.Cv, self.charSize, True, self.charVecsUpdStrategy, self.norm_coef)
-        self.wordToVector = EmbeddingLayer(self.charWindowIdxs, self.Cv)
+        #self.embedding = EmbeddingLayer(self.charWindowIdxs, self.Cv, self.charSize, True, self.charVecsUpdStrategy, self.norm_coef)
+        self.embedding = EmbeddingLayer(self.charWindowIdxs, self.Cv)
         
         # Camada: hidden layer com a função Tanh como função de ativaçãos
         if self.withAct:
             print 'Charwnn with Activation'
-            self.hiddenLayer = HiddenLayer(self.wordToVector.getOutput(), self.charSize * self.charWindowSize , self.convSize, activation=self.charAct);
+            self.hiddenLayer = HiddenLayer(self.embedding.getOutput(), self.charSize * self.charWindowSize , self.convSize, activation=self.charAct);
         else:
             print 'Charwnn without Activation'
-            self.hiddenLayer = HiddenLayer(self.wordToVector.getOutput(), self.charSize * self.charWindowSize , self.convSize, activation=None);
+            self.hiddenLayer = HiddenLayer(self.embedding.getOutput(), self.charSize * self.charWindowSize , self.convSize, activation=None);
         
 
     # Esta função retorna o índice das janelas dos caracteres de todas as palavras 
@@ -243,11 +243,11 @@ class CharWNN():
 
     def setUpdates(self):
         updates = self.hiddenLayer.getUpdate(self.cost, self.lr);
-        updates += self.wordToVector.getUpdate(self.cost, self.lr)
+        updates += self.embedding.getUpdate(self.cost, self.lr)
         
         # Add normalization update.
         if (self.charVecsUpdStrategy != 'normal'):
-            self.wordToVector.getNormalizationUpdate(self.charVecsUpdStrategy, self.norm_coef)
+            self.embedding.getNormalizationUpdate(self.charVecsUpdStrategy, self.norm_coef)
 
         self.updates = updates
         

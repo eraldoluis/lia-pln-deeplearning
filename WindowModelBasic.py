@@ -5,7 +5,7 @@ import numpy as np
 import theano
 import theano.tensor as T
 from NNet.HiddenLayer import HiddenLayer
-from NNet.WortToVectorLayer import WordToVectorLayer
+from NNet.EmbeddingLayer import EmbeddingLayer
 from NNet.Util import LearningRateUpdNormalStrategy
 import time
 import random
@@ -83,8 +83,8 @@ class WindowModelBasic:
         
         
         # Word embedding layer
-        # self.wordToVector = WordToVectorLayer(self.windowIdxs, self.Wv, self.wordSize, True,self.wordVecsUpdStrategy,self.norm_coef)
-        self.wordToVector = WordToVectorLayer(self.windowIdxs, self.Wv)
+        # self.wordToVector = EmbeddingLayer(self.windowIdxs, self.Wv, self.wordSize, True,self.wordVecsUpdStrategy,self.norm_coef)
+        self.wordToVector = EmbeddingLayer(self.windowIdxs, self.Wv)
         
         # Camada: hidden layer com a função Tanh como função de ativaçãos
         if not withoutHiddenLayer:

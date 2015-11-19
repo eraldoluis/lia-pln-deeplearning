@@ -13,7 +13,7 @@ import numpy as np
 import theano
 import theano.tensor as T
 from NNet.HiddenLayer import HiddenLayer
-from NNet.WortToVectorLayer import WordToVectorLayer
+from NNet.EmbeddingLayer import EmbeddingLayer
 from theano.tensor.nnet.nnet import softmax
 from NNet.SoftmaxLayer import SoftmaxLayer
 from NNet.Util import negative_log_likelihood, regularizationSquareSumParamaters

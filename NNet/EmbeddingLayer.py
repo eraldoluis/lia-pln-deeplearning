@@ -1,6 +1,6 @@
 import theano.tensor as T
 
-class WordToVectorLayer:
+class EmbeddingLayer:
     """
     Layer that represents a lookup table for some feature embedding.
     It converts a set of sparse features (binary, categorical, etc.)

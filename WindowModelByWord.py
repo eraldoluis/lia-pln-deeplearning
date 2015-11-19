@@ -64,12 +64,12 @@ class WindowModelByWord(WindowModelBasic):
       
     # Esta funcao retorna todos os indices das janelas de palavras  
     def getAllWindowIndexes(self, data):
-        allWindowIndexes = [];
+        allWindowIndexes = []
         
         for idxWord in range(len(data)):
             allWindowIndexes.append(self.getWindowIndexes(idxWord, data))
             
-        return np.array(allWindowIndexes);
+        return np.array(allWindowIndexes)
     
     def confBatchSize(self, inputData):
         numWords = len(inputData)

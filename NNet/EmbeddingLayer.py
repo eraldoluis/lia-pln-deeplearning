@@ -67,17 +67,17 @@ class EmbeddingLayer(Layer):
         return self.__output
     
     def getParameters(self):
-        return self.__embedding
+        return [self.__embedding]
 
     def getUpdates(self, cost, learningRate):
         # shape = (numExs, szEx * szEmb)
         gWordVector = -learningRate * T.grad(cost, self.__output)
 
-        # Reshape gradient vector as self.__activeVectors, since these are the
-        # parameters to be updated.
+        # Reshape the gradient vector as self.__activeVectors, since these are 
+        # the parameters to be updated.
         gWordVector = gWordVector.reshape(self.__activeVectors.shape)
 
-        # Update only the active vectors.
+        # Update only the active vectors (structured update).
         up = T.inc_subtensor(self.__activeVectors, gWordVector)
 
         return [(self.__embedding, up)]
@@ -99,3 +99,10 @@ class EmbeddingLayer(Layer):
             raise Exception("Unknown normalization strategy: %s" % strategy)
 
         return [(emb, norm)]
+
+    def getDefaultGradParameters(self):
+        """
+        Since this layer uses a structured update for all its parameters
+        (embedding), there is no parameter with default gradient updates
+        """
+        return None

@@ -8,11 +8,17 @@ class Layer(object):
     '''
     Base class for neural network layers. A layer must have an input, some
     (learnable) parameters and an output. The output must be a function of the
-    input and the parameters. Optionally, a layer can compute its gradient-based
-    updates given a cost function. This is useful for structured layers like
-    Word Embeddings (see EmbeddingLayer class) which can compute a much more
-    efficient update rule since just a small fraction of its parameters are
-    used in each minibatch (or online) iteration.
+    input and the parameters.
+    
+    Optionally, a layer can compute its gradient-based updates given a cost 
+    function. This is useful for structured (not fully connected) layers, like
+    Word Embeddings (see EmbeddingLayer class) which can compute gradients and 
+    updates in a much more efficient way than simply 
+
+        grad = T.grad(cost, params)
+        params = params - learningRate * grad
+
+    since just some of its parameters are used in each learning iteration.
     '''
 
     def __init__(self, _input):
@@ -35,19 +41,33 @@ class Layer(object):
     
     def getParameters(self):
         '''
-        :return a list comprising all parameters of this layer.
+        :return a list comprising all parameters (shared variables) of this layer.
+        '''
+        raise NotImplementedError()
+    
+    def getDefaultGradParameters(self):
+        '''
+        :return a list of parameters (shared variables) whose gradients and 
+            updates can be computed in the ordinary way, i.e.:
+                grad = T.grad(cost, params)
+                params = params - learningRate * grad
         '''
         raise NotImplementedError()
     
     def getUpdates(self, cost, learningRate):
         '''
-        Some layers can have a more efficient way of updating their parameters.
-        This is usually true for structured layers (not fully connected), like
-        word embeddings.
+        Some layers can have an efficient ways of computing the gradient w.r.t. 
+        their parameters and the corresponding updates. This is usually the case
+        for structured layers (not fully connected), like word embeddings.
         
-        :return None, if this layer update can be directly computed from the 
-            gradient of the cost function w.r.t. its parameters.
-            Or, return a list of tuples (var, newValue) that updates this
-            layer parameters w.r.t. the given cost function and learning rate.
+        :param cost: theano function representing the cost of a training step
+        
+        :param learningRate: (possibly symbolic) value representing the learning rate.
+        
+        :return [], an empty list, if this layer parameters updates can be 
+            directly computed from the gradient of the cost function w.r.t. its
+            parameters. Otherwise, return a list of tuples (var, newValue) that 
+            updates this layer parameters w.r.t. the given cost function and 
+            learning rate.
         '''
         raise NotImplementedError()

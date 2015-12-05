@@ -8,16 +8,43 @@ from NNet.HiddenLayer import HiddenLayer
 from NNet.EmbeddingLayer import EmbeddingLayer
 from NNet.Util import LearningRateUpdNormalStrategy
 from WindowModelBasic import WindowModelBasic
+from NNet.Layer import Layer
 
-class CharWNN():
-
+class EmbeddingConvolutionalLayer(Layer):
+    """
+    Convolutional layer of embedding features.
+    
+    The input of this layer is a 4-D tensor whose shape is:
+        (numExs, szWrdWin, numMaxCh, szChWin)
+    where
+        numExs is the number of examples in a training (mini) batch,
+        szWrdWin is the size of the word window
+            (the convolution is independently performed for each index in this dimension),
+        numMaxCh is the number of characters used to represent words
+            (the convolution is performed over this dimension),
+        szChWin is the size of the character window
+            (each input for the convolution filters is composed by this number of features).
+    
+    The value numMaxCh, the number of characters used to represent a word,
+    is fixed for all word to speedup training. For words that are shorter
+    than this value, we extend them with an artificial character. For words
+    that are longer than this value, we use only the last numMaxCh
+    characters in them.
+    
+    Thus, this layer is not really convolutional (with variable-sized inputs),
+    but it is sufficient for many applications and is much faster than an
+    ordinary convolutional layer.
+    """
+    
     def __init__(self, charcon, charVectors, charIdxWord, numCharsOfWord, charWindowSize, wordWindowSize , convSize,
                   numClasses, c=0.0, learningRateUpdStrategy=LearningRateUpdNormalStrategy(), separateSentence=False, withAct=False, charVecsUpdStrategy='normal', charAct="tanh", norm_coef=1.0):
         self.CharIdxWord = charIdxWord
         
-        self.Cv = theano.shared(name='charVecs',
-                                value=np.asarray(charVectors.getWordVectors(), dtype=theano.config.floatX),
-                                borrow=True)
+        # Feature embedding
+        self.__embedding = theano.shared(name='conv_embedding',
+                                         value=np.asarray(charVectors.getWordVectors(),
+                                                          dtype=theano.config.floatX),
+                                         borrow=True)
         
         self.numChars = len(charVectors.getWordVectors())
         self.charSize = charVectors.getLenWordVector()
@@ -28,7 +55,6 @@ class CharWNN():
         self.numClasses = numClasses
         self.separateSentence = separateSentence
         
-        # self.batchSize = theano.shared(name='charBatchSize', value=1)
         self.output = None
         self.withAct = withAct
         self.charVecsUpdStrategy = charVecsUpdStrategy
@@ -36,8 +62,8 @@ class CharWNN():
         self.regularizationFactor = theano.shared(c)
         self.convSize = convSize
         
+        # This is the fixed size of all words.
         self.maxLenWord = numCharsOfWord
-        # self.posMaxByWord = theano.shared(np.zeros((2, self.maxLenWord), dtype="int64"), 'posMaxByWord', int)
         
         self.charAct = charAct
         self.norm_coef = norm_coef
@@ -49,6 +75,8 @@ class CharWNN():
         #       szChWin is the size of the character window.
         self.charWindowIdxs = T.itensor4(name="charWindowIdxs")
         
+        # We use the symbolic shape of the input to perform all dimension
+        # transformations (reshape) necessary for the computation of this layer.
         shape = T.shape(self.charWindowIdxs)
         numExs = shape[0]
         szWrdWin = shape[1]
@@ -56,13 +84,14 @@ class CharWNN():
         szChWin = shape [3]
         
         # Character embedding layer.
-        self.embedding = EmbeddingLayer(self.charWindowIdxs.flatten(2), self.Cv)
+        self.__embedLayer = EmbeddingLayer(self.charWindowIdxs.flatten(2), self.__embedding)
         
-        szChEmb = T.shape(self.Cv)[1]
+        # Size of the feature embedding.
+        szChEmb = T.shape(self.__embedding)[1]
         
-        # Hidden layer que representa a convolução.
+        # This is the bank of filters. It is an ordinary hidden layer.
         act = self.charAct if self.withAct else None
-        hidInput = self.embedding.getOutput().reshape((numExs * szWrdWin * numMaxCh, szChWin * szChEmb))
+        hidInput = self.__embedLayer.getOutput().reshape((numExs * szWrdWin * numMaxCh, szChWin * szChEmb))
         self.hiddenLayer = HiddenLayer(hidInput, self.charWindowSize * self.charSize , self.convSize, activation=act)
         
         # 3-D tensor with shape (numExs * szWrdWin, numMaxCh, numChFltrs).
@@ -72,13 +101,13 @@ class CharWNN():
         # Max pooling layer. Perform a max op along the character dimension.
         # The shape of the output is equal to (numExs*szWrdWin, convSize).
         m = T.max(o, axis=1)
-
+        
         # The output is a 2-D tensor with shape (numExs, szWrdWin * numChFltrs).
         self.output = m.reshape((numExs, szWrdWin * convSize))
         
         # Montar uma lista com as janelas de char de cada palavra do dicionario
         self.AllCharWindowIndexes = self.getAllCharIndexes(charIdxWord)
-
+        
     # Esta função retorna o índice das janelas dos caracteres de todas as palavras 
     def getAllWordCharWindowIndexes(self, inputData):
         
@@ -253,20 +282,15 @@ class CharWNN():
                 charIdx += (self.wordWindowSize * batch[idx])
             
         return np.asarray(batchStep);
-            # batcheSize==windowSize??
-            # for idx in range(len(batch)):
-            #    if charIdx >= numWords:
-            #        break;
-            #    
-            #    step = sum(inputData[charIdx:charIdx+batch[idx]])
-            #    batchStep.append(step)
-            #    charIdx += batch[idx]        
+
+    def getParameters(self):
+        return self.__embedLayer.getParameters() + self.hiddenLayer.getParameters()
 
     def getDefaultGradParameters(self):
         return self.hiddenLayer.getDefaultGradParameters()
 
     def getUpdates(self, cost, lr):
-        return self.embedding.getUpdates(cost, lr)
+        return self.__embedLayer.getUpdates(cost, lr)
 
     def getNormalizationUpdates(self, strategy, coef):
         return self.embedding.getNormalizationUpdate(strategy, coef)

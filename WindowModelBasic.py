@@ -47,8 +47,6 @@ class WindowModelBasic:
         self.cost = None
         self.update = None
         self.regularizationFactor = theano.shared(c)
-        # TODO: transformar esta variável em simbólica (não shared)
-        self.y = theano.shared(np.asarray([0], dtype="int32"), "y", borrow=True)
         
         self.wordVecsUpdStrategy = wordVecsUpdStrategy
         self.charModel = charModel
@@ -76,7 +74,10 @@ class WindowModelBasic:
         # a camada de embedding que recebe um batch de janelas de palavras.
         # self.windowIdxs = theano.shared(value=np.zeros((1, self.windowSize), dtype="int64"), name="windowIdxs")
         self.windowIdxs = T.imatrix("windowIdxs")
-
+        
+        # Variável que representa a saída esperada para cada exemplo do (mini) batch.
+        self.y = T.ivector("y")
+        
         # Word embedding layer
         # self.embedding = EmbeddingLayer(self.windowIdxs, self.Wv, self.wordSize, True,self.wordVecsUpdStrategy,self.norm_coef)
         self.embedding = EmbeddingLayer(self.windowIdxs, self.Wv)
@@ -127,13 +128,22 @@ class WindowModelBasic:
         raise NotImplementedError();
     
     def train(self, inputData, correctData, indexesOfRawWord):
-        # Labels
-        self.y.set_value(self.reshapeCorrectData(correctData), borrow=True)
-
-        # Matrix with training data.
-        windowIdxs = theano.shared(self.getAllWindowIndexes(inputData), borrow=True)
+        # TODO: test
+#         n = 1000
+#         inputData = inputData[:n]
+#         correctData = correctData[:n]
+#         indexesOfRawWord = indexesOfRawWord[:n]
         
-        batchesSize = self.confBatchSize(inputData)
+        # Matrix with training data.
+        # windowIdxs = theano.shared(self.getAllWindowIndexes(inputData), borrow=True)
+        windowIdxs = self.getAllWindowIndexes(inputData)
+        
+        # Correct labels.
+        y = theano.shared(self.reshapeCorrectData(correctData), 
+                          name="y_shared", 
+                          borrow=True)
+        
+        numBatches = len(inputData) / self.batchSize
         
         # This is the index of the batch to be trained.
         # It is multiplied by self.batchSize to provide the correct slice
@@ -142,8 +152,8 @@ class WindowModelBasic:
         
         # Word-level training data (input and output).
         givens = {
-                  self.windowIdxs: windowIdxs[batchIndex * self.batchSize : (batchIndex + 1) * self.batchSize],
-                  self.y: self.y[batchIndex * self.batchSize : (batchIndex + 1) * self.batchSize]
+                  # self.windowIdxs: windowIdxs[batchIndex * self.batchSize : (batchIndex + 1) * self.batchSize],
+                  self.y: y[batchIndex * self.batchSize : (batchIndex + 1) * self.batchSize]
                  }
         
         # Character-level training data.
@@ -152,13 +162,13 @@ class WindowModelBasic:
             givens[self.charModel.charWindowIdxs] = charInput[batchIndex * self.batchSize : (batchIndex + 1) * self.batchSize]
         
         # Train function.
-        train = theano.function(inputs=[batchIndex, self.lr],
+        train = theano.function(inputs=[self.windowIdxs, batchIndex, self.lr],
                                 outputs=self.cost,
                                 updates=self.updates,
-                                givens=givens)  # , mode='DebugMode')
+                                givens=givens, mode='DebugMode')
         
-        # Indexes of all training mini-batches.
-        idxList = range(len(batchesSize))
+        # Indexes of all training (mini) batches.
+        idxList = range(numBatches)
         
         for epoch in range(1, self.numEpochs + 1):
             print 'Training epoch ' + str(epoch) + '...'
@@ -174,22 +184,13 @@ class WindowModelBasic:
             
             # Train each mini-batch.
             for idx in idxList:
-                train(idx, lr)
+                train(windowIdxs[idx * self.batchSize : (idx + 1) * self.batchSize], idx, lr)
             
             print 'Time to training the epoch  ' + str(time.time() - t1)
             
             # Evaluate the model when necessary
             for l in self.listeners:
                 l.afterEpoch(epoch)
-            
-#             if self.reloadWindowIds:
-#                 self.windowIdxs.set_value(windowIdxs, borrow=True)
-#                 
-#                 if self.charModel is not None:
-#                     self.charModel.charWindowIdxs.set_value(charWindowIdxs, borrow=True)
-#                     self.charModel.posMaxByWord.set_value(posMaxByWord, borrow=True)
-#                     
-#                 self.reloadWindowIds = False
     
     def predict(self, inputData):
         raise NotImplementedError();

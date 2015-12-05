@@ -48,7 +48,7 @@ class HiddenLayer(Layer):
         
         elif activation == 'ultra_fast_sigmoid':
             activation = T.nnet.ultra_fast_sigmoid
-
+        
         # `W` is initialized with `W_values` which is uniformely sampled
         # from sqrt(-6./(lenIn+n_hidden)) and sqrt(6./(lenIn+n_hidden))
         # for tanh activation function

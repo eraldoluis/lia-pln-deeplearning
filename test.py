@@ -8,7 +8,7 @@ from numpy import dtype, ndarray
 import theano
 from theano import tensor as T
 from operator import itemgetter
-from CharWNN import *
+from EmbeddingConvolutionalLayer import *
 import numpy as np
 import theano
 import theano.tensor as T

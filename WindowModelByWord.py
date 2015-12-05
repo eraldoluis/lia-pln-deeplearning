@@ -63,7 +63,7 @@ class WindowModelByWord(WindowModelBasic):
         # Add normalization updates.
         if (self.wordVecsUpdStrategy != 'normal'):
             updates += self.embedding.getNormalizationUpdate(self.wordVecsUpdStrategy, self.norm_coef)
-        if (self.charModel.charVecsUpdStrategy != 'normal'):
+        if (self.charModel and self.charModel.charVecsUpdStrategy != 'normal'):
             updates += self.charModel.getNormalizationUpdate(self.charModel.charVecsUpdStrategy, self.norm_coef)
 
         # Store cost and updates to be used in the training function.        
@@ -72,14 +72,14 @@ class WindowModelByWord(WindowModelBasic):
 
     def reshapeCorrectData(self, correctData):
         return np.asarray(correctData, dtype=np.int32)
-      
+    
     # Esta funcao retorna todos os indices das janelas de palavras  
     def getAllWindowIndexes(self, data):
         allWindowIndexes = []
         
-        for idxWord in range(len(data)):
+        for idxWord in xrange(len(data)):
             allWindowIndexes.append(self.getWindowIndexes(idxWord, data))
-            
+        
         return np.array(allWindowIndexes, dtype=np.int32)
     
     def confBatchSize(self, inputData):

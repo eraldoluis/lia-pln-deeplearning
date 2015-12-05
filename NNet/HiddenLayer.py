@@ -91,3 +91,6 @@ class HiddenLayer(Layer):
     
     def getParameters(self):
         return self.params
+
+    def getUpdates(self, cost, lr):
+        return []

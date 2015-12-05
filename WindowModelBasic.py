@@ -100,15 +100,14 @@ class WindowModelBasic:
                                                self.wordSize * self.windowSize,
                                                self.hiddenSize,
                                                activation=self.networkAct)
-            else:    
+            else:
                 # Camada: hidden layer com a função Tanh como função de ativação
                 self.hiddenLayer = HiddenLayer(T.concatenate([self.embedding.getOutput(),
                                                               self.charModel.getOutput()],
                                                              axis=1),
                                                (self.wordSize + self.charModel.convSize) * self.windowSize,
                                                self.hiddenSize,
-                                               activation=self.networkAct);
-            
+                                               activation=self.networkAct)
         else:
             print 'Without Hidden Layer'
     
@@ -139,10 +138,8 @@ class WindowModelBasic:
     def train(self, inputData, correctData, indexesOfRawWord):
         self.reloadWindowIds = False
         
-        charIndex = T.iscalar("charIndex")
         charWindowIdxs = None
         posMaxByWord = None
-        numCharByWord = None
         
         self.charBeginBlock = None
 
@@ -151,17 +148,14 @@ class WindowModelBasic:
 
         # Matrix with training data.
         windowIdxs = theano.shared(self.getAllWindowIndexes(inputData), borrow=True)
-
+        
         batchesSize = self.confBatchSize(inputData)
-
+        
         # This is the index of the batch to be trained.
         # It is multiplied by self.batchSize to provide the correct slice
         # for each training iteration.
         batchIndex = T.iscalar("batchIndex")
-
-        charBatchesSize = None
-        charBatchS = theano.shared(1, "charBatchS")
-
+        
         # Train function.
         if self.charModel == None:
             train = theano.function(inputs=[batchIndex, self.lr],
@@ -172,35 +166,18 @@ class WindowModelBasic:
                                             self.y: self.y[batchIndex * self.batchSize : (batchIndex + 1) * self.batchSize]
                                     })  # , mode='DebugMode')
         else:
-            charmodelIdxsPos = self.charModel.getAllWordCharWindowIndexes(indexesOfRawWord)
-            charWindowIdxs = charmodelIdxsPos[0]
-            posMaxByWord = charmodelIdxsPos[1]
-            numCharByWord = charmodelIdxsPos[2]
-
-            self.charModel.charWindowIdxs.set_value(charWindowIdxs, borrow=True)
-            self.charModel.posMaxByWord.set_value(posMaxByWord, borrow=True)
+            charInput = theano.shared(self.charModel.getAllWordCharWindowIndexes(indexesOfRawWord), borrow=True)
             
-            charBatchesSize = self.charModel.confBatchSize(numCharByWord, batchesSize)
-            
-                    
-            train = theano.function(inputs=[batchIndex, self.lr, self.charModel.lr, charIndex],
+            train = theano.function(inputs=[batchIndex, self.lr],
                                     outputs=self.cost,
                                     updates=self.updates,
                                     givens={
-                                            self.charModel.charWindowIdxs: self.charModel.charWindowIdxs[charIndex:charIndex + charBatchS],
-                                            self.charModel.posMaxByWord:self.charModel.posMaxByWord[batchIndex * self.windowSize:(batchIndex + batchSize) * self.windowSize],
-                                            self.windowIdxs: self.windowIdxs[batchIndex : batchIndex + batchSize],
-                                            self.y: self.y[batchIndex : batchIndex + batchSize]
-                                    })
-            
-            self.charBeginBlock = []    
-            pos = 0
-            
-            for v in charBatchesSize:
-                self.charBeginBlock.append(pos)
-                pos += v
-                
-                    
+                                            self.charModel.charWindowIdxs : charInput[batchIndex * self.batchSize : (batchIndex + 1) * self.batchSize],
+                                            self.windowIdxs : windowIdxs[batchIndex * self.batchSize : (batchIndex + 1) * self.batchSize],
+                                            self.y : self.y[batchIndex * self.batchSize : (batchIndex + 1) * self.batchSize],
+                                            self.charModel.lr : self.lr
+                                    }) #, mode='DebugMode')
+
         self.beginBlock = []    
         pos = 0
         
@@ -222,20 +199,18 @@ class WindowModelBasic:
             lr = self.learningRateUpdStrategy.getCurrentLearninRate(self.lrValue, ite)
             
             t1 = time.time()
-
-            if self.charModel == None:                
-                for idx in idxList:
-                    # batchSize.set_value(batchesSize[idx])
-                    # train(self.beginBlock[idx], lr)     
-                    train(idx, lr)
-            else:
-                for idx in idxList:
-                    # batchSize.set_value(batchesSize[idx])
-                    charBatchS.set_value(charBatchesSize[idx])
-     
-                    self.charModel.batchSize.set_value(batchesSize[idx])
-
-                    train(self.beginBlock[idx], lr, lr, self.charBeginBlock[idx]) 
+            
+            for idx in idxList:
+                train(idx, lr)
+            
+#             else:
+#                 for idx in idxList:
+#                     # batchSize.set_value(batchesSize[idx])
+#                     charBatchS.set_value(charBatchesSize[idx])
+#      
+#                     self.charModel.batchSize.set_value(batchesSize[idx])
+# 
+#                     train(self.beginBlock[idx], lr, lr, self.charBeginBlock[idx]) 
 
             print 'Time to training the epoch  ' + str(time.time() - t1)
             

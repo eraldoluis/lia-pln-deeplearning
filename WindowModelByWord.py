@@ -45,17 +45,16 @@ class WindowModelByWord(WindowModelBasic):
 
         updates = []
 
-        if charModel != None:
-            self.charModel.setCost(cost)
-            self.charModel.setUpdates()
-            updates += self.charModel.updates
-
         # Parameters of the ordinary layers (non-structured).
         parameters = self.softmax.getParameters() + self.hiddenLayer.getParameters()
 
         # Updates of the structured layers.
         updates += self.embedding.getUpdates(cost, self.lr)
-        # TODO: considerar a parte estruturada do CharWNN
+
+        if charModel != None:
+            self.charModel.setCost(cost)
+            self.charModel.setUpdates()
+            updates += self.charModel.updates
         
         # Add normalization updates.
         if (self.wordVecsUpdStrategy != 'normal'):
@@ -101,57 +100,30 @@ class WindowModelByWord(WindowModelBasic):
         # return np.full(numWords/self.batchSize + 1,self.batchSize,dtype=np.int32)
         
     def predict(self, inputData, indexesOfRawWord, unknownDataTest):
-      
-        self.reloadWindowIds = True  
-        y = 0
+        
+        self.reloadWindowIds = True
         
         if self.setTestValues:
+            # We need to generate test data in the format waited by the NN.
+            # That is, list of word- and character-level features.
+            # But this needs to be done only once, even when evaluation is
+            # performed along the training process.
             self.testWordWindowIdxs = self.getAllWindowIndexes(inputData)
             
             if self.charModel:
                 self.charModel.updateAllCharIndexes(unknownDataTest)
+                self.testCharWindowIdxs = self.charModel.getAllWordCharWindowIndexes(indexesOfRawWord)
             
-                charmodelIdxPos = self.charModel.getAllWordCharWindowIndexes(indexesOfRawWord)
-                
-                self.testCharWindowIdxs = charmodelIdxPos[0]
-                self.testPosMaxByWord = charmodelIdxPos[1]
-                self.testNumCharByWord = charmodelIdxPos[2]
-                
             self.setTestValues = False    
         
-        # self.windowIdxs.set_value(self.testWordWindowIdxs, borrow=True)
-        if self.charModel == None:
-            
-            y_pred = self.softmax.getPrediction()
-            pred = theano.function([], [y_pred], givens={self.windowIdxs: self.testWordWindowIdxs})
-            y = pred()[0]
-
-        else:
-
-            self.charModel.charWindowIdxs.set_value(self.testCharWindowIdxs, borrow=True)
-            self.charModel.posMaxByWord.set_value(self.testPosMaxByWord, borrow=True)
-            
-            index = T.iscalar("index")
-            charIndex = T.iscalar("charIndex")
-            step = T.iscalar("step")
-            
-            
-            self.charModel.batchSize.set_value(1)
-            
-            pred = theano.function(inputs=[index, charIndex, step],
-                                    outputs=self.softmax.getPrediction(),
-                                    givens={
-                                            self.charModel.charWindowIdxs: self.charModel.charWindowIdxs[charIndex:charIndex + step],
-                                            self.charModel.posMaxByWord:self.charModel.posMaxByWord[index * self.windowSize:(index + 1) * self.windowSize],
-                                            self.windowIdxs: self.windowIdxs[index : index + 1],
-                                            
-                                    })
-            y = []
-            j = 0
-            for i in range(len(inputData)):
-                y.append(pred(i, j, sum(self.testNumCharByWord[i * self.windowSize:(i + 1) * self.windowSize]))[0]);
-                j += sum(self.testNumCharByWord[i * self.windowSize:(i + 1) * self.windowSize])
-            
-            
-        return y
-        
+        # Input of the word-level embedding.
+        givens = {self.windowIdxs : self.testWordWindowIdxs}
+        if self.charModel:
+            # Input of the character-level embedding.
+            givens[self.charModel.charWindowIdxs] = self.testCharWindowIdxs
+        # Predicted values.
+        y_pred = self.softmax.getPrediction()
+        # Prediction function.
+        pred = theano.function([], y_pred, givens=givens)
+        # Return the predicted values.
+        return pred()

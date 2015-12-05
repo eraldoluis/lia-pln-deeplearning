@@ -18,7 +18,7 @@ class EmbeddingLayer(Layer):
         """
         :type examples: T.TensorType
         :param examples: matrix of examples (mini-batch).
-            Each examples is an array of feature values.
+            Each example is an array of feature values.
             Each feature value is an index within the given embedding.
         
         :type embedding: T.TensorSharedVariable

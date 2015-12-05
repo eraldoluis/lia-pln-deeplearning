@@ -221,7 +221,9 @@ def run(algTypeChoices, unknownWordStrategy, lrStrategyChoices, networkChoices, 
                     charVars[1].normalizeMean(args.norm_coef)
                 elif args.charVecsUpdStrategy == 'z_score' or args.charVecsInit == 'z_score':
                     charVars[1].zScore(args.norm_coef)
-                charModel = CharWNN(charVars[0], charVars[1], charVars[2], charVars[3], args.charWindowSize, args.wordWindowSize,
+                # TODO: o tamanho da representação de caracteres está fixa (20).
+                # Precisamos colocar isso como argumento do programa.
+                charModel = CharWNN(charVars[0], charVars[1], charVars[2], 20, args.charWindowSize, args.wordWindowSize,
                     args.convSize, numClasses, args.c, learningRateUpdStrategy, separeSentence, args.charwnnWithAct, args.charVecsUpdStrategy, args.networkAct, args.norm_coef)
             
             if args.wordVecsInit == 'randomAll':

@@ -105,4 +105,4 @@ class EmbeddingLayer(Layer):
         Since this layer uses a structured update for all its parameters
         (embedding), there is no parameter with default gradient updates
         """
-        return None
+        return []

@@ -6,17 +6,13 @@ import theano
 import theano.tensor as T
 from NNet.HiddenLayer import HiddenLayer
 from NNet.EmbeddingLayer import EmbeddingLayer
-from NNet.Util import LearningRateUpdNormalStrategy, defaultGradParameters
+from NNet.Util import LearningRateUpdNormalStrategy
 from WindowModelBasic import WindowModelBasic
-
-
 
 class CharWNN():
 
     def __init__(self, charcon, charVectors, charIdxWord, numCharsOfWord, charWindowSize, wordWindowSize , convSize,
                   numClasses, c=0.0, learningRateUpdStrategy=LearningRateUpdNormalStrategy(), separateSentence=False, withAct=False, charVecsUpdStrategy='normal', charAct="tanh", norm_coef=1.0):
-        
-        
         self.CharIdxWord = charIdxWord
         
         self.Cv = theano.shared(name='charVecs',
@@ -25,7 +21,6 @@ class CharWNN():
         
         self.numChars = len(charVectors.getWordVectors())
         self.charSize = charVectors.getLenWordVector()
-        self.lr = T.dscalar('lr_char')
         self.charWindowSize = charWindowSize
         self.wordWindowSize = wordWindowSize
         self.startSymbol = charcon.getLexiconIndex(WindowModelBasic.startSymbolStr)
@@ -34,8 +29,6 @@ class CharWNN():
         self.separateSentence = separateSentence
         
         # self.batchSize = theano.shared(name='charBatchSize', value=1)
-        self.updates = None
-        self.cost = None
         self.output = None
         self.withAct = withAct
         self.charVecsUpdStrategy = charVecsUpdStrategy
@@ -269,19 +262,14 @@ class CharWNN():
             #    batchStep.append(step)
             #    charIdx += batch[idx]        
 
-    def setUpdates(self):
-        updates = self.embedding.getUpdates(self.cost, self.lr)
-        updates += defaultGradParameters(self.cost, self.hiddenLayer.getParameters(), self.lr)
-        
-        # Add normalization update.
-        if (self.charVecsUpdStrategy != 'normal'):
-            updates += self.embedding.getNormalizationUpdate(self.charVecsUpdStrategy,
-                                                             self.norm_coef)
-        
-        self.updates = updates
-        
-    def setCost(self, cost):
-        self.cost = cost
+    def getDefaultGradParameters(self):
+        return self.hiddenLayer.getDefaultGradParameters()
+
+    def getUpdates(self, cost, lr):
+        return self.embedding.getUpdates(cost, lr)
+
+    def getNormalizationUpdates(self, strategy, coef):
+        return self.embedding.getNormalizationUpdate(strategy, coef)
 
     def getOutput(self):
         return self.output

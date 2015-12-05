@@ -7,7 +7,6 @@ from NNet.SoftmaxLayer import SoftmaxLayer
 from NNet.Util import negative_log_likelihood, LearningRateUpdNormalStrategy, \
     defaultGradParameters
 from WindowModelBasic import WindowModelBasic
-import theano.tensor as T
 
 class WindowModelByWord(WindowModelBasic):
 
@@ -24,17 +23,17 @@ class WindowModelByWord(WindowModelBasic):
                                   learningRateUpdStrategy, False,
                                   wordVecsUpdStrategy, False, networkAct,
                                   norm_coef)
-
+        
         self.setTestValues = True
-
+        
         # A camada de saída é um softmax sobre as classes.
         self.softmax = SoftmaxLayer(self.hiddenLayer.getOutput(),
                                     self.hiddenSize,
                                     numClasses)
-
+        
         # Saída da rede.
         output = self.softmax.getOutput()
-
+        
         # Training cost function.
         cost = negative_log_likelihood(output, self.y)
         
@@ -42,30 +41,34 @@ class WindowModelByWord(WindowModelBasic):
         # TODO: criar uma forma de integrar a regularização.
         # + regularizationSquareSumParamaters(self.parameters, self.regularizationFactor, self.y.shape[0])
         #
-
+        
+        # List of layers.
+        layers = [self.embedding, self.hiddenLayer, self.softmax]
+        if charModel:
+            layers.append(charModel)
+        
+        # Build list of updates.
         updates = []
-
-        # Parameters of the ordinary layers (non-structured).
-        parameters = self.softmax.getParameters() + self.hiddenLayer.getParameters()
-
-        # Updates of the structured layers.
-        updates += self.embedding.getUpdates(cost, self.lr)
-
-        if charModel != None:
-            self.charModel.setCost(cost)
-            self.charModel.setUpdates()
-            updates += self.charModel.updates
+        defaultGradParams = []
+        
+        for l in layers:
+            # Structured updates (embeddings, basically).
+            updates += l.getUpdates(cost, self.lr)
+            # Default gradient parameters (all the remaining).
+            defaultGradParams += l.getDefaultGradParameters()
+        
+        # Add default updates.
+        updates += defaultGradParameters(cost, defaultGradParams, self.lr)
         
         # Add normalization updates.
         if (self.wordVecsUpdStrategy != 'normal'):
             updates += self.embedding.getNormalizationUpdate(self.wordVecsUpdStrategy, self.norm_coef)
-        
-        # Adiciona o update padrão dos parâmetros não estruturados.
-        updates += defaultGradParameters(cost, parameters, self.lr)
-        
+        if (self.charModel.charVecsUpdStrategy != 'normal'):
+            updates += self.charModel.getNormalizationUpdate(self.charModel.charVecsUpdStrategy, self.norm_coef)
+
+        # Store cost and updates to be used in the training function.        
         self.cost = cost
         self.updates = updates
-        self.paramters = parameters
 
     def reshapeCorrectData(self, correctData):
         return np.asarray(correctData, dtype=np.int32)
@@ -95,7 +98,7 @@ class WindowModelByWord(WindowModelBasic):
         arr = np.full(num, self.batchSize, dtype=np.int32)
         if numWords % self.batchSize:
             arr = np.append(arr, numWords % self.batchSize)
-
+        
         return arr
         # return np.full(numWords/self.batchSize + 1,self.batchSize,dtype=np.int32)
         

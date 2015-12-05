@@ -78,3 +78,9 @@ class SoftmaxLayer(Layer):
     
     def getPrediction(self):
         return self.y_pred
+    
+    def getDefaultGradParameters(self):
+        return self.params
+    
+    def getUpdates(self, cost, learningRate):
+        return []

@@ -174,9 +174,6 @@ class DLIDExperiments:
         crfSuiteParser.add_argument('--windowSize', dest='windowSize', type=int, action='store',
                            help='', default=5)
         
-        parser.add_argument('--withCharwnn', dest='withCharwnn', action='store_true',
-                           help='Set training with character embeddings')
-        
         nnParser = subparsers.add_parser('nn', help='Neural Network', 
                                        parents=[base_parser])
         
@@ -203,6 +200,9 @@ class DLIDExperiments:
         nnParser.add_argument('--lr', dest='lr', action='store', type=float , default=0.0075,
                            help='The value of the learning rate')
     
+        nnParser.add_argument('--withCharwnn', dest='withCharwnn', action='store_true',
+                           help='Set training with character embeddings')
+        
         nnParser.add_argument('--c', dest='c', action='store', type=float , default=0.0,
                            help='The larger C is the more the regularization pushes the weights of all our parameters to zero.')    
         

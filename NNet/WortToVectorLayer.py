@@ -6,7 +6,7 @@ import theano.tensor as T
 '''
 class WordToVectorLayer:
     
-    def __init__(self, _input, Wv, wordSize, isToUpdateWordVector=True,updStrategy='normal'):
+    def __init__(self, _input, Wv, wordSize, isToUpdateWordVector=True,updStrategy='normal',norm_coef=1.0):
         self.__wordSize = wordSize
         self.__Wv = Wv
         
@@ -14,6 +14,7 @@ class WordToVectorLayer:
         self.__windowIdxs = _input
         self.__isToUpdateWordVector = isToUpdateWordVector
         self.__updStrategy = updStrategy
+        self.__norm_coef = norm_coef 
         
                 
     def getOutput(self):
@@ -31,10 +32,10 @@ class WordToVectorLayer:
         up = T.inc_subtensor(self.__Wv[widowsIdxsFlatten], T.reshape(gwordVectorFlatten, reshapeSize))
         
         if self.__updStrategy == 'normalize_mean':
-            up = (up - T.mean(up))/T.ptp(up)
+            up = self.__norm_coef *(up - T.mean(up,axis=0))/T.ptp(up,axis=0)
             
         elif self.__updStrategy == 'zScore':
-            up = (up - T.mean(up))/T.std(up)
+            up = self.__norm_coef * (up - T.mean(up,axis=0))/T.std(up,axis=0)
             
         
         return [(self.__Wv, 

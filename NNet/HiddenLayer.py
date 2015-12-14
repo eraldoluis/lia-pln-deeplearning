@@ -2,12 +2,12 @@ import theano.tensor as T
 import numpy
 import theano 
 from NNet.Util import defaultGradParameters, WeightTanhGenerator,\
-    WeightEqualZeroGenerator
+    WeightEqualZeroGenerator, hard_tanh
 
 
 class HiddenLayer(object):
     def __init__(self, input, numberNeuronsPreviousLayer, numberClasses, W=None, b=None,
-                 activation=T.tanh,weightTanhGenerator= WeightTanhGenerator()):
+                 activation="tanh",weightTanhGenerator= WeightTanhGenerator()):
         """
         Typical hidden layer of a MLP: units are fully-connected and have
         sigmoidal activation function. Weight matrix W is of shape (numberNeuronsPreviousLayer,numberClasses)
@@ -37,6 +37,22 @@ class HiddenLayer(object):
         :param weightTanhGenerator: The object responsible for generating the values of the weights
         """
         self.input = input
+        
+        if activation == 'tanh':
+            activation = T.tanh
+            
+        elif activation == 'hard_tanh':
+            activation = hard_tanh
+            
+        elif activation == 'sigmoid':
+            activation = T.nnet.sigmoid
+        
+        elif activation == 'hard_sigmoid':
+            activation = T.nnet.hard_sigmoid
+        
+        elif activation == 'ultra_fast_sigmoid':
+            activation = T.nnet.ultra_fast_sigmoid
+        
         # end-snippet-1
 
         # `W` is initialized with `W_values` which is uniformely sampled
@@ -56,7 +72,7 @@ class HiddenLayer(object):
                 weightTanhGenerator.generateWeight(numberNeuronsPreviousLayer,numberClasses),
                 dtype=theano.config.floatX
             )
-            if activation == T.nnet.sigmoid:
+            if activation != T.tanh and activation != hard_tanh :
                 W_values *= 4
 
             W = theano.shared(value=W_values, name='W_hiddenLayer', borrow=True)

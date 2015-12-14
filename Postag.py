@@ -31,7 +31,7 @@ class ParametersChoices:
     algTypeChoices = ["window_word", "window_sentence"]
     lrStrategyChoices = ["normal", "divide_epoch"]
     networkChoices = ["complete", "without_hidden_update_wv" , "without_update_wv"]
-
+    networkActivation = ["tanh","hard_tanh","sigmoid","hard_sigmoid","ultra_fast_sigmoid"]
 
 
 def readVocabAndWord(args):
@@ -224,21 +224,21 @@ def run(algTypeChoices, unknownWordStrategy, lrStrategyChoices, networkChoices, 
                 if args.charVecsInit == 'randomAll':
                     charVars[1].startAllRandom()
                 if args.charVecsUpdStrategy == 'normalize_mean' or args.charVecsInit == 'normalize_mean':
-                    charVars[1].normalizeMean()
+                    charVars[1].normalizeMean(args.norm_coef)
                 elif args.charVecsUpdStrategy == 'z_score' or args.charVecsInit == 'z_score':
-                    charVars[1].zScore()
+                    charVars[1].zScore(args.norm_coef)
                 charModel = CharWNN(charVars[0], charVars[1], charVars[2], charVars[3], args.charWindowSize, args.wordWindowSize,
-                    args.convSize, numClasses, args.c, learningRateUpdStrategy, separeSentence, args.charwnnWithAct, args.charVecsUpdStrategy)
+                    args.convSize, numClasses, args.c, learningRateUpdStrategy, separeSentence, args.charwnnWithAct, args.charVecsUpdStrategy,args.networkAct,args.norm_coef)
             
             if args.wordVecsInit == 'randomAll':
                 wordVector.startAllRandom()
             if args.wordVecsUpdStrategy == 'normalize_mean' or args.wordVecsInit == 'normalize_mean':
-                wordVector.normalizeMean()
+                wordVector.normalizeMean(args.norm_coef)
             elif args.wordVecsUpdStrategy == 'z_score' or args.wordVecsInit == 'z_score':
-                wordVector.zScore()
+                wordVector.zScore(args.norm_coef)
             
             model = WindowModelByWord(lexicon, wordVector, args.wordWindowSize, args.hiddenSize, args.lr, numClasses,
-                args.numepochs, args.batchSize, args.c, charModel, learningRateUpdStrategy, args.wordVecsUpdStrategy)
+                args.numepochs, args.batchSize, args.c, charModel, learningRateUpdStrategy, args.wordVecsUpdStrategy,args.networkAct,args.norm_coef)
         
         elif args.alg == algTypeChoices[1]:
             separeSentence = True
@@ -263,21 +263,21 @@ def run(algTypeChoices, unknownWordStrategy, lrStrategyChoices, networkChoices, 
                 if args.charVecsInit == 'randomAll':
                     charVars[1].startAllRandom()
                 if args.charVecsUpdStrategy == 'normalize_mean' or args.charVecsInit == 'normalize_mean':
-                    charVars[1].normalizeMean()
+                    charVars[1].normalizeMean(args.norm_coef)
                 elif args.charVecsUpdStrategy == 'z_score' or args.charVecsInit == 'z_score':
-                    charVars[1].zScore()
+                    charVars[1].zScore(args.norm_coef)
                 charModel = CharWNN(charVars[0], charVars[1], charVars[2], charVars[3], args.charWindowSize, args.wordWindowSize,
-                    args.convSize, numClasses, args.c, learningRateUpdStrategy, separeSentence, args.charwnnWithAct, args.charVecsUpdStrategy)
+                    args.convSize, numClasses, args.c, learningRateUpdStrategy, separeSentence, args.charwnnWithAct, args.charVecsUpdStrategy,args.networkAct,args.norm_coef)
             
             if args.wordVecsInit == 'randomAll':
                 wordVector.startAllRandom()
             if args.wordVecsUpdStrategy == 'normalize_mean' or args.wordVecsInit == 'normalize_mean':
-                wordVector.normalizeMean()
+                wordVector.normalizeMean(args.norm_coef)
             elif args.wordVecsUpdStrategy == 'z_score' or args.wordVecsInit == 'z_score':
-                wordVector.zScore()
+                wordVector.zScore(args.norm_coef)
             
             model = WindowModelBySentence(lexicon, wordVector, args.wordWindowSize, args.hiddenSize, args.lr,
-                numClasses, args.numepochs, args.batchSize, args.c, charModel, learningRateUpdStrategy, args.wordVecsUpdStrategy, networkChoice)
+                numClasses, args.numepochs, args.batchSize, args.c, charModel, learningRateUpdStrategy, args.wordVecsUpdStrategy, networkChoice,args.networkAct,args.norm_coef)
         
         if args.numPerEpoch is not None and len(args.numPerEpoch) != 0:
             print 'Loading test data...'
@@ -444,6 +444,9 @@ def main():
     
     parser.add_argument('--networkChoice', dest='networkChoice', action='store', default=ParametersChoices.networkChoices[0], choices=ParametersChoices.networkChoices)
     
+    parser.add_argument('--networkAct', dest='networkAct', action='store', default=ParametersChoices.networkActivation[0], choices=ParametersChoices.networkActivation)
+    
+    
     parser.add_argument('--mean_size', dest='meanSize', action='store', type=float, default=1.0,
                        help='The number of the least used words in the train for unknown word' 
                        + 'Number between 0 and 1 for percentage, number > 1 for literal number to make the mean and negative for mean_all')
@@ -455,6 +458,9 @@ def main():
     
     parser.add_argument('--charvecsupdstrategy', dest='charVecsUpdStrategy', action='store', default=vecsUpStrategyChoices[0], choices=vecsUpStrategyChoices,
                        help='Set the char vectors update strategy. NORMAL, NORMALIZE_MEAN and Z_SCORE are the options available')
+
+    parser.add_argument('--norm_coef', dest='norm_coef', action='store', type=float, default=1.0,
+                       help='The coefficient that will be multiplied to the normalized vectors')
 
     parser.add_argument('--seed', dest='seed', action='store', type=long,
                        help='', default=None)

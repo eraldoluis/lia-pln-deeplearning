@@ -13,7 +13,8 @@ class WindowModelByWord(WindowModelBasic):
     def __init__(self, lexicon, wordVectors , windowSize, hiddenSize, _lr,
                  numClasses, numEpochs, batchSize=1, c=0.0, charModel=None,
                  learningRateUpdStrategy=LearningRateUpdNormalStrategy(),
-                 wordVecsUpdStrategy='normal', networkAct='tanh', norm_coef=1.0):
+                 wordVecsUpdStrategy='normal', networkAct='tanh', norm_coef=1.0,
+                 structGrad=True):
         #
         # Base class constructor.
         #
@@ -22,7 +23,7 @@ class WindowModelByWord(WindowModelBasic):
                                   batchSize, c, charModel,
                                   learningRateUpdStrategy, False,
                                   wordVecsUpdStrategy, False, networkAct,
-                                  norm_coef)
+                                  norm_coef, structGrad)
         
         self.setTestValues = True
         
@@ -51,13 +52,14 @@ class WindowModelByWord(WindowModelBasic):
         updates = []
         defaultGradParams = []
         
+        # Get structured updates and default-gradient parameters from all layers.
         for l in layers:
             # Structured updates (embeddings, basically).
             updates += l.getUpdates(cost, self.lr)
             # Default gradient parameters (all the remaining).
             defaultGradParams += l.getDefaultGradParameters()
         
-        # Add default updates.
+        # Add updates for default-gradient parameters.
         updates += defaultGradParameters(cost, defaultGradParams, self.lr)
         
         # Add normalization updates.
@@ -107,10 +109,10 @@ class WindowModelByWord(WindowModelBasic):
         self.reloadWindowIds = True
         
         if self.setTestValues:
-            # We need to generate test data in the format waited by the NN.
+            # We need to generate test data in the format expected by the NN.
             # That is, list of word- and character-level features.
             # But this needs to be done only once, even when evaluation is
-            # performed along the training process.
+            # performed after several epochs.
             self.testWordWindowIdxs = self.getAllWindowIndexes(inputData)
             
             if self.charModel:

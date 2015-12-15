@@ -14,7 +14,7 @@ class EmbeddingLayer(Layer):
     These vectors comprise the learnable parameters of this layer.
     """
 
-    def __init__(self, examples, embedding):
+    def __init__(self, examples, embedding, structGrad=True):
         """
         :type examples: T.TensorType
         :param examples: matrix of examples (mini-batch).
@@ -27,6 +27,14 @@ class EmbeddingLayer(Layer):
             It is a matrix of parameters.
             Each row corresponds to a feature value weight vector
                 (this feature embedding).
+        
+        :param structGrad: whether to use structured gradient or not.
+            When using small batches (online gradient descent, in the limit),
+            the structured gradient is much more efficient because a small
+            fraction of word vectors are used on each iteration.
+            However, when using large batches (ordinary gradient descent, in the
+            limit), ordinary gradient and update are more efficient because
+            most (or all) word vectors are used on each iteration.
         
         In the following, we describe the shape of these two variables.
         
@@ -49,11 +57,14 @@ class EmbeddingLayer(Layer):
         Layer.__init__(self, examples)
         
         self.__embedding = embedding
-
+        
+        # Whether to use structured gradients or not.
+        self.__structGrad = structGrad
+        
         # Matrix of the active parameters for the given examples.
         # Its shape is (numExs * szEx, szEmb).
         self.__activeVectors = embedding[examples.flatten(1)]
-
+        
         #
         # Output of the layer for the given examples.
         # Its shape is (numExs, szEx * szEmb).
@@ -70,17 +81,22 @@ class EmbeddingLayer(Layer):
         return [self.__embedding]
 
     def getUpdates(self, cost, learningRate):
-        # shape = (numExs, szEx * szEmb)
-        gWordVector = -learningRate * T.grad(cost, self.__output)
+        if self.__structGrad:
+            # shape = (numExs, szEx * szEmb)
+            gWordVector = -learningRate * T.grad(cost, self.__output)
+    
+            # Reshape the gradient vector as self.__activeVectors, since these are 
+            # the parameters to be updated.
+            gWordVector = gWordVector.reshape(self.__activeVectors.shape)
+    
+            # Update only the active vectors (structured update).
+            up = T.inc_subtensor(self.__activeVectors, gWordVector)
+    
+            return [(self.__embedding, up)]
 
-        # Reshape the gradient vector as self.__activeVectors, since these are 
-        # the parameters to be updated.
-        gWordVector = gWordVector.reshape(self.__activeVectors.shape)
-
-        # Update only the active vectors (structured update).
-        up = T.inc_subtensor(self.__activeVectors, gWordVector)
-
-        return [(self.__embedding, up)]
+        # When using ordinary gradients, we need to use the
+        # getDefaultGradParameters(...) method.
+        return []
 
     def getNormalizationUpdate(self, strategy, normFactor):
         """
@@ -105,4 +121,7 @@ class EmbeddingLayer(Layer):
         Since this layer uses a structured update for all its parameters
         (embedding), there is no parameter with default gradient updates
         """
-        return []
+        if self.__structGrad:
+            return []
+        
+        return [self.__embedding]

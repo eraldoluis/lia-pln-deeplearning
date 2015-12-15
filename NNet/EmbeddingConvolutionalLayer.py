@@ -36,8 +36,13 @@ class EmbeddingConvolutionalLayer(Layer):
     ordinary convolutional layer.
     """
     
-    def __init__(self, charcon, charVectors, charIdxWord, numCharsOfWord, charWindowSize, wordWindowSize , convSize,
-                  numClasses, c=0.0, learningRateUpdStrategy=LearningRateUpdNormalStrategy(), separateSentence=False, withAct=False, charVecsUpdStrategy='normal', charAct="tanh", norm_coef=1.0):
+    def __init__(self, charcon, charVectors, charIdxWord, numCharsOfWord,
+                 charWindowSize, wordWindowSize , convSize,
+                 numClasses, c=0.0,
+                 learningRateUpdStrategy=LearningRateUpdNormalStrategy(),
+                 separateSentence=False, withAct=False,
+                 charVecsUpdStrategy='normal', charAct="tanh", norm_coef=1.0,
+                 structGrad=True):
         self.CharIdxWord = charIdxWord
         
         # Feature embedding
@@ -68,6 +73,8 @@ class EmbeddingConvolutionalLayer(Layer):
         self.charAct = charAct
         self.norm_coef = norm_coef
         
+        self.__structGrad = structGrad
+        
         # Input variable for this layer. Its shape is (numExs, szWrdWin, numMaxCh, szChWin)
         # where numExs is the number of examples in the training batch,
         #       szWrdWin is the size of the word window,
@@ -84,7 +91,9 @@ class EmbeddingConvolutionalLayer(Layer):
         szChWin = shape [3]
         
         # Character embedding layer.
-        self.__embedLayer = EmbeddingLayer(self.charWindowIdxs.flatten(2), self.__embedding)
+        self.__embedLayer = EmbeddingLayer(examples=self.charWindowIdxs.flatten(2),
+                                           embedding=self.__embedding,
+                                           structGrad=structGrad)
         
         # Size of the feature embedding.
         szChEmb = T.shape(self.__embedding)[1]
@@ -287,10 +296,15 @@ class EmbeddingConvolutionalLayer(Layer):
         return self.__embedLayer.getParameters() + self.hiddenLayer.getParameters()
 
     def getDefaultGradParameters(self):
-        return self.hiddenLayer.getDefaultGradParameters()
+        params = self.hiddenLayer.getDefaultGradParameters()
+        if not self.__structGrad:
+            params += self.__embedLayer.getDefaultGradParameters()
+        return params
 
     def getUpdates(self, cost, lr):
-        return self.__embedLayer.getUpdates(cost, lr)
+        if self.__structGrad:
+            return self.__embedLayer.getUpdates(cost, lr)
+        return []
 
     def getNormalizationUpdates(self, strategy, coef):
         return self.embedding.getNormalizationUpdate(strategy, coef)

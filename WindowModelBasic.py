@@ -3,17 +3,19 @@
 
 import numpy as np
 import theano
+import theano.compile
 import theano.tensor as T
 from NNet.HiddenLayer import HiddenLayer
 from NNet.EmbeddingLayer import EmbeddingLayer
 from NNet.Util import LearningRateUpdNormalStrategy
 import time
 import random
+import logging
 
 class WindowModelBasic:
     startSymbolStr = "<s>"
     endSymbolStr = "</s>"
-
+    
     @staticmethod
     def setStartSymbol(startSymbol):
         WindowModelBasic.startSymbolStr = startSymbol
@@ -26,7 +28,11 @@ class WindowModelBasic:
                  numClasses, numEpochs, batchSize=1.0, c=0.0, charModel=None,
                  learningRateUpdStrategy=LearningRateUpdNormalStrategy(),
                  randomizeInput=False, wordVecsUpdStrategy='normal',
-                 withoutHiddenLayer=False, networkAct='tanh', norm_coef=1.0):
+                 withoutHiddenLayer=False, networkAct='tanh', norm_coef=1.0,
+                 structGrad=True):
+        # Logging object.
+        self.__log = logging.getLogger(__name__)
+
         # Word vectors (embeddings).
         self.Wv = theano.shared(np.asarray(wordVectors.getWordVectors(),
                                            dtype=theano.config.floatX),
@@ -56,6 +62,8 @@ class WindowModelBasic:
         self.networkAct = networkAct
         self.norm_coef = norm_coef
         
+        self.__structGrad = structGrad
+        
         self.initWithBasicLayers(withoutHiddenLayer)
         
         self.listeners = []
@@ -80,7 +88,9 @@ class WindowModelBasic:
         
         # Word embedding layer
         # self.embedding = EmbeddingLayer(self.windowIdxs, self.Wv, self.wordSize, True,self.wordVecsUpdStrategy,self.norm_coef)
-        self.embedding = EmbeddingLayer(self.windowIdxs, self.Wv)
+        self.embedding = EmbeddingLayer(examples=self.windowIdxs,
+                                        embedding=self.Wv,
+                                        structGrad=self.__structGrad)
         
         # Camada: hidden layer com a função Tanh como função de ativaçãos
         if not withoutHiddenLayer:
@@ -134,16 +144,33 @@ class WindowModelBasic:
 #         correctData = correctData[:n]
 #         indexesOfRawWord = indexesOfRawWord[:n]
         
+        log = self.__log
+
         # Matrix with training data.
         # windowIdxs = theano.shared(self.getAllWindowIndexes(inputData), borrow=True)
-        windowIdxs = self.getAllWindowIndexes(inputData)
-        
+        log.info("Generating all training windows (training input)...")
+        windowIdxs = theano.shared(self.getAllWindowIndexes(inputData),
+                                   name="x_shared",
+                                   borrow=True)
+
         # Correct labels.
-        y = theano.shared(self.reshapeCorrectData(correctData), 
-                          name="y_shared", 
+        y = theano.shared(self.reshapeCorrectData(correctData),
+                          name="y_shared",
                           borrow=True)
         
-        numBatches = len(inputData) / self.batchSize
+        numExs = len(inputData)
+        if self.batchSize > 0:
+            numBatches = numExs / self.batchSize
+            if numBatches <= 0:
+                numBatches = 1
+                self.batchSize = numExs
+            elif numExs % self.batchSize > 0:
+                numBatches += 1
+        else:
+            numBatches = 1
+            self.batchSize = numExs
+
+        log.info("Training with %d examples using %d mini-batches (batchSize=%d)..." % (numExs, numBatches, self.batchSize))
         
         # This is the index of the batch to be trained.
         # It is multiplied by self.batchSize to provide the correct slice
@@ -151,21 +178,27 @@ class WindowModelBasic:
         batchIndex = T.iscalar("batchIndex")
         
         # Word-level training data (input and output).
-        givens = {
-                  # self.windowIdxs: windowIdxs[batchIndex * self.batchSize : (batchIndex + 1) * self.batchSize],
-                  self.y: y[batchIndex * self.batchSize : (batchIndex + 1) * self.batchSize]
-                 }
         
         # Character-level training data.
         if self.charModel:
             charInput = theano.shared(self.charModel.getAllWordCharWindowIndexes(indexesOfRawWord), borrow=True)
-            givens[self.charModel.charWindowIdxs] = charInput[batchIndex * self.batchSize : (batchIndex + 1) * self.batchSize]
+            givens = {
+                      self.windowIdxs: windowIdxs[batchIndex * self.batchSize : (batchIndex + 1) * self.batchSize],
+                      self.y: y[batchIndex * self.batchSize : (batchIndex + 1) * self.batchSize],
+                      self.charModel.charWindowIdxs : charInput[batchIndex * self.batchSize : (batchIndex + 1) * self.batchSize]
+                     }
+        else:
+            givens = {
+                      self.windowIdxs: windowIdxs[batchIndex * self.batchSize : (batchIndex + 1) * self.batchSize],
+                      self.y: y[batchIndex * self.batchSize : (batchIndex + 1) * self.batchSize],
+                     }
         
         # Train function.
-        train = theano.function(inputs=[self.windowIdxs, batchIndex, self.lr],
+        # train = theano.function(inputs=[self.windowIdxs, batchIndex, self.lr],
+        train = theano.function(inputs=[batchIndex, self.lr],
                                 outputs=self.cost,
                                 updates=self.updates,
-                                givens=givens, mode='DebugMode')
+                                givens=givens)
         
         # Indexes of all training (mini) batches.
         idxList = range(numBatches)
@@ -184,7 +217,8 @@ class WindowModelBasic:
             
             # Train each mini-batch.
             for idx in idxList:
-                train(windowIdxs[idx * self.batchSize : (idx + 1) * self.batchSize], idx, lr)
+                train(idx, lr)
+                # train(windowIdxs[idx * self.batchSize : (idx + 1) * self.batchSize], idx, lr)
             
             print 'Time to training the epoch  ' + str(time.time() - t1)
             

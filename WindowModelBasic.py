@@ -29,7 +29,7 @@ class WindowModelBasic:
                  learningRateUpdStrategy=LearningRateUpdNormalStrategy(),
                  randomizeInput=False, wordVecsUpdStrategy='normal',
                  withoutHiddenLayer=False, networkAct='tanh', norm_coef=1.0,
-                 structGrad=True):
+                 structGrad=True, adaGrad=False):
         # Logging object.
         self.__log = logging.getLogger(__name__)
 
@@ -63,6 +63,7 @@ class WindowModelBasic:
         self.norm_coef = norm_coef
         
         self.__structGrad = structGrad
+        self.__adaGrad = adaGrad
         
         self.initWithBasicLayers(withoutHiddenLayer)
         
@@ -228,3 +229,7 @@ class WindowModelBasic:
     
     def predict(self, inputData):
         raise NotImplementedError();
+
+    def isAdaGrad(self):
+        return self.__adaGrad
+    

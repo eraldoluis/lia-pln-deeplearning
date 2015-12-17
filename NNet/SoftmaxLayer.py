@@ -82,5 +82,8 @@ class SoftmaxLayer(Layer):
     def getDefaultGradParameters(self):
         return self.params
     
-    def getUpdates(self, cost, learningRate):
+    def getStructuredParameters(self):
+        return []
+    
+    def getUpdates(self, cost, learningRate, sumSqGrads=None):
         return []

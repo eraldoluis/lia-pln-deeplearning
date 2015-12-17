@@ -74,25 +74,42 @@ class EmbeddingLayer(Layer):
         #
         self.__output = embedding[examples].flatten(2)
 
-    def getOutput(self):
-        return self.__output
-    
-    def getParameters(self):
-        return [self.__embedding]
-
-    def getUpdates(self, cost, learningRate):
+    def getUpdates(self, cost, learningRate, sumSqGrads=None):
         if self.__structGrad:
             # shape = (numExs, szEx * szEmb)
-            gWordVector = -learningRate * T.grad(cost, self.__output)
+            grad = T.grad(cost, self.__output)
     
-            # Reshape the gradient vector as self.__activeVectors, since these are 
-            # the parameters to be updated.
-            gWordVector = gWordVector.reshape(self.__activeVectors.shape)
-    
-            # Update only the active vectors (structured update).
-            up = T.inc_subtensor(self.__activeVectors, gWordVector)
-    
-            return [(self.__embedding, up)]
+            # Reshape the gradient vector as self.__activeVectors, since these 
+            # are the parameters to be updated.
+            grad = grad.reshape(self.__activeVectors.shape)
+            
+            # List of updates.
+            updates = []
+
+            # Whether to use AdaGrad or not.
+            if sumSqGrads:
+                # Each layer gives a list of variables (one for each parameter).
+                # Since this layer has only one parameter variable (the embedding),
+                # we access only the first (and only) element of the list.
+                sumSqGrads = sumSqGrads[0]
+                # For numerical stability.
+                fudgeFactor = 1e-6
+                # Select only rows activated by the given input.
+                sumSqGradsSub = sumSqGrads[self.getInput().flatten(1)]
+                # Update of the sum of squared historical gradients.
+                grad2 = grad * grad
+                newSsg = T.inc_subtensor(sumSqGradsSub, grad2)
+                updates.append((sumSqGrads, newSsg))
+                # Update of the parameter.
+                newParam = T.inc_subtensor(self.__activeVectors,
+                                           - learningRate * (grad / (fudgeFactor + T.sqrt(sumSqGradsSub + grad2))))
+                updates.append((self.__embedding, newParam))
+            else:
+                # Update only the active vectors (structured update).
+                up = T.inc_subtensor(self.__activeVectors, -learningRate * grad)
+                updates = [(self.__embedding, up)]
+
+            return updates
 
         # When using ordinary gradients, we need to use the
         # getDefaultGradParameters(...) method.
@@ -116,10 +133,22 @@ class EmbeddingLayer(Layer):
 
         return [(emb, norm)]
 
+    def getOutput(self):
+        return self.__output
+    
+    def getParameters(self):
+        return [self.__embedding]
+
+    def getStructuredParameters(self):
+        if self.__structGrad:
+            return [self.__embedding]
+        return []
+
     def getDefaultGradParameters(self):
         """
         Since this layer uses a structured update for all its parameters
-        (embedding), there is no parameter with default gradient updates
+        (embedding), there is no parameter with default gradient updates.
+        Unless the flag self.__structGrad is equal to False.
         """
         if self.__structGrad:
             return []

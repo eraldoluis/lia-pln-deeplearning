@@ -293,19 +293,20 @@ class EmbeddingConvolutionalLayer(Layer):
         return np.asarray(batchStep);
 
     def getParameters(self):
-        return self.__embedLayer.getParameters() + self.hiddenLayer.getParameters()
-
+        return self.__embedLayer.getParameters() + \
+            self.hiddenLayer.getParameters()
+    
     def getDefaultGradParameters(self):
-        params = self.hiddenLayer.getDefaultGradParameters()
-        if not self.__structGrad:
-            params += self.__embedLayer.getDefaultGradParameters()
-        return params
-
-    def getUpdates(self, cost, lr):
-        if self.__structGrad:
-            return self.__embedLayer.getUpdates(cost, lr)
-        return []
-
+        return self.hiddenLayer.getDefaultGradParameters() + \
+            self.__embedLayer.getDefaultGradParameters()
+    
+    def getStructuredParameters(self):
+        return self.hiddenLayer.getStructuredParameters() + \
+            self.__embedLayer.getStructuredParameters()
+    
+    def getUpdates(self, cost, lr, sumSqGrads=None):
+        return self.__embedLayer.getUpdates(cost, lr, sumSqGrads)
+    
     def getNormalizationUpdates(self, strategy, coef):
         return self.embedding.getNormalizationUpdate(strategy, coef)
 

@@ -45,6 +45,13 @@ class Layer(object):
         '''
         raise NotImplementedError()
     
+    def getStructuredParameters(self):
+        '''
+        :return a list of parameters (shared variables) whose gradients and 
+            updates are computed in a structured way, like in an embedding layer.
+        '''
+        raise NotImplementedError()
+    
     def getDefaultGradParameters(self):
         '''
         :return a list of parameters (shared variables) whose gradients and 
@@ -54,7 +61,7 @@ class Layer(object):
         '''
         raise NotImplementedError()
     
-    def getUpdates(self, cost, learningRate):
+    def getUpdates(self, cost, learningRate, sumSqGrads=None):
         '''
         Some layers can have an efficient ways of computing the gradient w.r.t. 
         their parameters and the corresponding updates. This is usually the case
@@ -63,6 +70,9 @@ class Layer(object):
         :param cost: theano function representing the cost of a training step
         
         :param learningRate: (possibly symbolic) value representing the learning rate.
+        
+        :param sumSqGrads: (optional) shared variable that store the sum of the
+            squared historical gradients, which is used by AdaGrad.
         
         :return [], an empty list, if this layer parameters updates can be 
             directly computed from the gradient of the cost function w.r.t. its

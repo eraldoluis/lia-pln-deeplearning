@@ -219,8 +219,18 @@ def run(args):
                     charVars[1].zScore(args.norm_coef)
                 # TODO: o tamanho da representação de caracteres está fixa (20).
                 # Precisamos colocar isso como argumento do programa.
-                charModel = EmbeddingConvolutionalLayer(charVars[0], charVars[1], charVars[2], 20, args.charWindowSize, args.wordWindowSize,
-                    args.convSize, numClasses, args.c, learningRateUpdStrategy, separeSentence, args.charwnnWithAct, args.charVecsUpdStrategy, args.networkAct, args.norm_coef)
+                charModel = EmbeddingConvolutionalLayer(charVars[0], charVars[1], 
+                                                        charVars[2], 20, 
+                                                        args.charWindowSize, 
+                                                        args.wordWindowSize,
+                                                        args.convSize, 
+                                                        numClasses, args.c, 
+                                                        learningRateUpdStrategy, 
+                                                        separeSentence, 
+                                                        args.charwnnWithAct, 
+                                                        args.charVecsUpdStrategy, 
+                                                        args.networkAct, 
+                                                        args.norm_coef)
             
             if args.wordVecsInit == 'randomAll':
                 wordVector.startAllRandom()
@@ -234,7 +244,8 @@ def run(args):
                                       args.numepochs, args.batchSize, args.c,
                                       charModel, learningRateUpdStrategy,
                                       args.wordVecsUpdStrategy, args.networkAct,
-                                      args.norm_coef, not args.noStructGrad)
+                                      args.norm_coef, not args.noStructGrad,
+                                      adaGrad=args.adaGrad)
         
         elif args.alg == "window_sentence":
             separeSentence = True
@@ -475,6 +486,9 @@ def main():
     parser.add_argument('--nostructgrad', dest='noStructGrad', action='store_true',
                        help='Disable structured gradients (in embedding layers, ' + 
                             'for instance), i.e., use only ordinary gradient')
+    
+    parser.add_argument('--adagrad', dest='adaGrad', action='store_true',
+                       help='Activate AdaGrad updates.')
     
     logger = logging.getLogger("Logger")
     formatter = logging.Formatter('[%(asctime)s]\t%(message)s')

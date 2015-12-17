@@ -94,6 +94,9 @@ class HiddenLayer(Layer):
     
     def getDefaultGradParameters(self):
         return self.params
+    
+    def getStructuredParameters(self):
+        return []
 
-    def getUpdates(self, cost, lr):
+    def getUpdates(self, cost, lr, sumSqGrads=None):
         return []

@@ -7,6 +7,7 @@ from NNet.SoftmaxLayer import SoftmaxLayer
 from NNet.Util import negative_log_likelihood, LearningRateUpdNormalStrategy, \
     defaultGradParameters
 from WindowModelBasic import WindowModelBasic
+import numpy
 
 class WindowModelByWord(WindowModelBasic):
 
@@ -14,7 +15,7 @@ class WindowModelByWord(WindowModelBasic):
                  numClasses, numEpochs, batchSize=1, c=0.0, charModel=None,
                  learningRateUpdStrategy=LearningRateUpdNormalStrategy(),
                  wordVecsUpdStrategy='normal', networkAct='tanh', norm_coef=1.0,
-                 structGrad=True):
+                 structGrad=True, adaGrad=False):
         #
         # Base class constructor.
         #
@@ -23,7 +24,7 @@ class WindowModelByWord(WindowModelBasic):
                                   batchSize, c, charModel,
                                   learningRateUpdStrategy, False,
                                   wordVecsUpdStrategy, False, networkAct,
-                                  norm_coef, structGrad)
+                                  norm_coef, structGrad, adaGrad)
         
         self.setTestValues = True
         
@@ -48,19 +49,69 @@ class WindowModelByWord(WindowModelBasic):
         if charModel:
             layers.append(charModel)
         
+        # Lists of variables that store the sum of the squared historical 
+        # gradients for the parameters of all layers. Since some layers use
+        # structured gradients, the historical gradients are also structured
+        # and need special treatment. So, we need to store two lists of 
+        # historical gradients: one for default gradient parameters and another
+        # for structured gradient parameters.
+        self.__sumsSqDefGrads = None
+        self.__sumsSqStructGrads = None
+        if self.isAdaGrad():
+            sumsSqDefGrads = []
+            for l in layers:
+                # Default gradient parameters also follow a default AdaGrad update.
+                params = l.getDefaultGradParameters()
+                ssgs = []
+                for param in params:
+                    ssgVals = numpy.zeros(param.get_value(borrow=True).shape,
+                                          dtype=theano.config.floatX)
+                    ssg = theano.shared(value=ssgVals,
+                                        name='sumSqGrads_' + param.name,
+                                        borrow=True)
+                    ssgs.append(ssg)
+                # For default gradient parameters, we do not need to store 
+                # parameters or historical gradients separated by layer. We 
+                # just store a list of parameters and historical gradients.
+                sumsSqDefGrads += ssgs
+            self.__sumsSqDefGrads = sumsSqDefGrads
+            
+            sumsSqStructGrads = []
+            for l in layers:
+                # Structured parameters also need structured updates for the 
+                # historical gradients. These updates are computed by each layer.
+                params = l.getStructuredParameters()
+                ssgs = []
+                for param in params:
+                    ssgVals = numpy.zeros(param.get_value(borrow=True).shape,
+                                          dtype=theano.config.floatX)
+                    ssg = theano.shared(value=ssgVals,
+                                        name='sumSqGrads_' + param.name,
+                                        borrow=True)
+                    ssgs.append(ssg)
+                # For structured parameters, we need to store the historical 
+                # gradients separated by layer, since the updates of these 
+                # variables are performed by each layer.
+                sumsSqStructGrads.append(ssgs)
+            self.__sumsSqStructGrads = sumsSqStructGrads
+        
         # Build list of updates.
         updates = []
         defaultGradParams = []
         
         # Get structured updates and default-gradient parameters from all layers.
-        for l in layers:
+        for (idx, l) in enumerate(layers):
             # Structured updates (embeddings, basically).
-            updates += l.getUpdates(cost, self.lr)
+            ssgs = None
+            if self.isAdaGrad():
+                ssgs = self.__sumsSqStructGrads[idx]
+            updates += l.getUpdates(cost, self.lr, ssgs)
             # Default gradient parameters (all the remaining).
             defaultGradParams += l.getDefaultGradParameters()
         
         # Add updates for default-gradient parameters.
-        updates += defaultGradParameters(cost, defaultGradParams, self.lr)
+        updates += defaultGradParameters(cost, defaultGradParams,
+                                         self.lr, self.__sumsSqDefGrads)
         
         # Add normalization updates.
         if (self.wordVecsUpdStrategy != 'normal'):

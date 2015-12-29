@@ -256,7 +256,7 @@ def run(algTypeChoices, unknownWordStrategy, lrStrategyChoices, networkChoices, 
                     wv.zScore(args.norm_coef)
             
             model = WindowModelByWord(lexicon, wordVector, args.wordWindowSize, args.hiddenSize, args.lr, numClasses,
-                args.numepochs, args.batchSize, args.c, charModel, learningRateUpdStrategy, args.wordVecsUpdStrategy,args.wordNetAct,args.norm_coef)
+                args.numepochs, args.batchSize, args.c, charModel, learningRateUpdStrategy, args.wordVecsUpdStrategy,args.wordNetAct,args.norm_coef,args.nonupdatewv)
         
         elif args.alg == algTypeChoices[1]:
             separeSentence = True
@@ -298,7 +298,7 @@ def run(algTypeChoices, unknownWordStrategy, lrStrategyChoices, networkChoices, 
                     wv.zScore(args.norm_coef)
             
             model = WindowModelBySentence(lexicon, wordVector, args.wordWindowSize, args.hiddenSize, args.lr,
-                numClasses, args.numepochs, args.batchSize, args.c, charModel, learningRateUpdStrategy, args.wordVecsUpdStrategy, networkChoice,args.wordNetAct,args.norm_coef)
+                numClasses, args.numepochs, args.batchSize, args.c, charModel, learningRateUpdStrategy, args.wordVecsUpdStrategy, networkChoice,args.wordNetAct,args.norm_coef,args.nonupdatewv)
         
         if args.numPerEpoch is not None and len(args.numPerEpoch) != 0:
             print 'Loading test data...'

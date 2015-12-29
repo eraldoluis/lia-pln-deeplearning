@@ -698,8 +698,8 @@ def doOneExperiment(mainExperimentDir, runNumber, args, w2vStrategy, intermediat
         
         
         if useSource and args.updateWv == DLIDExperiments.updateWvChoices[1]: 
-            args.nonupdatewv = "1"
-            
+            args.nonupdatewv = [1]
+                        
         wordsSet = set()
         
         dim = 0

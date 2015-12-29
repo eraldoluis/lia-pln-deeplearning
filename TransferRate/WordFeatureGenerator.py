@@ -127,7 +127,7 @@ class Word2VecGenerate(WordFeatureGenerator):
         for line in file:
             if re.search('^[0-9]+ [0-9]+$', line):
                 if a > 0:
-                    raise Exception('Foi encontrado mais de uma linha no arquivo que cont�m o n�mero de exemplos e tamanho do word vector')
+                    raise Exception('Foi encontrado mais de uma linha no arquivo que contém o número de exemplos e tamanho do word vector')
                 a += 1
                 continue;
             line = line.rstrip()
@@ -145,9 +145,12 @@ class Word2VecGenerate(WordFeatureGenerator):
         parStrW2vPassed = w2vArguments.split()
         parStrW2v = {}
         i = 0
+                    
         
         while i < len(parStrW2vPassed):
             optionName = parStrW2vPassed[i] 
+            
+                
             if optionName[0] == '-':
                 index = 1
             else:
@@ -156,6 +159,9 @@ class Word2VecGenerate(WordFeatureGenerator):
             if os.path.isfile(parStrW2vPassed[i + 1]):
                     parStrW2vPassed[i + 1] = os.path.basename(parStrW2vPassed[i + 1])
             
+            if  os.path.isfile(parStrW2vPassed[i + 1]):
+                parStrW2vPassed[i + 1] = os.path.basename(parStrW2vPassed[i + 1])
+                
             parStrW2v[optionName[index:]] = parStrW2vPassed[i + 1]
                 
             i += 2

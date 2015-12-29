@@ -11,6 +11,7 @@ class WordToVectorLayer:
         self.__Wv = Wv
         
         self.__output = T.flatten(self.__Wv[_input],2)
+        
         self.__windowIdxs = _input
         self.__isToUpdateWordVector = isToUpdateWordVector
         self.__updStrategy = updStrategy
@@ -30,11 +31,12 @@ class WordToVectorLayer:
         reshapeSize = (gwordVectorFlatten.shape[0] / self.__wordSize, self.__wordSize)
         
         up = T.inc_subtensor(self.__Wv[widowsIdxsFlatten], T.reshape(gwordVectorFlatten, reshapeSize))
-        
-        if self.__updStrategy == 'normalize_mean':
-            up = self.__norm_coef *(up - T.mean(up,axis=0))/T.ptp(up,axis=0)
+       
+               
+        if self.__updStrategy == 'min_max':
+            up = self.__norm_coef *(up - T.min(up,axis=0))/T.ptp(up,axis=0)
             
-        elif self.__updStrategy == 'zScore':
+        elif self.__updStrategy == 'z_score':
             up = self.__norm_coef * (up - T.mean(up,axis=0))/T.std(up,axis=0)
             
         

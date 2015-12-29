@@ -519,6 +519,4 @@ def main():
     run(ParametersChoices.algTypeChoices, ParametersChoices.unknownWordStrategy, ParametersChoices.lrStrategyChoices, ParametersChoices.networkChoices, args)
     
 if __name__ == '__main__':
-    main()
-    
-
+    main()

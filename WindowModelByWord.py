@@ -12,7 +12,9 @@ from CharWNN import *
 class WindowModelByWord(WindowModelBasic):
 
     def __init__(self, lexicon, wordVectors , windowSize, hiddenSize, _lr,numClasses,numEpochs, batchSize=1, c=0.0,
-                 charModel=None,learningRateUpdStrategy = LearningRateUpdNormalStrategy(),wordVecsUpdStrategy='normal',networkAct='tanh',norm_coef=1.0):
+                 charModel=None,learningRateUpdStrategy = LearningRateUpdNormalStrategy(),wordVecsUpdStrategy='normal',networkAct='tanh',norm_coef=1.0,
+                 wvNotUpdate = [],
+                 ):
         
         WindowModelBasic.__init__(self, lexicon, wordVectors, windowSize, hiddenSize, _lr, numClasses, numEpochs, 
                                   batchSize, c, charModel,learningRateUpdStrategy,False,wordVecsUpdStrategy,False,networkAct,norm_coef)
@@ -51,7 +53,14 @@ class WindowModelByWord(WindowModelBasic):
             
         
         updates += self.softmax.getUpdate(cost, self.lr);
-        updates += self.wordToVector.getUpdate(cost, self.lr); 
+        isToUpdateWv = [True for wvLayer in self.wordToVector]
+            
+        for indexToNotUpdate in wvNotUpdate:
+            isToUpdateWv[indexToNotUpdate - 1] = False
+        
+        for i in range(len(self.wordToVector)):
+            if isToUpdateWv[i]:
+                updates += self.wordToVector[i].getUpdate(cost, self.lr); 
         
         self.setCost(cost)
         self.setUpdates(updates)

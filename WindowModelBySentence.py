@@ -27,7 +27,8 @@ class WindowModelBySentence(WindowModelBasic):
 
 
     def __init__(self, lexicon, wordVectors , windowSize, hiddenSize, _lr,numClasses,numEpochs, batchSize=1, c=0.0,
-                 charModel=None,learningRateUpdStrategy = LearningRateUpdNormalStrategy(),wordVecsUpdStrategy='normal', choice = NeuralNetworkChoiceEnum.COMPLETE,networkAct = 'tanh',norm_coef=1.0):
+                 charModel=None,learningRateUpdStrategy = LearningRateUpdNormalStrategy(),wordVecsUpdStrategy='normal', choice = NeuralNetworkChoiceEnum.COMPLETE,networkAct = 'tanh',norm_coef=1.0,
+                 wvNotUpdate = []):
         
         WindowModelBasic.__init__(self, lexicon, wordVectors, windowSize, hiddenSize, _lr, 
                                   numClasses, numEpochs, batchSize, c,charModel,learningRateUpdStrategy,True,wordVecsUpdStrategy,NeuralNetworkChoiceEnum.withoutHiddenLayer(choice),networkAct,norm_coef)
@@ -40,13 +41,11 @@ class WindowModelBySentence(WindowModelBasic):
             
             if self.charModel == None:
                 print 'Softmax linked with w2v'
-                self.sentenceSoftmax = SentenceSoftmaxLayer(self.wordToVector.getOutput(), self.wordSize * self.windowSize, numClasses);
+                self.sentenceSoftmax = SentenceSoftmaxLayer(self.concatenateOutputWv, self.wordSize * self.windowSize, numClasses);
             else:
                 print 'Softmax linked with w2v and charwv'    
-                self.sentenceSoftmax = SentenceSoftmaxLayer(T.concatenate([self.wordToVector.getOutput(), self.charModel.getOutput()], axis=1), (self.wordSize + self.charModel.convSize) * self.windowSize , numClasses);
-
+                self.sentenceSoftmax = SentenceSoftmaxLayer(T.concatenate([self.concatenateOutputWv, self.charModel.getOutput()], axis=1), (self.wordSize + self.charModel.convSize) * self.windowSize , numClasses);
             
-            self.sentenceSoftmax = SentenceSoftmaxLayer(self.wordToVector.getOutput(), self.wordSize * self.windowSize, numClasses);
             parameters = self.sentenceSoftmax.getParameters()
         else:
             print 'Softmax linked with hidden'
@@ -74,7 +73,15 @@ class WindowModelBySentence(WindowModelBasic):
             
         if not NeuralNetworkChoiceEnum.withoutUpdateWv(choice):
             print 'With update vector'
-            updates += self.wordToVector.getUpdate(cost, self.lr); 
+            
+            isToUpdateWv = [True for wvLayer in self.wordToVector]
+            
+            for indexToNotUpdate in wvNotUpdate:
+                isToUpdateWv[indexToNotUpdate - 1] = False
+            
+            for i in range(len(self.wordToVector)):
+                if isToUpdateWv[i]:
+                    updates += self.wordToVector[i].getUpdate(cost, self.lr); 
         else:
             print 'Without update vector'
             

@@ -29,7 +29,7 @@ class TokenLabelReader:
         word = filters[-1].filter(rawWord)        
         lexiconIndex = lexicon.getLexiconIndex(word)
         
-
+        # TODO: this implementation doesn't treat when the wordVecs is an array
         if addWordUnknown and lexicon.isUnknownIndex(lexiconIndex):
             lexiconIndex = lexicon.put(word)
             wordVecs.append(None)

@@ -152,6 +152,9 @@ class Word2VecGenerate(WordFeatureGenerator):
                 index = 1
             else:
                 index = 0
+                
+            if os.path.isfile(parStrW2vPassed[i + 1]):
+                    parStrW2vPassed[i + 1] = os.path.basename(parStrW2vPassed[i + 1])
             
             parStrW2v[optionName[index:]] = parStrW2vPassed[i + 1]
                 

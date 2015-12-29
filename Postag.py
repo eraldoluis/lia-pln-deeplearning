@@ -31,13 +31,13 @@ class ParametersChoices:
     algTypeChoices = ["window_word", "window_sentence"]
     lrStrategyChoices = ["normal", "divide_epoch"]
     networkChoices = ["complete", "without_hidden_update_wv" , "without_update_wv"]
-    networkActivation = ["tanh","hard_tanh","sigmoid","hard_sigmoid","ultra_fast_sigmoid"]
+    networkActivation = ["tanh","hard_tanh","sigmoid","hard_sigmoid"]
 
 
 def readVocabAndWord(args):
     
     """Este if só foi criado para permitir que DLIDPostag possa reusar o run do postag"""
-    if isinstance(args.vocab, Lexicon) and isinstance(args.wordVectors, WordVector): 
+    if isinstance(args.vocab, Lexicon) and (isinstance(args.wordVectors, WordVector) or isinstance(args.wordVectors, list)): 
         return args.vocab, args.wordVectors
     
     if args.vocab == args.wordVectors or args.vocab is not None or args.wordVectors is not None:
@@ -125,8 +125,16 @@ def run(algTypeChoices, unknownWordStrategy, lrStrategyChoices, networkChoices, 
                 raise Exception("O vocabulário não possui o símbolo de começo\"<s>)\"")
             if lexicon.isUnknownIndex(lexicon.getLexiconIndex(WindowModelBasic.endSymbolStr)):
                 raise Exception("O vocabulário não possui o símbolo de final\"<\s>)\"")
-            if lexicon.getLen() != wordVector.getLength():
-                raise Exception("O número de palavras no vacabulário é diferente do número de palavras do word Vector")
+            
+            
+            if isinstance(wordVector, WordVector):
+                wvs = [wordVector]
+            else:
+                wvs = wordVector
+                    
+            for wv in wvs:
+                if lexicon.getLen() != wv.getLength():
+                    raise Exception("O número de palavras no vacabulário é diferente do número de palavras do word Vector")
             if args.testOOUV:
                 lexiconFindInWV = set([word for word in lexicon.getLexiconDict()])
             addWordUnknown = False
@@ -144,6 +152,9 @@ def run(algTypeChoices, unknownWordStrategy, lrStrategyChoices, networkChoices, 
                 lexiconFindInWV = set()
             addWordUnknown = True
         
+        if isinstance(wordVector, WordVector):
+            wordVector = [wordVector]
+        
         unknownNameDefault = u'UUUNKKK'
         
         if args.unknownWordStrategy == unknownWordStrategy[0]:
@@ -152,7 +163,9 @@ def run(algTypeChoices, unknownWordStrategy, lrStrategyChoices, networkChoices, 
             
             lexiconIndex = lexicon.put(unknownNameDefault)
             lexicon.setUnknownIndex(lexiconIndex)
-            wordVector.append(None)
+            
+            for wv in wordVector:
+                wv.append(None) 
         
         elif args.unknownWordStrategy == unknownWordStrategy[1]:
             if lexicon.isWordExist(unknownNameDefault):
@@ -165,7 +178,9 @@ def run(algTypeChoices, unknownWordStrategy, lrStrategyChoices, networkChoices, 
             unknownWordVector = numpy.mean(numpy.asarray(wordVector.getWordVectors()[wordVector.getLength() - mean_size:]), 0)
             lexiconIndex = lexicon.put(unknownNameDefault)
             lexicon.setUnknownIndex(lexiconIndex)
-            wordVector.append(unknownWordVector.tolist())
+            
+            for wv in wordVector:
+                wv.append(unknownWordVector.tolist())
         
         elif args.unknownWordStrategy == unknownWordStrategy[2]:
             lexiconIndex = lexicon.getLexiconIndex(unicode(args.unknownWord, "utf-8"))
@@ -223,22 +238,25 @@ def run(algTypeChoices, unknownWordStrategy, lrStrategyChoices, networkChoices, 
             if args.withCharwnn:
                 if args.charVecsInit == 'randomAll':
                     charVars[1].startAllRandom()
-                if args.charVecsUpdStrategy == 'normalize_mean' or args.charVecsInit == 'normalize_mean':
-                    charVars[1].normalizeMean(args.norm_coef)
+                if args.charVecsUpdStrategy == 'min_max' or args.charVecsInit == 'min_max':
+                    charVars[1].minMax(args.norm_coef)
                 elif args.charVecsUpdStrategy == 'z_score' or args.charVecsInit == 'z_score':
                     charVars[1].zScore(args.norm_coef)
                 charModel = CharWNN(charVars[0], charVars[1], charVars[2], charVars[3], args.charWindowSize, args.wordWindowSize,
-                    args.convSize, numClasses, args.c, learningRateUpdStrategy, separeSentence, args.charwnnWithAct, args.charVecsUpdStrategy,args.networkAct,args.norm_coef)
+                    args.convSize, numClasses, args.c, learningRateUpdStrategy, separeSentence, args.charwnnWithAct, args.charVecsUpdStrategy,args.charNetAct,args.norm_coef)
             
             if args.wordVecsInit == 'randomAll':
-                wordVector.startAllRandom()
-            if args.wordVecsUpdStrategy == 'normalize_mean' or args.wordVecsInit == 'normalize_mean':
-                wordVector.normalizeMean(args.norm_coef)
+                for wv in wordVector:
+                    wv.startAllRandom()
+            if args.wordVecsUpdStrategy == 'min_max' or args.wordVecsInit == 'min_max':
+                for wv in wordVector:
+                    wv.minMax(args.norm_coef)
             elif args.wordVecsUpdStrategy == 'z_score' or args.wordVecsInit == 'z_score':
-                wordVector.zScore(args.norm_coef)
+                for wv in wordVector:
+                    wv.zScore(args.norm_coef)
             
             model = WindowModelByWord(lexicon, wordVector, args.wordWindowSize, args.hiddenSize, args.lr, numClasses,
-                args.numepochs, args.batchSize, args.c, charModel, learningRateUpdStrategy, args.wordVecsUpdStrategy,args.networkAct,args.norm_coef)
+                args.numepochs, args.batchSize, args.c, charModel, learningRateUpdStrategy, args.wordVecsUpdStrategy,args.wordNetAct,args.norm_coef)
         
         elif args.alg == algTypeChoices[1]:
             separeSentence = True
@@ -262,22 +280,25 @@ def run(algTypeChoices, unknownWordStrategy, lrStrategyChoices, networkChoices, 
             if args.withCharwnn:
                 if args.charVecsInit == 'randomAll':
                     charVars[1].startAllRandom()
-                if args.charVecsUpdStrategy == 'normalize_mean' or args.charVecsInit == 'normalize_mean':
-                    charVars[1].normalizeMean(args.norm_coef)
+                if args.charVecsUpdStrategy == 'min_max' or args.charVecsInit == 'min_max':
+                    charVars[1].minMax(args.norm_coef)
                 elif args.charVecsUpdStrategy == 'z_score' or args.charVecsInit == 'z_score':
                     charVars[1].zScore(args.norm_coef)
                 charModel = CharWNN(charVars[0], charVars[1], charVars[2], charVars[3], args.charWindowSize, args.wordWindowSize,
-                    args.convSize, numClasses, args.c, learningRateUpdStrategy, separeSentence, args.charwnnWithAct, args.charVecsUpdStrategy,args.networkAct,args.norm_coef)
+                    args.convSize, numClasses, args.c, learningRateUpdStrategy, separeSentence, args.charwnnWithAct, args.charVecsUpdStrategy,args.charNetAct,args.norm_coef)
             
             if args.wordVecsInit == 'randomAll':
-                wordVector.startAllRandom()
-            if args.wordVecsUpdStrategy == 'normalize_mean' or args.wordVecsInit == 'normalize_mean':
-                wordVector.normalizeMean(args.norm_coef)
+                for wv in wordVector:
+                    wv.startAllRandom()
+            if args.wordVecsUpdStrategy == 'min_max' or args.wordVecsInit == 'min_max':
+                for wv in wordVector:
+                    wv.minMax(args.norm_coef)
             elif args.wordVecsUpdStrategy == 'z_score' or args.wordVecsInit == 'z_score':
-                wordVector.zScore(args.norm_coef)
+                for wv in wordVector:
+                    wv.zScore(args.norm_coef)
             
             model = WindowModelBySentence(lexicon, wordVector, args.wordWindowSize, args.hiddenSize, args.lr,
-                numClasses, args.numepochs, args.batchSize, args.c, charModel, learningRateUpdStrategy, args.wordVecsUpdStrategy, networkChoice,args.networkAct,args.norm_coef)
+                numClasses, args.numepochs, args.batchSize, args.c, charModel, learningRateUpdStrategy, args.wordVecsUpdStrategy, networkChoice,args.wordNetAct,args.norm_coef)
         
         if args.numPerEpoch is not None and len(args.numPerEpoch) != 0:
             print 'Loading test data...'
@@ -430,13 +451,13 @@ def main():
     parser.add_argument('--filewithfeatures', dest='fileWithFeatures', action='store_true',
                        help='Set that the training e testing files have features')
     
-    vecsInitChoices = ["randomAll", "random", "zeros", "z_score", "normalize_mean"]
+    vecsInitChoices = ["randomAll", "random", "zeros", "z_score", "min_max"]
     
     parser.add_argument('--charVecsInit', dest='charVecsInit', action='store', default=vecsInitChoices[1], choices=vecsInitChoices,
-                       help='Set the way to initialize the char vectors. RANDOM, RANDOMALL, ZEROS, Z_SCORE and NORMALIZE_MEAN are the options available')
+                       help='Set the way to initialize the char vectors. RANDOM, RANDOMALL, ZEROS, Z_SCORE and MIN_MAX are the options available')
     
     parser.add_argument('--wordVecsInit', dest='wordVecsInit', action='store', default=vecsInitChoices[1], choices=vecsInitChoices,
-                       help='Set the way to initialize the char vectors. RANDOM, RANDOMALL, ZEROS, Z_SCORE and NORMALIZE_MEAN are the options available')
+                       help='Set the way to initialize the char vectors. RANDOM, RANDOMALL, ZEROS, Z_SCORE and MIN_MAX are the options available')
     
     parser.add_argument('--charwnnwithact', dest='charwnnWithAct', action='store_true',
                        help='Set training with character embeddings')
@@ -444,26 +465,30 @@ def main():
     
     parser.add_argument('--networkChoice', dest='networkChoice', action='store', default=ParametersChoices.networkChoices[0], choices=ParametersChoices.networkChoices)
     
-    parser.add_argument('--networkAct', dest='networkAct', action='store', default=ParametersChoices.networkActivation[0], choices=ParametersChoices.networkActivation)
+    parser.add_argument('--wordNetAct', dest='wordNetAct', action='store', default=ParametersChoices.networkActivation[0], choices=ParametersChoices.networkActivation)
     
+    parser.add_argument('--charNetAct', dest='charNetAct', action='store', default=ParametersChoices.networkActivation[0], choices=ParametersChoices.networkActivation)
     
     parser.add_argument('--mean_size', dest='meanSize', action='store', type=float, default=1.0,
                        help='The number of the least used words in the train for unknown word' 
                        + 'Number between 0 and 1 for percentage, number > 1 for literal number to make the mean and negative for mean_all')
     
-    vecsUpStrategyChoices = ["normal", "normalize_mean", "z_score"]
+    vecsUpStrategyChoices = ["normal", "min_max", "z_score"]
 
     parser.add_argument('--wordvecsupdstrategy', dest='wordVecsUpdStrategy', action='store', default=vecsUpStrategyChoices[0], choices=vecsUpStrategyChoices,
-                       help='Set the word vectors update strategy. NORMAL, NORMALIZE_MEAN and Z_SCORE are the options available')
+                       help='Set the word vectors update strategy. NORMAL, MIN_MAX and Z_SCORE are the options available')
     
     parser.add_argument('--charvecsupdstrategy', dest='charVecsUpdStrategy', action='store', default=vecsUpStrategyChoices[0], choices=vecsUpStrategyChoices,
-                       help='Set the char vectors update strategy. NORMAL, NORMALIZE_MEAN and Z_SCORE are the options available')
+                       help='Set the char vectors update strategy. NORMAL, MIN_MAX and Z_SCORE are the options available')
 
     parser.add_argument('--norm_coef', dest='norm_coef', action='store', type=float, default=1.0,
                        help='The coefficient that will be multiplied to the normalized vectors')
 
     parser.add_argument('--seed', dest='seed', action='store', type=long,
                        help='', default=None)
+    
+    parser.add_argument('--nonupdatewv',dest='nonupdatewv', action='store', nargs='*', type=int,
+                        help='Receive word embedding indexes which is not to be updated. The index begin wih 1.')
     
     logger = logging.getLogger("Logger")
     formatter = logging.Formatter('[%(asctime)s]\t%(message)s')

@@ -33,11 +33,23 @@ class WindowModelBasic:
     def __init__(self, lexicon, wordVectors , windowSize, hiddenSize, _lr,numClasses,numEpochs, batchSize=1.0, c=0.0,charModel=None
                  ,learningRateUpdStrategy = LearningRateUpdNormalStrategy(),randomizeInput=False,wordVecsUpdStrategy='normal',withoutHiddenLayer = False,networkAct='tanh',norm_coef=1.0):
 
-
-        self.Wv = theano.shared(name='wordVecs',
-                                value=np.asarray(wordVectors.getWordVectors(), dtype=theano.config.floatX),
-                                borrow=True)
-        self.wordSize = wordVectors.getLenWordVector()
+        self.Wv = []
+        
+        if not isinstance(wordVectors, list):
+            wordVectors = [wordVectors]
+        
+        a = 1
+        self.wordSize = 0
+        
+        for wv in wordVectors:
+            self.Wv.append(theano.shared(name='wordVec' + str(a),
+                                value=np.asarray(wv.getWordVectors(), dtype=theano.config.floatX),
+                                borrow=True))
+            
+            self.wordSize += wv.getLenWordVector()
+            
+            a+=1
+            
         self.lrValue = _lr
         self.lr = T.dscalar('lr')
         self.learningRateUpdStrategy = learningRateUpdStrategy;
@@ -89,7 +101,13 @@ class WindowModelBasic:
         
         
         # Camada: lookup table.
-        self.wordToVector = WordToVectorLayer(self.windowIdxs, self.Wv, self.wordSize, True,self.wordVecsUpdStrategy,self.norm_coef)
+        self.wordToVector = []
+        
+        for Wv in self.Wv:
+            wvSize = Wv.get_value().shape[1]
+            self.wordToVector.append(WordToVectorLayer(self.windowIdxs, Wv, wvSize, True,self.wordVecsUpdStrategy,self.norm_coef))
+        
+        concatenateOutputWv = T.concatenate( [wvLayers.getOutput() for wvLayers in self.wordToVector],axis=1)
         
         # Camada: hidden layer com a função Tanh como função de ativaçãos
         if not withoutHiddenLayer:
@@ -97,10 +115,10 @@ class WindowModelBasic:
             
             if self.charModel == None:
                 # Camada: hidden layer com a função Tanh como função de ativação
-                self.hiddenLayer = HiddenLayer(self.wordToVector.getOutput(), self.wordSize * self.windowSize , self.hiddenSize, activation=self.networkAct);
+                self.hiddenLayer = HiddenLayer(concatenateOutputWv, self.wordSize * self.windowSize , self.hiddenSize, activation=self.networkAct);
             else:    
                 # Camada: hidden layer com a função Tanh como função de ativação
-                self.hiddenLayer = HiddenLayer(T.concatenate([self.wordToVector.getOutput(), self.charModel.getOutput()], axis=1), (self.wordSize + self.charModel.convSize) * self.windowSize , self.hiddenSize, activation=self.networkAct);
+                self.hiddenLayer = HiddenLayer(T.concatenate([concatenateOutputWv, self.charModel.getOutput()], axis=1), (self.wordSize + self.charModel.convSize) * self.windowSize , self.hiddenSize, activation=self.networkAct);
             
         else:
             print 'Without Hidden Layer'
@@ -157,9 +175,6 @@ class WindowModelBasic:
         
         charBatchesSize = None
         charBatchS = theano.shared(1, "charBatchS");
-        
-        
-        
         
         # Train function.
         if self.charModel == None:
@@ -238,9 +253,7 @@ class WindowModelBasic:
                     batchSize.set_value(batchesSize[idx])
                     train(self.beginBlock[idx], lr)     
             else:
-
                 for idx in idxList:
-        
                     batchSize.set_value(batchesSize[idx])
                     charBatchS.set_value(charBatchesSize[idx])
      

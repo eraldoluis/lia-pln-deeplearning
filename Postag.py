@@ -23,6 +23,7 @@ from NNet.Util import LearningRateUpdDivideByEpochStrategy, \
     LearningRateUpdNormalStrategy
 from Evaluate.EvaluatePercPredictsCorrectNotInWordSet import EvaluatePercPredictsCorrectNotInWordSet
 import random
+import os
 
 def readVocabAndWord(args):
     # Este if só foi criado para permitir que DLIDPostag possa reusar o run do postag
@@ -519,5 +520,8 @@ def main():
     run(args)
 
 if __name__ == '__main__':
-    logging.config.fileConfig('logging.conf')
+    full_path = os.path.realpath(__file__)
+    path, filename = os.path.split(full_path)
+        
+    logging.config.fileConfig(os.path.join(path,'logging.conf'))
     main()

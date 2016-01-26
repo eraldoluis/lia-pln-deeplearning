@@ -62,35 +62,39 @@ def run(args):
     # charVars = [charcon, charVector, charIndexesOfLexiconRaw, numCharsOfLexiconRaw]
     charVars = [None, None, {}, []]
 
-    if args.loadModel is not None:
-        print 'Loading model in ' + args.loadModel + ' ...'
+    if args.loadModel:
+        print 'Loading model from ' + args.loadModel + ' ...'
         f = open(args.loadModel, "rb")
         lexicon, lexiconOfLabel, lexiconRaw, model, charVars = pickle.load(f)
-    
+        f.close()
+
         if isinstance(model, WindowModelByWord):
             separeSentence = False
         elif isinstance(model, WindowModelBySentence):
             separeSentence = True
         if model.charModel == None:
-            print "The loaded model does not have char embeddings"
+            print "The loaded model does not include a char embedding"
             args.withCharwnn = False
         else:
-            print "The loaded model has char embeddings"
+            print "The loaded model includes a char embedding"
             args.withCharwnn = True
-        
+
         model.setTestValues = True
         
         if args.testOOSV:
             lexiconFindInTrain = set()
             # datasetReader.readData(args.train,lexicon,lexiconOfLabel, separateSentences=separateSentence,filters=filters,lexiconFindInTrain=lexiconFindInTrain)
-            datasetReader.readData(args.train, lexicon, lexiconOfLabel, lexiconRaw, separateSentences=separeSentence, withCharwnn=args.withCharwnn, charVars=charVars, filters=filters, setWordsInDataSet=lexiconFindInTrain)
+            datasetReader.readData(args.train, lexicon, lexiconOfLabel, 
+                                   lexiconRaw, separateSentences=separeSentence, 
+                                   withCharwnn=args.withCharwnn, 
+                                   charVars=charVars, filters=filters, 
+                                   setWordsInDataSet=lexiconFindInTrain)
         if args.testOOUV:
             lexiconWV, _ = readVocabAndWord(args)
             lexiconFindInWV = set([word for word in lexiconWV.getLexiconDict()])
             # lexiconFindInWV = set()
             # datasetReader.readData(args.train,lexiconWV,lexiconOfLabel, lexiconRaw, separateSentences=separeSentence,withCharwnn=args.withCharwnn,
             #                       charVars=charVars,filters=filters,setWordsInDataSet=lexiconFindInWV)
-        f.close()
     else:
         print 'Loading dictionary...'
         

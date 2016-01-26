@@ -22,36 +22,40 @@ class EmbeddingLayer(Layer):
             Each feature value is an index within the given embedding.
         
         :type embedding: T.TensorSharedVariable
-        :param embedding: This is the dictionary of feature embeddings that
+        :param embedding: This is the dictionary of feature embeddings, which
             comprise this layer parameters.
             It is a matrix of parameters.
-            Each row corresponds to a feature value weight vector
-                (this feature embedding).
+            Each row corresponds to a weight vector that represents a feature
+            value (this feature embedding). For instance, when using word
+            embeddings, each row stores a word vector.
         
-        :param structGrad: whether to use structured gradient or not.
+        :param structGrad: whether to use structured gradients or not.
             When using small batches (online gradient descent, in the limit),
             the structured gradient is much more efficient because a small
             fraction of word vectors are used on each iteration.
             However, when using large batches (ordinary gradient descent, in the
-            limit), ordinary gradient and update are more efficient because
-            most (or all) word vectors are used on each iteration.
-        
-        In the following, we describe the shape of these two variables.
-        
-        numExs: number of examples (examples.shape[0])
-        
-        szEx: size of each example (examples.shape[1]), or number of features.
+            limit), ordinary gradients and updates are more efficient because
+            most (or all of the) word vectors are used on each iteration.
 
-        numVectors: number of vectors in the embedding (embedding.shape[0]), or 
-            size of the vocabulary of features (number of possible feature 
-            values).
-
-        szEmb: size of the embedding (embedding.shape[1]), number of parameters
-            to represent each feature value.
-
-        examples.shape = (numExs, szEx)
+        Considering that:
         
-        embedding.shape = (numVectors, szEmb)
+            numExs: number of examples (examples.shape[0])
+            
+            szEx: size of each example (examples.shape[1]), or number of 
+                features.
+    
+            numVectors: number of vectors in the embedding (embedding.shape[0]), 
+                or size of the vocabulary of features (number of possible 
+                feature values).
+    
+            szEmb: size of the embedding (embedding.shape[1]), number of 
+                parameters to represent each feature value.
+
+        We can define the shape of the two first parameters as:
+
+            examples.shape = (numExs, szEx)
+        
+            embedding.shape = (numVectors, szEmb)
 
         """
         Layer.__init__(self, examples)
@@ -78,9 +82,10 @@ class EmbeddingLayer(Layer):
         if self.__structGrad:
             # shape = (numExs, szEx * szEmb)
             grad = T.grad(cost, self.__output)
-    
+
             # Reshape the gradient vector as self.__activeVectors, since these 
-            # are the parameters to be updated.
+            # are the parameters to be updated, which follow the shape of the
+            # embedding itself (it is, in fact, a subtensor of the embedding).
             grad = grad.reshape(self.__activeVectors.shape)
             
             # List of updates.
@@ -93,16 +98,16 @@ class EmbeddingLayer(Layer):
                 # we access only the first (and only) element of the list.
                 sumSqGrads = sumSqGrads[0]
                 # For numerical stability.
-                fudgeFactor = 1e-6
+                fudgeFactor = 1e-10
                 # Select only rows activated by the given input.
                 sumSqGradsSub = sumSqGrads[self.getInput().flatten(1)]
                 # Update of the sum of squared historical gradients.
-                grad2 = grad * grad
-                newSsg = T.inc_subtensor(sumSqGradsSub, grad2)
+                gradSq = grad * grad
+                newSsg = T.inc_subtensor(sumSqGradsSub, gradSq)
                 updates.append((sumSqGrads, newSsg))
                 # Update of the parameter.
                 newParam = T.inc_subtensor(self.__activeVectors,
-                                           - learningRate * (grad / (fudgeFactor + T.sqrt(sumSqGradsSub + grad2))))
+                                           - learningRate * (grad / (fudgeFactor + T.sqrt(sumSqGradsSub + gradSq))))
                 updates.append((self.__embedding, newParam))
             else:
                 # Update only the active vectors (structured update).
@@ -110,9 +115,9 @@ class EmbeddingLayer(Layer):
                 updates = [(self.__embedding, up)]
 
             return updates
-
-        # When using ordinary gradients, we need to use the
-        # getDefaultGradParameters(...) method.
+        
+        # When using ordinary gradients, we need to return these parameters
+        # through the getDefaultGradParameters(...) method.
         return []
 
     def getNormalizationUpdate(self, strategy, normFactor):

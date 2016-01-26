@@ -9,14 +9,24 @@ import logging
 
 class TokenLabelReader:
     
-    def __init__(self,fileWithFeatures,tokenLabelSeparator):
+    def __init__(self, fileWithFeatures, tokenLabelSeparator):
         self.fileWithFeatures = fileWithFeatures
         self.__tokenLabelSeparator = tokenLabelSeparator
-     
-    def readTestData(self, filename,lexicon,lexiconOfLabel,lexiconRaw,separateSentences=True,addWordUnknown=False,withCharwnn=False,charVars=[None,None,{},[]],addCharUnknown=False,filters=[],unknownDataTest=None,unknownDataTestCharIdxs=None):
-        return self.readData(filename, lexicon, lexiconOfLabel,lexiconRaw,None,separateSentences,False,withCharwnn,charVars,False,filters,None,unknownDataTest,unknownDataTestCharIdxs)
     
-    def addToken(self, lexicon, wordVecs, addWordUnknown, filters, indexesBySentence, rawWord,setWordsInDataSet,unknownData,lexiconRaw,indexesOfRawBySentence,numCharsOfRawBySentence,withCharwnn,charVars,addCharUnknown,unknownDataCharIdxs):
+    def readTestData(self, filename, lexicon, lexiconOfLabel, lexiconRaw, 
+                     separateSentences=True, addWordUnknown=False, 
+                     withCharwnn=False, charVars=[None, None, {}, []], 
+                     addCharUnknown=False, filters=[], unknownDataTest=None, 
+                     unknownDataTestCharIdxs=None):
+        return self.readData(filename, lexicon, lexiconOfLabel, lexiconRaw, 
+                             None, separateSentences, False, withCharwnn, 
+                             charVars, False, filters, None, unknownDataTest, 
+                             unknownDataTestCharIdxs)
+    
+    def addToken(self, lexicon, wordVecs, addWordUnknown, filters, 
+                 indexesBySentence, rawWord, setWordsInDataSet, unknownData, 
+                 lexiconRaw, indexesOfRawBySentence, numCharsOfRawBySentence, 
+                 withCharwnn, charVars, addCharUnknown, unknownDataCharIdxs):
         
         charcon = charVars[0]
         charVector = charVars[1]
@@ -71,43 +81,43 @@ class TokenLabelReader:
     def addLabel(self, lexiconOfLabel, labelsBySentence, token):
         labelsBySentence.append(lexiconOfLabel.put(token))
                                         
-    def readTokenAndLabelOfFileWithFeature(self, lexicon, lexiconOfLabel, wordVecs, addWordUnknown, filters, indexesBySentence, labelsBySentence,lexiconRaw, indexesOfRawBySentence, numCharsOfRawBySentence , token,setWordsInDataSet,unknownData,withCharwnn,charVars,addCharUnknown,unknownDataCharIdxs):
+    def readTokenAndLabelOfFileWithFeature(self, lexicon, lexiconOfLabel, wordVecs, addWordUnknown, filters, indexesBySentence, labelsBySentence, lexiconRaw, indexesOfRawBySentence, numCharsOfRawBySentence , token, setWordsInDataSet, unknownData, withCharwnn, charVars, addCharUnknown, unknownDataCharIdxs):
                 
         prefWord = 'word='
         
         if prefWord in token:
             word = token[len(prefWord):]
-            self.addToken(lexicon, wordVecs, addWordUnknown, filters, indexesBySentence, word,setWordsInDataSet,unknownData,
-                          lexiconRaw,indexesOfRawBySentence,numCharsOfRawBySentence,withCharwnn,charVars,addCharUnknown,unknownDataCharIdxs)
+            self.addToken(lexicon, wordVecs, addWordUnknown, filters, indexesBySentence, word, setWordsInDataSet, unknownData,
+                          lexiconRaw, indexesOfRawBySentence, numCharsOfRawBySentence, withCharwnn, charVars, addCharUnknown, unknownDataCharIdxs)
         elif re.search(r'^([A-Z]|\W)', token) is not None:
             self.addLabel(lexiconOfLabel, labelsBySentence, token)
                                 
-    def readTokenAndLabelOfRawFile(self, lexicon, lexiconOfLabel, wordVecs, addWordUnknown, filters, indexesBySentence, labelsBySentence,lexiconRaw, indexesOfRawBySentence, numCharsOfRawBySentence,token, setWordsInDataSet,unknownData,withCharwnn,charVars,addCharUnknown,unknownDataCharIdxs):
+    def readTokenAndLabelOfRawFile(self, lexicon, lexiconOfLabel, wordVecs, addWordUnknown, filters, indexesBySentence, labelsBySentence, lexiconRaw, indexesOfRawBySentence, numCharsOfRawBySentence, token, setWordsInDataSet, unknownData, withCharwnn, charVars, addCharUnknown, unknownDataCharIdxs):
     
-        s = token.rsplit(self.__tokenLabelSeparator,1)
+        s = token.rsplit(self.__tokenLabelSeparator, 1)
         
         if len(s[1]) == 0:
             logging.getLogger("Logger").warn("It was not found the label from "\
                          "the token " + token + ". We give to this token "\
                          " a label equal to"\
-                         " the tokenLabelSeparator( " + self.__tokenLabelSeparator +")" )
+                         " the tokenLabelSeparator( " + self.__tokenLabelSeparator + ")")
               
             s[1] = self.__tokenLabelSeparator
                 
         if (len(s[0]) and len(s[1])):
-            self.addToken(lexicon, wordVecs, addWordUnknown, filters, indexesBySentence, s[0],setWordsInDataSet,unknownData,
-                          lexiconRaw,indexesOfRawBySentence,numCharsOfRawBySentence,withCharwnn,charVars,addCharUnknown,unknownDataCharIdxs)
+            self.addToken(lexicon, wordVecs, addWordUnknown, filters, indexesBySentence, s[0], setWordsInDataSet, unknownData,
+                          lexiconRaw, indexesOfRawBySentence, numCharsOfRawBySentence, withCharwnn, charVars, addCharUnknown, unknownDataCharIdxs)
         
             self.addLabel(lexiconOfLabel, labelsBySentence, s[1])
     
     
 
-    def readData(self, filename,lexicon,lexiconOfLabel,lexiconRaw, wordVecs=None, separateSentences=True, addWordUnknown=False,withCharwnn=False,charVars=[None,None,{},[]],addCharUnknown=False,filters=[], setWordsInDataSet=None,unknownDataTest=[],unknownDataTestCharIdxs=None):
+    def readData(self, filename, lexicon, lexiconOfLabel, lexiconRaw, wordVecs=None, separateSentences=True, addWordUnknown=False, withCharwnn=False, charVars=[None, None, {}, []], addCharUnknown=False, filters=[], setWordsInDataSet=None, unknownDataTest=[], unknownDataTestCharIdxs=None):
         '''
         Read the data from a file and return a matrix which the first row is the words indexes, second row is the labels values and 
         the third row has the indexes of the raw words, and the fourth the number of chars each word in the training set has.
         '''
-        data = [[],[],[],[]]
+        data = [[], [], [], []]
         indexes = data[0]
         labels = data[1]
         indexesOfRaw = data[2]
@@ -142,7 +152,7 @@ class TokenLabelReader:
             
             for token in line_split:
                 func(lexicon, lexiconOfLabel, wordVecs, addWordUnknown, filters, indexesBySentence, labelsBySentence,
-                      lexiconRaw,indexesOfRawBySentence, numCharsOfRawBySentence,token,setWordsInDataSet,unknownDataBySentence, withCharwnn,charVars,addCharUnknown,unknownDataTestCharIdxs)
+                      lexiconRaw, indexesOfRawBySentence, numCharsOfRawBySentence, token, setWordsInDataSet, unknownDataBySentence, withCharwnn, charVars, addCharUnknown, unknownDataTestCharIdxs)
             
             if len(indexesBySentence) != len(labelsBySentence):
                 raise Exception('Número de tokens e labels não são iguais na linha: ' + line)

@@ -125,7 +125,7 @@ def main():
     else:
         charModel = None
         if args.withCharwnn:
-            charModel = CharWNN(trainData[2],trainData[3],featureFactory.getCharcon(),featureFactory.getCharVector(),
+            charModel = EmbeddingConvolutionalLayer(trainData[2],trainData[3],featureFactory.getCharcon(),featureFactory.getCharVector(),
                            args.charWindowSize,args.wordWindowSize, args.convSize, args.lr, numClasses, args.numepochs,featureFactory.getMaxNumberOfChars(),args.batchSize, args.c);
                            
         wordModel = WindowModelByWord(featureFactory.getLexicon(),featureFactory.getWordVector(), 

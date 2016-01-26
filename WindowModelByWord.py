@@ -4,72 +4,138 @@
 import numpy as np
 import theano
 from NNet.SoftmaxLayer import SoftmaxLayer
-from NNet.Util import negative_log_likelihood, regularizationSquareSumParamaters,\
-    LearningRateUpdNormalStrategy
+from NNet.Util import negative_log_likelihood, LearningRateUpdNormalStrategy, \
+    defaultGradParameters
 from WindowModelBasic import WindowModelBasic
-from CharWNN import *
+import numpy
 
 class WindowModelByWord(WindowModelBasic):
 
-    def __init__(self, lexicon, wordVectors , windowSize, hiddenSize, _lr,numClasses,numEpochs, batchSize=1, c=0.0,
-                 charModel=None,learningRateUpdStrategy = LearningRateUpdNormalStrategy(),wordVecsUpdStrategy='normal',networkAct='tanh',norm_coef=1.0):
+    def __init__(self, lexicon, wordVectors , windowSize, hiddenSize, _lr,
+                 numClasses, numEpochs, batchSize=1, c=0.0, charModel=None,
+                 learningRateUpdStrategy=LearningRateUpdNormalStrategy(),
+                 wordVecsUpdStrategy='normal', networkAct='tanh', norm_coef=1.0,
+                 structGrad=True, adaGrad=False):
+        #
+        # Base class constructor.
+        #
+        WindowModelBasic.__init__(self, lexicon, wordVectors, windowSize,
+                                  hiddenSize, _lr, numClasses, numEpochs,
+                                  batchSize, c, charModel,
+                                  learningRateUpdStrategy, False,
+                                  wordVecsUpdStrategy, False, networkAct,
+                                  norm_coef, structGrad, adaGrad)
         
-        WindowModelBasic.__init__(self, lexicon, wordVectors, windowSize, hiddenSize, _lr, numClasses, numEpochs, 
-                                  batchSize, c, charModel,learningRateUpdStrategy,False,wordVecsUpdStrategy,False,networkAct,norm_coef)
-
         self.setTestValues = True
         
+        # A camada de saída é um softmax sobre as classes.
+        self.softmax = SoftmaxLayer(self.hiddenLayer.getOutput(),
+                                    self.hiddenSize,
+                                    numClasses)
         
-        # Camada: softmax
-        self.softmax = SoftmaxLayer(self.hiddenLayer.getOutput(), self.hiddenSize, numClasses);
+        # Saída da rede.
+        output = self.softmax.getOutput()
         
-        # Pega o resultado do foward
-        foward = self.softmax.getOutput();
+        # Training cost function.
+        cost = negative_log_likelihood(output, self.y)
         
-        parameters = self.softmax.getParameters() + self.hiddenLayer.getParameters()
+        #
+        # TODO: criar uma forma de integrar a regularização.
+        # + regularizationSquareSumParamaters(self.parameters, self.regularizationFactor, self.y.shape[0])
+        #
         
+        # List of layers.
+        layers = [self.embedding, self.hiddenLayer, self.softmax]
+        if charModel:
+            layers.append(charModel)
         
-        
-        if charModel == None:
+        # Lists of variables that store the sum of the squared historical 
+        # gradients for the parameters of all layers. Since some layers use
+        # structured gradients, the historical gradients are also structured
+        # and need special treatment. So, we need to store two lists of 
+        # historical gradients: one for default gradient parameters and another
+        # for structured gradient parameters.
+        self.__sumsSqDefGrads = None
+        self.__sumsSqStructGrads = None
+        if self.isAdaGrad():
+            sumsSqDefGrads = []
+            for l in layers:
+                # Default gradient parameters also follow a default AdaGrad update.
+                params = l.getDefaultGradParameters()
+                ssgs = []
+                for param in params:
+                    ssgVals = numpy.zeros(param.get_value(borrow=True).shape,
+                                          dtype=theano.config.floatX)
+                    ssg = theano.shared(value=ssgVals,
+                                        name='sumSqGrads_' + param.name,
+                                        borrow=True)
+                    ssgs.append(ssg)
+                # For default gradient parameters, we do not need to store 
+                # parameters or historical gradients separated by layer. We 
+                # just store a list of parameters and historical gradients.
+                sumsSqDefGrads += ssgs
+            self.__sumsSqDefGrads = sumsSqDefGrads
             
-            # Custo
-            cost = negative_log_likelihood(foward, self.y) + regularizationSquareSumParamaters(parameters, self.regularizationFactor, self.y.shape[0]);
-            updates = self.hiddenLayer.getUpdate(cost, self.lr);
+            sumsSqStructGrads = []
+            for l in layers:
+                # Structured parameters also need structured updates for the 
+                # historical gradients. These updates are computed by each layer.
+                params = l.getStructuredParameters()
+                ssgs = []
+                for param in params:
+                    ssgVals = numpy.zeros(param.get_value(borrow=True).shape,
+                                          dtype=theano.config.floatX)
+                    ssg = theano.shared(value=ssgVals,
+                                        name='sumSqGrads_' + param.name,
+                                        borrow=True)
+                    ssgs.append(ssg)
+                # For structured parameters, we need to store the historical 
+                # gradients separated by layer, since the updates of these 
+                # variables are performed by each layer.
+                sumsSqStructGrads.append(ssgs)
+            self.__sumsSqStructGrads = sumsSqStructGrads
         
-        else:
-            
-            parameters += self.charModel.hiddenLayer.getParameters()
-            
-            # Custo 
-            cost = negative_log_likelihood(foward, self.y) + regularizationSquareSumParamaters(parameters, self.regularizationFactor, self.y.shape[0]);
-            self.charModel.setCost(cost)
-            self.charModel.setUpdates()
-            
-            updates = self.hiddenLayer.getUpdate(cost, self.lr);
-            updates += self.charModel.updates
-            
-            
+        # Build list of updates.
+        updates = []
+        defaultGradParams = []
         
-        updates += self.softmax.getUpdate(cost, self.lr);
-        updates += self.wordToVector.getUpdate(cost, self.lr); 
+        # Get structured updates and default-gradient parameters from all layers.
+        for (idx, l) in enumerate(layers):
+            # Structured updates (embeddings, basically).
+            ssgs = None
+            if self.isAdaGrad():
+                ssgs = self.__sumsSqStructGrads[idx]
+            updates += l.getUpdates(cost, self.lr, ssgs)
+            # Default gradient parameters (all the remaining).
+            defaultGradParams += l.getDefaultGradParameters()
         
-        self.setCost(cost)
-        self.setUpdates(updates)
+        # Add updates for default-gradient parameters.
+        updates += defaultGradParameters(cost, defaultGradParams,
+                                         self.lr, self.__sumsSqDefGrads)
+        
+        # Add normalization updates.
+        if (self.wordVecsUpdStrategy != 'normal'):
+            updates += self.embedding.getNormalizationUpdate(self.wordVecsUpdStrategy, self.norm_coef)
+        if (self.charModel and self.charModel.charVecsUpdStrategy != 'normal'):
+            updates += self.charModel.getNormalizationUpdate(self.charModel.charVecsUpdStrategy, self.norm_coef)
+
+        # Store cost and updates to be used in the training function.        
+        self.cost = cost
+        self.updates = updates
+
+    def reshapeCorrectData(self, correctData):
+        return np.asarray(correctData, dtype=np.int32)
     
-    
-    def reshapeCorrectData(self,correctData):
-        return np.asarray(correctData)
-      
-    #Esta funcao retorna todos os indices das janelas de palavras  
+    # Esta funcao retorna todos os indices das janelas de palavras  
     def getAllWindowIndexes(self, data):
-        allWindowIndexes = [];
+        allWindowIndexes = []
         
-        for idxWord in range(len(data)):
+        for idxWord in xrange(len(data)):
             allWindowIndexes.append(self.getWindowIndexes(idxWord, data))
-            
-        return np.array(allWindowIndexes);
+        
+        return np.array(allWindowIndexes, dtype=np.int32)
     
-    def confBatchSize(self,inputData):
+    def confBatchSize(self, inputData):
         numWords = len(inputData)
         
         # Configura o batch size
@@ -79,69 +145,41 @@ class WindowModelByWord(WindowModelBasic):
             else:
                 raise Exception("The total number of words in batch exceeds the number of words in inputData")
             
-            return np.asarray(self.batchSize);
+            return np.asarray(self.batchSize, dtype=np.int32);
 
-        num = numWords/self.batchSize  
-        arr = np.full(num,self.batchSize,dtype=np.int64)
-        if numWords%self.batchSize:
-            arr = np.append(arr, numWords%self.batchSize)
+        num = numWords / self.batchSize  
+        arr = np.full(num, self.batchSize, dtype=np.int32)
+        if numWords % self.batchSize:
+            arr = np.append(arr, numWords % self.batchSize)
         
         return arr
-        #return np.full(numWords/self.batchSize + 1,self.batchSize,dtype=np.int64)
+        # return np.full(numWords/self.batchSize + 1,self.batchSize,dtype=np.int32)
         
-    def predict(self, inputData,indexesOfRawWord,unknownDataTest):
-      
-        self.reloadWindowIds = True  
-        predict = 0
+    def predict(self, inputData, indexesOfRawWord, unknownDataTest):
+        
+        self.reloadWindowIds = True
         
         if self.setTestValues:
+            # We need to generate test data in the format expected by the NN.
+            # That is, list of word- and character-level features.
+            # But this needs to be done only once, even when evaluation is
+            # performed after several epochs.
             self.testWordWindowIdxs = self.getAllWindowIndexes(inputData)
             
             if self.charModel:
                 self.charModel.updateAllCharIndexes(unknownDataTest)
+                self.testCharWindowIdxs = self.charModel.getAllWordCharWindowIndexes(indexesOfRawWord)
             
-                charmodelIdxPos = self.charModel.getAllWordCharWindowIndexes(indexesOfRawWord)
-                
-                self.testCharWindowIdxs = charmodelIdxPos[0]
-                self.testPosMaxByWord = charmodelIdxPos[1]
-                self.testNumCharByWord = charmodelIdxPos[2]
-                
             self.setTestValues = False    
         
-        self.windowIdxs.set_value(self.testWordWindowIdxs,borrow=True)
-        if self.charModel == None:
-            
-            y_pred = self.softmax.getPrediction();
-            f = theano.function([],[y_pred]);
-            
-            predict = f()[0]
-            
-        else:
-
-            self.charModel.charWindowIdxs.set_value(self.testCharWindowIdxs,borrow=True)
-            self.charModel.posMaxByWord.set_value(self.testPosMaxByWord,borrow=True)
-            
-            index = T.iscalar("index")
-            charIndex = T.iscalar("charIndex")
-            step = T.iscalar("step")
-            
-            
-            self.charModel.batchSize.set_value(1)
-            
-            f = theano.function(inputs=[index,charIndex,step],
-                                    outputs=self.softmax.getPrediction(),
-                                    givens={
-                                            self.charModel.charWindowIdxs: self.charModel.charWindowIdxs[charIndex:charIndex+step],
-                                            self.charModel.posMaxByWord:self.charModel.posMaxByWord[index*self.windowSize:(index+1)*self.windowSize],
-                                            self.windowIdxs: self.windowIdxs[index : index + 1],
-                                            
-                                    })
-            predict = []
-            j = 0
-            for i in range(len(inputData)):
-                predict.append(f(i,j,sum(self.testNumCharByWord[i*self.windowSize:(i+1)*self.windowSize]))[0]);
-                j += sum(self.testNumCharByWord[i*self.windowSize:(i+1)*self.windowSize])
-            
-            
-        return predict
-        
+        # Input of the word-level embedding.
+        givens = {self.windowIdxs : self.testWordWindowIdxs}
+        if self.charModel:
+            # Input of the character-level embedding.
+            givens[self.charModel.charWindowIdxs] = self.testCharWindowIdxs
+        # Predicted values.
+        y_pred = self.softmax.getPrediction()
+        # Prediction function.
+        pred = theano.function([], y_pred, givens=givens)
+        # Return the predicted values.
+        return pred()

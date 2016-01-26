@@ -11,9 +11,9 @@ import time
 import random
 import math
 import datetime
-from TransferRate.WordFeatureGenerator import Word2VecGenerate,\
-    InterporlationGenerate, AverageGenerator, RandomWeightGenerator,\
-    RandomUnknownStrategy, MeanLessShowedWordsUnknownStrategy,\
+from TransferRate.WordFeatureGenerator import Word2VecGenerate, \
+    InterporlationGenerate, AverageGenerator, RandomWeightGenerator, \
+    RandomUnknownStrategy, MeanLessShowedWordsUnknownStrategy, \
     ChosenUnknownStrategy
 from DataOperation.WordVector import WordVector
 from util.util import getFileNameInPath, removeExtension
@@ -47,7 +47,7 @@ class DLIDExperiments:
         
         base_parser = argparse.ArgumentParser(add_help=False)
         
-        base_parser.add_argument('--runNumber', dest='runNumber', action='store',  type=int, required=True)
+        base_parser.add_argument('--runNumber', dest='runNumber', action='store', type=int, required=True)
         
 #         base_parser.add_argument('--runNumber', dest='runNumber', action='store', nargs='*', type=int,
 #                            help="Receive the run numbers of a experiment. For instance: If this argument is set [1,6,8,9], so " \
@@ -85,9 +85,9 @@ class DLIDExperiments:
                            help='', default=0.00)
         
         
-        base_parser.add_argument('--additionalWordVector', dest='additionalWordVector', action='store', 
+        base_parser.add_argument('--additionalWordVector', dest='additionalWordVector', action='store',
                                  default=[], nargs='*',
-                                 help ="The script will read these word vectors and "\
+                                 help="The script will read these word vectors and "\
                                  'concatenate with the word vectors generated')
         
         
@@ -102,19 +102,19 @@ class DLIDExperiments:
     
         
        
-        base_parser.add_argument('--useW2vStrategy', dest='useW2vStrategy', action='store', 
+        base_parser.add_argument('--useW2vStrategy', dest='useW2vStrategy', action='store',
                                  choices=DLIDExperiments.w2vStrategy, default=DLIDExperiments.w2vStrategy[0],
-                                 help = 'Specify which word vector( the source, target or intermediate word vectors) '\
+                                 help='Specify which word vector( the source, target or intermediate word vectors) '\
                                  'will be used.'\
                                  ' For instance: You can use just intermediate word vectors or the target and source word vectors ')
         
         
         base_parser.add_argument('--intermediateStrategy', dest='intermediateStrategy', choices=DLIDExperiments.intermediateStrategy, action='store',
-                            help = 'Set which inter')
+                            help='Set which inter')
 
-        base_parser.add_argument('--intermediateFiles', dest='intermediateFiles', 
+        base_parser.add_argument('--intermediateFiles', dest='intermediateFiles',
                                  action='store', default=[], nargs='*',
-                                 help = 'This argument set the intermediate datasets that will be used in DLID')
+                                 help='This argument set the intermediate datasets that will be used in DLID')
         
         base_parser.add_argument('--numberOfIntermediateDataset', dest='numberOfIntermediateDataset', type=int, action='store',
                            help='This argument set how many intermediate datasets will be generated and used ' \
@@ -133,7 +133,7 @@ class DLIDExperiments:
         base_parser.add_argument('--w2vPath', dest='w2vPath', action='store', required=True,
                                  help="The path where is the word2vec executable")
         
-        base_parser.add_argument('--tokenLabelSeparator', dest='tokenLabelSeparator', action='store', required=False,default="/",
+        base_parser.add_argument('--tokenLabelSeparator', dest='tokenLabelSeparator', action='store', required=False, default="/",
                             help="Specify the character that is being used to separate the token from the label in the dataset.")
         
         
@@ -164,7 +164,7 @@ class DLIDExperiments:
         
         
         
-        crfSuiteParser = subparsers.add_parser('crfsuite', help='CRF Suite', 
+        crfSuiteParser = subparsers.add_parser('crfsuite', help='CRF Suite',
                                        parents=[base_parser])
         
         crfSuiteParser.add_argument('--argCRF', dest='argCRF', action='store',
@@ -175,8 +175,10 @@ class DLIDExperiments:
         crfSuiteParser.add_argument('--windowSize', dest='windowSize', type=int, action='store',
                            help='', default=5)
         
-                
-        nnParser = subparsers.add_parser('nn', help='Neural Network', 
+        parser.add_argument('--withCharwnn', dest='withCharwnn', action='store_true',
+                           help='Set training with character embeddings')
+        
+        nnParser = subparsers.add_parser('nn', help='Neural Network',
                                        parents=[base_parser])
         
         nnParser.add_argument('--withCharwnn', dest='withCharwnn', action='store_true',
@@ -230,7 +232,7 @@ class DLIDExperiments:
         nnParser.add_argument('--filewithfeatures', dest='fileWithFeatures', action='store_true',
                            help='Set that the training e testing files have features')
         
-        vecsInitChoices = ["randomAll", "random", "zeros","z_score","min_max"]
+        vecsInitChoices = ["randomAll", "random", "zeros", "z_score", "normalize_mean"]
         
         nnParser.add_argument('--charVecsInit', dest='charVecsInit', action='store', default=vecsInitChoices[1], choices=vecsInitChoices,
                            help='Set the way to initialize the char vectors. RANDOM, RANDOMALL, ZEROS, Z_SCORE and MIN_MAX are the options available')
@@ -242,17 +244,15 @@ class DLIDExperiments:
                            help='Set training with character embeddings')
         
         
-        networkChoices= ["complete","without_hidden_update_wv" ,"without_update_wv"]
+        networkChoices = ["complete", "without_hidden_update_wv" , "without_update_wv"]
         
-        nnParser.add_argument('--networkChoice', dest='networkChoice', action='store',default=networkChoices[0],choices=networkChoices)
+        nnParser.add_argument('--networkChoice', dest='networkChoice', action='store', default=networkChoices[0], choices=networkChoices)
         
-        networkActivation = ["tanh","hard_tanh","sigmoid","hard_sigmoid"]
+        networkActivation = ["tanh", "hard_tanh", "sigmoid", "hard_sigmoid", "ultra_fast_sigmoid"]
         
-        nnParser.add_argument('--wordNetAct', dest='wordNetAct', action='store', default=networkActivation[0],choices=networkActivation)
-        
-        nnParser.add_argument('--charNetAct', dest='charNetAct', action='store', default=networkActivation[0],choices=networkActivation)
+        nnParser.add_argument('--networkAct', dest='networkAct', action='store', default=networkActivation[0], choices=networkActivation)
        
-        vecsUpStrategyChoices = ["normal", "min_max","z_score"]
+        vecsUpStrategyChoices = ["normal", "normalize_mean", "z_score"]
     
         nnParser.add_argument('--wordvecsupdstrategy', dest='wordVecsUpdStrategy', action='store', default=vecsUpStrategyChoices[0], choices=vecsUpStrategyChoices,
                            help='Set the word vectors update strategy. NORMAL, MIN_MAX and Z_SCORE are the options available')
@@ -309,29 +309,29 @@ def calculateStandardDeviationWv(dictWVByWord, avgValueWv, stdValueWv):
     
 
 def getFilePattern(experimentNumber, percWordsBeRemoved, name):
-    dictionaryNameWithoutExtension = getDictionaryName(name,percWordsBeRemoved)
+    dictionaryNameWithoutExtension = getDictionaryName(name, percWordsBeRemoved)
     fileNamePattern = dictionaryNameWithoutExtension + "_" + str(experimentNumber)
     
     return fileNamePattern
 
-def getWordVector(dataset,word2VecGenerate,args,experimentNumber,name,logger):
+def getWordVector(dataset, word2VecGenerate, args, experimentNumber, name, logger):
     fileNamePattern = getFilePattern(experimentNumber, args.percWordsBeRemoved, name)
     
-    exist = word2VecGenerate.dataExist(dataset, args.dirData, fileNamePattern, 
+    exist = word2VecGenerate.dataExist(dataset, args.dirData, fileNamePattern,
                                   args.argWordVector, args.percWordsBeRemoved)
         
     if  exist:
         logger.info("O wordvector " + name + " já existe")
         
             
-    w = word2VecGenerate.generate(dataset, args.dirData, fileNamePattern, 
+    w = word2VecGenerate.generate(dataset, args.dirData, fileNamePattern,
                                   args.argWordVector, args.seed, args.percWordsBeRemoved, args.tokenLabelSeparator)
     
-    return w,exist
+    return w, exist
 
 
-def doOneExperiment(mainExperimentDir, runNumber, args, w2vStrategy, intermediateStrategy,typeOfNormalizationStrategy,unknownWordStrategy):
-    experimentDirName = str(runNumber); 
+def doOneExperiment(mainExperimentDir, runNumber, args, w2vStrategy, intermediateStrategy, typeOfNormalizationStrategy, unknownWordStrategy):
+    experimentDirName = str(runNumber)
     
     outputDirPath = os.path.join(mainExperimentDir, experimentDirName) 
     outputModelDirPath = os.path.join(outputDirPath, 'model') 
@@ -406,15 +406,15 @@ def doOneExperiment(mainExperimentDir, runNumber, args, w2vStrategy, intermediat
         unknownGenerateStrategy = ChosenUnknownStrategy(args.unknownWord)
     
     
-    word2VecGenerate = Word2VecGenerate(args.w2vPath,unknownGenerateStrategy,logger)
+    word2VecGenerate = Word2VecGenerate(args.w2vPath, unknownGenerateStrategy, logger)
     
-    filtersArgs = ['DataOperation.TransformLowerCaseFilter','TransformLowerCaseFilter']
+    filtersArgs = ['DataOperation.TransformLowerCaseFilter', 'TransformLowerCaseFilter']
     
     filtersArgs += args.filters
     
     a = 0
     
-    filters =[]
+    filters = []
     
     while a < len(filtersArgs):
         print "Usando o filtro: " + filtersArgs[a] + " " + filtersArgs[a + 1]
@@ -437,7 +437,7 @@ def doOneExperiment(mainExperimentDir, runNumber, args, w2vStrategy, intermediat
     
     
     if useSource:
-        sourceVector,exist = getWordVector(args.source,word2VecGenerate, args, 
+        sourceVector, exist = getWordVector(args.source, word2VecGenerate, args,
                                            runNumber, sourceName, logger)
         
         experimentHasAlreadyDone = experimentHasAlreadyDone and exist
@@ -447,7 +447,7 @@ def doOneExperiment(mainExperimentDir, runNumber, args, w2vStrategy, intermediat
         
     if useTarget:
         
-        targetVector,exist = getWordVector(args.target,word2VecGenerate, args, 
+        targetVector, exist = getWordVector(args.target, word2VecGenerate, args,
                                            runNumber, targetName, logger)
         experimentHasAlreadyDone = experimentHasAlreadyDone and exist
         wordVectors.append(targetVector)
@@ -462,9 +462,9 @@ def doOneExperiment(mainExperimentDir, runNumber, args, w2vStrategy, intermediat
             interpolation = InterporlationGenerate(word2VecGenerate)
             
             fileNamePattern = getFilePattern(runNumber, args.percWordsBeRemoved
-                                                               , sourceName + "_" + targetName )
+                                                               , sourceName + "_" + targetName)
             
-            exist = interpolation.dataExist(args.source, args.target, args.numberOfIntermediateDataset, 
+            exist = interpolation.dataExist(args.source, args.target, args.numberOfIntermediateDataset,
                                        args.dirData, fileNamePattern, args.argWordVector, args.percWordsBeRemoved)
             
             experimentHasAlreadyDone = experimentHasAlreadyDone and exist
@@ -472,9 +472,9 @@ def doOneExperiment(mainExperimentDir, runNumber, args, w2vStrategy, intermediat
             if exist:
                 logger.info("Wordvector Intermediário já existe")
                 
-            wordVectors += interpolation.generate(args.source, args.target, args.numberOfIntermediateDataset, 
-                                        args.argWordVector,args.dirData, fileNamePattern, args.seed
-                                        , args.percWordsBeRemoved,args.tokenLabelSeparator)
+            wordVectors += interpolation.generate(args.source, args.target, args.numberOfIntermediateDataset,
+                                        args.argWordVector, args.dirData, fileNamePattern, args.seed
+                                        , args.percWordsBeRemoved, args.tokenLabelSeparator)
             
             logger.info('Using Interpolation')
             
@@ -486,7 +486,7 @@ def doOneExperiment(mainExperimentDir, runNumber, args, w2vStrategy, intermediat
             
             intermediateName = sourceName + "_" + targetName + "_" + Word2VecGenerate.parsedW2vArgumentsToString(parW2v)
             
-            fileNamePattern = fileNamePattern = getFilePattern(runNumber, args.percWordsBeRemoved,intermediateName)
+            fileNamePattern = fileNamePattern = getFilePattern(runNumber, args.percWordsBeRemoved, intermediateName)
             
             exist = averageGenerator.dataExist(args.dirData, fileNamePattern)
             experimentHasAlreadyDone = experimentHasAlreadyDone and exist
@@ -495,14 +495,14 @@ def doOneExperiment(mainExperimentDir, runNumber, args, w2vStrategy, intermediat
                 logger.info("Wordvector Intermediário já existe")
                 
             if sourceVector is None:
-                sourceVector,exist = getWordVector(args.source,word2VecGenerate, args, runNumber, 
+                sourceVector, exist = getWordVector(args.source, word2VecGenerate, args, runNumber,
                                             sourceName, logger)
             
             if targetVector is None:
-                targetVector,exist = getWordVector(args.target,word2VecGenerate, args, runNumber, 
+                targetVector, exist = getWordVector(args.target, word2VecGenerate, args, runNumber,
                                              targetName, logger)
                 
-            avgWordVector = averageGenerator.generate(sourceVector, targetVector, args.dirData, fileNamePattern,unknownGenerateStrategy)
+            avgWordVector = averageGenerator.generate(sourceVector, targetVector, args.dirData, fileNamePattern, unknownGenerateStrategy)
             
             wordVectors.append(avgWordVector)
             
@@ -514,7 +514,7 @@ def doOneExperiment(mainExperimentDir, runNumber, args, w2vStrategy, intermediat
             for intermediate in args.intermediateFiles:
                 logger.info(intermediate)
                 intermediateName = removeExtension(getFileNameInPath(intermediate))
-                w, exist = getWordVector(intermediate,word2VecGenerate, args, runNumber, intermediateName, logger)
+                w, exist = getWordVector(intermediate, word2VecGenerate, args, runNumber, intermediateName, logger)
                 experimentHasAlreadyDone = experimentHasAlreadyDone and exist            
                 
                 wordVectors.append(w)
@@ -530,7 +530,7 @@ def doOneExperiment(mainExperimentDir, runNumber, args, w2vStrategy, intermediat
             name = sourceName + "_" + targetName + "_" + word2VecGenerate.parsedW2vArgumentsToString(parW2v)
             
             
-            fileNamePattern = getFilePattern(runNumber, args.percWordsBeRemoved,name)
+            fileNamePattern = getFilePattern(runNumber, args.percWordsBeRemoved, name)
             exist = randomWeightGenerator.dataExist(args.dirData, fileNamePattern)
             experimentHasAlreadyDone = experimentHasAlreadyDone and exist 
             
@@ -538,11 +538,11 @@ def doOneExperiment(mainExperimentDir, runNumber, args, w2vStrategy, intermediat
                 logger.info("Wordvector Intermediário já existe")
                 
             if sourceVector is None:
-                sourceVector,exist = getWordVector(args.source,word2VecGenerate, args, 
+                sourceVector, exist = getWordVector(args.source, word2VecGenerate, args,
                                             runNumber, sourceName, logger)
             
             if targetVector is None:
-                targetVector,exist = getWordVector(args.target,word2VecGenerate, args, 
+                targetVector, exist = getWordVector(args.target, word2VecGenerate, args,
                                              runNumber, targetName, logger)
             
             randomVector = randomWeightGenerator.generate(sourceVector, targetVector, args.dirData, fileNamePattern)
@@ -639,8 +639,8 @@ def doOneExperiment(mainExperimentDir, runNumber, args, w2vStrategy, intermediat
     unknownTokens = [unknownGenerateStrategy.getUnknownStr()]
     
     if args.algorithm == "crfsuite":
-        #TODO: Falta tratar quando o startSymbol e endSymbl não existe no wordvectors. 
-        crf = CRFSuite.CRFSuite(unknownTokens,args.startSymbol,args.endSymbol,args.tokenLabelSeparator,filters)
+        # TODO: Falta tratar quando o startSymbol e endSymbl não existe no wordvectors. 
+        crf = CRFSuite.CRFSuite(unknownTokens, args.startSymbol, args.endSymbol, args.tokenLabelSeparator, filters)
         noTestByEpoch = True if args.numPerEpoch == None else False
         
         
@@ -655,8 +655,8 @@ def doOneExperiment(mainExperimentDir, runNumber, args, w2vStrategy, intermediat
             logger.info(outputModelDirPathAbs)
             logger.info(modelPathAbs)
             
-            crf.train(args.source,args.target,wordVectors,args.windowSize,args.useManualFeature,args.numberEpoch,noTestByEpoch
-                  ,modelPathAbs,unknownTokens)
+            crf.train(args.source, args.target, wordVectors, args.windowSize, args.useManualFeature, args.numberEpoch, noTestByEpoch
+                  , modelPathAbs, unknownTokens)
     
         
         else:
@@ -671,7 +671,7 @@ def doOneExperiment(mainExperimentDir, runNumber, args, w2vStrategy, intermediat
         if noTestByEpoch:      
             logger.info("Comecando partes do teste")
             numberCorrect, total = crf.test(args.target, modelPathAbs, wordVectors,
-                         args.windowSize, args.useManualFeature, args.numberEpoch, noTestByEpoch,unknownTokens)
+                         args.windowSize, args.useManualFeature, args.numberEpoch, noTestByEpoch, unknownTokens)
                 
             logger.info("Número de Corretas:" + str(numberCorrect))
             logger.info("Número de Total:" + str(total))
@@ -729,7 +729,7 @@ def doOneExperiment(mainExperimentDir, runNumber, args, w2vStrategy, intermediat
         args.vocab = lexicon
         args.wordVectors = wordVector
     
-        Postag.run(Postag.ParametersChoices.algTypeChoices, Postag.ParametersChoices.unknownWordStrategy, 
+        Postag.run(Postag.ParametersChoices.algTypeChoices, Postag.ParametersChoices.unknownWordStrategy,
                    Postag.ParametersChoices.lrStrategyChoices, Postag.ParametersChoices.networkChoices, args)
     
     
@@ -759,7 +759,7 @@ def main():
     logger.setLevel(logging.INFO)
         
     beginExperimentDate = datetime.datetime.now().strftime("%Y-%m-%d_%H-%M-%S.%f")
-    mainExperimentDirName =  beginExperimentDate;
+    mainExperimentDirName = beginExperimentDate;
     mainExperimentDir = os.path.join(args.dirOutputTrain, mainExperimentDirName) 
     
     runNumber = args.runNumber
@@ -772,8 +772,8 @@ def main():
     random.seed(args.seed)
         
     doOneExperiment(mainExperimentDir, runNumber, args, DLIDExperiments.w2vStrategy
-                           , DLIDExperiments.intermediateStrategy,DLIDExperiments.typeOfNormalizationStrategy
-                           ,DLIDExperiments.unknownWordStrategy)
+                           , DLIDExperiments.intermediateStrategy, DLIDExperiments.typeOfNormalizationStrategy
+                           , DLIDExperiments.unknownWordStrategy)
             
 
 if __name__ == '__main__':

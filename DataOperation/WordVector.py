@@ -5,6 +5,7 @@ from NNet.Util import FeatureVectorsGenerator
 import codecs
 import numpy as np
 
+# TODO: comentar esta classe
 class WordVector:
     UNKOWN_INDEX = 0
     

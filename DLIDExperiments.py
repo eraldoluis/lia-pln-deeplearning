@@ -739,11 +739,7 @@ def doOneExperiment(mainExperimentDir, runNumber, args, w2vStrategy, intermediat
         args.vocab = lexicon
         args.wordVectors = wordVector
     
-        Postag.run(["window_word", "window_sentence"], 
-                   ["random", "mean_vector", "word_vocab"],
-                   ["normal", "divide_epoch"], 
-                   ["complete", "without_hidden_update_wv" , "without_update_wv"], 
-                   args)
+        Postag.run(args)
     
     
         

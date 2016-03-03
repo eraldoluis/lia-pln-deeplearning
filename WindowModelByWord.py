@@ -183,3 +183,32 @@ class WindowModelByWord(WindowModelBasic):
         pred = theano.function([], y_pred, givens=givens)
         # Return the predicted values.
         return pred()
+
+    def pred_y_given_x(self, inputData, indexesOfRawWord, unknownDataTest):
+        
+        self.reloadWindowIds = True
+        
+        if self.setTestValues:
+            # We need to generate test data in the format expected by the NN.
+            # That is, list of word- and character-level features.
+            # But this needs to be done only once, even when evaluation is
+            # performed after several epochs.
+            self.testWordWindowIdxs = self.getAllWindowIndexes(inputData)
+            
+            if self.charModel:
+                self.charModel.updateAllCharIndexes(unknownDataTest)
+                self.testCharWindowIdxs = self.charModel.getAllWordCharWindowIndexes(indexesOfRawWord)
+            
+            self.setTestValues = False    
+        
+        # Input of the word-level embedding.
+        givens = {self.windowIdxs : self.testWordWindowIdxs}
+        if self.charModel:
+            # Input of the character-level embedding.
+            givens[self.charModel.charWindowIdxs] = self.testCharWindowIdxs
+        # Predicted values.
+        y_pred_y_given_x = self.softmax.getOutput()
+        # Prediction function.
+        pred = theano.function([], y_pred_y_given_x, givens=givens)
+        # Return the predicted values.
+        return pred()

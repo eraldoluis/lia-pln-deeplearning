@@ -80,14 +80,20 @@ def run(args):
 
         model.setTestValues = True
         
+        if len(model.charModel.AllCharWindowIndexes) != lexiconRaw.getLen():
+            print "Meu deus"
+        
         if args.testOOSV:
             lexiconFindInTrain = set()
+            unkownData = []
             # datasetReader.readData(args.train,lexicon,lexiconOfLabel, separateSentences=separateSentence,filters=filters,lexiconFindInTrain=lexiconFindInTrain)
             datasetReader.readData(args.train, lexicon, lexiconOfLabel, 
                                    lexiconRaw, separateSentences=separeSentence, 
                                    withCharwnn=args.withCharwnn, 
                                    charVars=charVars, filters=filters, 
-                                   setWordsInDataSet=lexiconFindInTrain)
+                                   setWordsInDataSet=lexiconFindInTrain,unknownDataTestCharIdxs=unkownData)
+            
+            model.charModel.updateAllCharIndexes(unkownData)
         if args.testOOUV:
             if args.vocab is not None or args.wordVectors is not None:
                 lexiconWV, _ = readVocabAndWord(args)

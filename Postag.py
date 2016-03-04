@@ -80,9 +80,6 @@ def run(args):
 
         model.setTestValues = True
         
-        if len(model.charModel.AllCharWindowIndexes) != lexiconRaw.getLen():
-            print "Meu deus"
-        
         if args.testOOSV:
             lexiconFindInTrain = set()
             unkownData = []

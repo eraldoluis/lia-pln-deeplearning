@@ -23,6 +23,15 @@ class WindowModelBasic:
     @staticmethod
     def setEndSymbol(endSymbol):
         WindowModelBasic.endSymbolStr = endSymbol
+        
+    def __getstate__(self):
+        d = dict(self.__dict__)
+        del d['_WindowModelBasic__log']
+        return d
+    
+    def __setstate__(self, d):
+        self.__dict__.update(d)
+        self.__log = logging.getLogger(__name__)
 
     def __init__(self, lexicon, wordVectors , windowSize, hiddenSize, _lr,
                  numClasses, numEpochs, batchSize=1.0, c=0.0, charModel=None,

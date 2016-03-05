@@ -82,15 +82,22 @@ def run(args):
         
         if args.testOOSV:
             lexiconFindInTrain = set()
+            unkownData = []
             # datasetReader.readData(args.train,lexicon,lexiconOfLabel, separateSentences=separateSentence,filters=filters,lexiconFindInTrain=lexiconFindInTrain)
             datasetReader.readData(args.train, lexicon, lexiconOfLabel, 
                                    lexiconRaw, separateSentences=separeSentence, 
                                    withCharwnn=args.withCharwnn, 
                                    charVars=charVars, filters=filters, 
-                                   setWordsInDataSet=lexiconFindInTrain)
+                                   setWordsInDataSet=lexiconFindInTrain,unknownDataTestCharIdxs=unkownData)
+            
+            model.charModel.updateAllCharIndexes(unkownData)
         if args.testOOUV:
-            lexiconWV, _ = readVocabAndWord(args)
-            lexiconFindInWV = set([word for word in lexiconWV.getLexiconDict()])
+            if args.vocab is not None or args.wordVectors is not None:
+                lexiconWV, _ = readVocabAndWord(args)
+                lexiconFindInWV = set([word for word in lexiconWV.getLexiconDict()])
+            else:
+                lexiconFindInWV = set([word for word in lexicon.getLexiconDict()])
+                
             # lexiconFindInWV = set()
             # datasetReader.readData(args.train,lexiconWV,lexiconOfLabel, lexiconRaw, separateSentences=separeSentence,withCharwnn=args.withCharwnn,
             #                       charVars=charVars,filters=filters,setWordsInDataSet=lexiconFindInWV)
@@ -313,7 +320,15 @@ def run(args):
         if args.saveModel is not None:
             print 'Saving Model...'
             f = open(args.saveModel, "wb")
+            
+            # When the test data is loaded by the script, but no one predict is done, 
+            #   so it's necessary to update all char indexes, because the lexiconRaw is going to have data,
+            #    that is not in AllCharWindowIndexes.
+            if len(charModel.AllCharWindowIndexes) != lexiconRaw.getLen():
+                charModel.updateAllCharIndexes(unknownDataTestCharIdxs)
+            
             pickle.dump([lexicon, lexiconOfLabel, lexiconRaw, model, charVars], f, pickle.HIGHEST_PROTOCOL)
+            
             f.close()
             print 'Model save with sucess in ' + args.saveModel
     

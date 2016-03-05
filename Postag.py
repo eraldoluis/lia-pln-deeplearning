@@ -344,6 +344,17 @@ def run(args):
     print 'Testing...'
     
     predicts = model.predict(testData[0], testData[2], unknownDataTestCharIdxs)
+    predicts_y_given_x = model.predict(testData[0], testData[2], unknownDataTestCharIdxs)
+    
+    
+    if args.savePrediction is not None:
+            print 'Saving Prediction...'
+            f = open(args.savePrediction, "wb")
+            pickle.dump([predicts_y_given_x,predicts, testData[1],lexiconOfLabel], f, pickle.HIGHEST_PROTOCOL)
+            f.close()
+            print 'Prediction save with sucess in ' + args.savePrediction
+    
+    
     evalue = EvaluateAccuracy()
     evalue.evaluateWithPrint(predicts, testData[1])
 
@@ -515,6 +526,12 @@ def main():
     
     parser.add_argument('--adagrad', dest='adaGrad', action='store_true',
                        help='Activate AdaGrad updates.')
+    
+    parser.add_argument('--savePrediction', dest='savePrediction', action='store',
+                       help='The file path where the prediction will be saved')
+    
+    #parser.add_argument('--saveSolution', dest='saveSolution', action='store',
+    #                  help='The file path where the prediction will be saved')
     
     logger = logging.getLogger("Logger")
     formatter = logging.Formatter('[%(asctime)s]\t%(message)s')

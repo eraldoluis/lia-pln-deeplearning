@@ -59,7 +59,6 @@ class DLIDExperiments:
 #         base_parser.add_argument('--numberJobParallel', dest='numberJobParallel', action='store', type=int,
 #                            help="Number of jobs that will be run parallel")
         
-        
         base_parser.add_argument('--source', dest='source', action='store',
                        help='The source path', required=True)
         
@@ -262,6 +261,17 @@ class DLIDExperiments:
         
         nnParser.add_argument('--norm_coef', dest='norm_coef', action='store', type=float, default=1.0,
                        help='The coefficient that will be multiplied to the normalized vectors')
+        
+        nnParser.add_argument('--nostructgrad', dest='noStructGrad', action='store_true',
+                       help='Disable structured gradients (in embedding layers, ' + 
+                            'for instance), i.e., use only ordinary gradient')
+    
+        nnParser.add_argument('--adagrad', dest='adaGrad', action='store_true',
+                       help='Activate AdaGrad updates.')
+    
+        nnParser.add_argument('--savePrediction', dest='savePrediction', action='store',
+                       help='The file path where the prediction will be saved')
+        
         
         return parser
 
@@ -729,11 +739,7 @@ def doOneExperiment(mainExperimentDir, runNumber, args, w2vStrategy, intermediat
         args.vocab = lexicon
         args.wordVectors = wordVector
     
-        Postag.run(["window_word", "window_sentence"], 
-                   ["random", "mean_vector", "word_vocab"],
-                   ["normal", "divide_epoch"], 
-                   ["complete", "without_hidden_update_wv" , "without_update_wv"], 
-                   args)
+        Postag.run(args)
     
     
         

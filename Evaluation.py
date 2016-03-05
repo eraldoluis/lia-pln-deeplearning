@@ -4,17 +4,10 @@ import numpy
 
 
 
-def  
-
-
-
 
 def main():
     
     parser = argparse.ArgumentParser();
-    
-    parser.add_argument('--solutionFile', dest='solutionFile', action='store',
-                       help='Training File Path', required=True)
     
     evaluationStrategyChoices = ["euclidian", "kl_divergence"]
 
@@ -41,33 +34,34 @@ def main():
         k = len(args.systemFiles)
     
     
-    systems = []
-    solution = []
+    sysPred_y_given_x = []
+    sysPreds = []
+    sysSol = []
     
     if args.systemFiles:
-        print 'Loading system files from ' + args.systemFiles + ' ...'
+        print 'Loading system files from ' + ' ...'
         
         for files in args.systemFiles:
                 f = open(files, "rb")
-                sys = pickle.load(f)
-        
-    
-    
-    if args.systemFiles:
-        print 'Loading system files from ' + args.systemFiles + ' ...'
-        
-        for files in args.systemFiles:
-                f = open(files, "rb")
-                sys = pickle.load(f)
+                sysPYX, sysP, sysS = pickle.load(f)
                 f.close()
-                if len(systems) == 0:
-                    systems = sys
-                else:
-                    systems = [systems, sys]
-    
-    
+                if len(sysPreds) == 0:
+                    sysPred_y_given_x = sysPYX 
+                    sysPreds = sysP
+                    sysSol = sysS
+                else :
+                    sysPred_y_given_x = [sysPred_y_given_x ,sysPYX]
+                    sysPreds = [sysPreds, sysP]
+                    
+                    i = 0
+                    for sol in sysS:
+                        if (sol != sysSol[i]):
+                            print 'Error Solution'
                 
-
+    print  sysPred_y_given_x
+    print sysSol
+    
+    
                 
     
 if __name__ == '__main__':

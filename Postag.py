@@ -335,7 +335,7 @@ def run(args):
     if args.savePrediction is not None:
             print 'Saving Prediction...'
             f = open(args.savePrediction, "wb")
-            pickle.dump([predicts_y_given_x,predicts, testData[1]], f, pickle.HIGHEST_PROTOCOL)
+            pickle.dump([predicts_y_given_x,predicts, testData[1],lexiconOfLabel], f, pickle.HIGHEST_PROTOCOL)
             f.close()
             print 'Prediction save with sucess in ' + args.savePrediction
     

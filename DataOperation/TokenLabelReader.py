@@ -110,9 +110,29 @@ class TokenLabelReader:
         
             self.addLabel(lexiconOfLabel, labelsBySentence, s[1])
     
-    
+    def readData(self, filename, lexicon, lexiconOfLabel, lexiconRaw, wordVecs=None, 
+                 separateSentences=True, addWordUnknown=False, withCharwnn=False, 
+                 charVars=[None, None, {}, []], addCharUnknown=False, filters=[], 
+                 setWordsInDataSet=None, unknownDataTest=[], unknownDataTestCharIdxs=None):
+        
+        inputStream = codecs.open(filename, 'r', 'utf-8')
+        
+        data = self.readDataFromStream(inputStream, lexicon, lexiconOfLabel, 
+                                       lexiconRaw, wordVecs, separateSentences,
+                                       addWordUnknown, withCharwnn, charVars, 
+                                       addCharUnknown, filters, setWordsInDataSet, 
+                                       unknownDataTest, unknownDataTestCharIdxs)
+        
+        inputStream.close()
+        
+        return data
+        
 
-    def readData(self, filename, lexicon, lexiconOfLabel, lexiconRaw, wordVecs=None, separateSentences=True, addWordUnknown=False, withCharwnn=False, charVars=[None, None, {}, []], addCharUnknown=False, filters=[], setWordsInDataSet=None, unknownDataTest=[], unknownDataTestCharIdxs=None):
+    def readDataFromStream(self, inputStream, lexicon, lexiconOfLabel, 
+                           lexiconRaw, wordVecs=None, separateSentences=True, 
+                           addWordUnknown=False, withCharwnn=False, charVars=[None, None, {}, []], 
+                           addCharUnknown=False, filters=[], setWordsInDataSet=None, 
+                           unknownDataTest=[], unknownDataTestCharIdxs=None):
         '''
         Read the data from a file and return a matrix which the first row is the words indexes, second row is the labels values and 
         the third row has the indexes of the raw words, and the fourth the number of chars each word in the training set has.
@@ -123,14 +143,9 @@ class TokenLabelReader:
         indexesOfRaw = data[2]
         numCharsOfRaw = data[3]
         
-        
-        
         func = self.readTokenAndLabelOfFileWithFeature if self.fileWithFeatures else self.readTokenAndLabelOfRawFile
         
-        f = codecs.open(filename, 'r', 'utf-8')
-        
-        
-        for line in f:
+        for line in inputStream:
             
             line_split = line.split()
             # Ignore empty lines.
@@ -165,9 +180,6 @@ class TokenLabelReader:
                 
                 if unknownDataTest is not None:
                     unknownDataTest.append(unknownDataBySentence)
-                
-        f.close()
-        
         
         return data
     

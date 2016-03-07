@@ -60,7 +60,7 @@ class SoftmaxLayer(Layer):
         #     x is a matrix where row j represents training sample j, and
         #     b is a vector where element k represent the free parameter of hyper plan k.
         #
-        self.p_y_given_x = theano.printing.Print()(T.nnet.softmax(T.dot(_input, self.W) + self.b))
+        self.p_y_given_x = T.nnet.softmax(T.dot(_input, self.W) + self.b)
 
         # symbolic description of how to compute prediction as class whose
         # probability is maximal

@@ -80,6 +80,7 @@ def run(args):
 
         model.setTestValues = True
         
+        
         if args.testOOSV:
             lexiconFindInTrain = set()
             unkownData = []

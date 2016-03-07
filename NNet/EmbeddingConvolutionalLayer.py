@@ -307,8 +307,8 @@ class EmbeddingConvolutionalLayer(Layer):
     def getUpdates(self, cost, lr, sumSqGrads=None):
         return self.__embedLayer.getUpdates(cost, lr, sumSqGrads)
     
-    def getNormalizationUpdates(self, strategy, coef):
-        return self.embedding.getNormalizationUpdate(strategy, coef)
+    def getNormalizationUpdate(self, strategy, coef):
+        return self.__embedLayer.getNormalizationUpdate(strategy, coef)
 
     def getOutput(self):
         return self.output

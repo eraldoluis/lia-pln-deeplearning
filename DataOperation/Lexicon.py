@@ -66,6 +66,9 @@ class Lexicon:
     def getDict(self):
         return self.__lexiconDict
     
+    def getAllLexicon(self):
+        return self.__lexicon
+    
     def getUnknownIndex(self):
         return self.unknown_index
     

@@ -344,7 +344,7 @@ def run(args):
     print 'Testing...'
     
     predicts = model.predict(testData[0], testData[2], unknownDataTestCharIdxs)
-    predicts_y_given_x = model.predict(testData[0], testData[2], unknownDataTestCharIdxs)
+    predicts_y_given_x = model.pred_y_given_x(testData[0], testData[2], unknownDataTestCharIdxs)
     
     
     if args.savePrediction is not None:
@@ -506,7 +506,7 @@ def main():
                        help='The number of the least used words in the train for unknown word' 
                        + 'Number between 0 and 1 for percentage, number > 1 for literal number to make the mean and negative for mean_all')
     
-    vecsUpStrategyChoices = ["normal", "min_max", "z_score"]
+    vecsUpStrategyChoices = ["normal", "minmax", "zscore","sphere"]
 
     parser.add_argument('--wordvecsupdstrategy', dest='wordVecsUpdStrategy', action='store', default=vecsUpStrategyChoices[0], choices=vecsUpStrategyChoices,
                        help='Set the word vectors update strategy. NORMAL, MIN_MAX and Z_SCORE are the options available')

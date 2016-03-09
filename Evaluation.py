@@ -92,7 +92,10 @@ def main():
     lexiPos = []
     
     if args.systemFiles:
-        print 'Loading system files ' + ' ...'
+        print 'Loading system files ...' 
+        for i in args.systemFiles:
+            print i
+        print '\n'
         
         for files in args.systemFiles:
                 f = open(files, "rb")
@@ -139,6 +142,8 @@ def main():
                             a_lexiLabel.append(b_lexiLabel[i]) 
                             a_result = np.vstack((a_result,np.zeros(len(sysS))))
                                                     
+                    else:
+                        b_result = np.transpose(sysPYX)
                                         
                                     
                     sysPred_y_given_x = [sysPred_y_given_x ,sysPYX]

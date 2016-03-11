@@ -149,7 +149,7 @@ class TokenLabelReader:
             
             line_split = line.split()
             # Ignore empty lines.
-            if len(line_split) < 2:
+            if len(line_split) == 0:
                 continue
             
             if separateSentences:

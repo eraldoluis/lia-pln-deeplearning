@@ -277,6 +277,8 @@ class DLIDExperiments:
         nnParser.add_argument('--savePrediction', dest='savePrediction', action='store',
                        help='The file path where the prediction will be saved')
         
+        nnParser.add_argument('--notRandomizeInput', dest='notRandomizeInput', action='store_true',
+                       help='The file path where the prediction will be saved')
         
         return parser
 

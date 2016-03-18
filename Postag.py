@@ -275,7 +275,9 @@ def run(args):
                                       charModel, learningRateUpdStrategy,
                                       args.wordVecsUpdStrategy, args.networkAct,
                                       args.norm_coef, not args.noStructGrad,
-                                      adaGrad=args.adaGrad,embeddingNotUpdate = args.nonupdatewv)
+                                      adaGrad=args.adaGrad,
+                                      randomizeInput=not args.notRandomizeInput,
+                                      embeddingNotUpdate = args.nonupdatewv)
         
         elif args.alg == "window_sentence":
             separeSentence = True
@@ -551,6 +553,9 @@ def main():
     
     parser.add_argument('--nonupdatewv',dest='nonupdatewv', action='store', nargs='*', type=int,default=[],
                         help='Receive word embedding indexes which is not to be updated. The index begin with 0.')
+    
+    parser.add_argument('--notRandomizeInput', dest='notRandomizeInput', action='store_true',
+                       help='The file path where the prediction will be saved')
     
     #parser.add_argument('--saveSolution', dest='saveSolution', action='store',
     #                  help='The file path where the prediction will be saved')

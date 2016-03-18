@@ -22,6 +22,7 @@ import Postag
 import importlib
 from DataOperation.Lexicon import Lexicon
 import multiprocessing
+import numpy
 
 
 # import resource
@@ -34,6 +35,7 @@ class DLIDExperiments:
     intermediateStrategy = ["random_interpolation", "avg", "files", "random"]
     unknownWordStrategy = ["random", "mean_vector", "word_vocab"]
     typeOfNormalizationStrategy = ["none", "mean", "without_change_signal", "z_score"]
+    updateWvChoices= ["complete","target_intermediaries"]
     
     
     @staticmethod
@@ -220,6 +222,9 @@ class DLIDExperiments:
         
         nnParser.add_argument('--testoouv', dest='testOOUV', action='store_true', default=False,
                            help='Do the test OOUV')
+        
+        
+        nnParser.add_argument('--updateWv', dest='updateWv', action='store',default=DLIDExperiments.updateWvChoices[0],choices=DLIDExperiments.updateWvChoices)
         
        
         
@@ -700,6 +705,10 @@ def doOneExperiment(mainExperimentDir, runNumber, args, w2vStrategy, intermediat
         args.wordVecsInit = "random"
         args.saveModel = None
         
+        if useSource and args.updateWv == DLIDExperiments.updateWvChoices[1]: 
+            args.nonupdatewv = [0]
+        else:
+            args.nonupdatewv = []
         
         
         
@@ -708,36 +717,36 @@ def doOneExperiment(mainExperimentDir, runNumber, args, w2vStrategy, intermediat
         dim = 0
         
         unknownTokens = [args.unknownword]
+        args.wordVectors = []
         
         for wv in wordVectors:
             wordsSet.update(wv.keys())
             dim += len(wv.itervalues().next())
+            args.wordVectors.append(WordVector())
             
         lexicon = Lexicon()
-        wordVector = WordVector(wordSize=dim)
             
         for word in wordsSet:
-            newv = []
+            lexicon.put(word);
             
-            for wv in wordVectors:
+            for idx,wv in enumerate(wordVectors):
                 if word in wv:
-                    newv += wv[word]
+                    newv = wv[word]
                 else:
                     found = False
                     for unknownToken in unknownTokens:
                         if unknownToken in wv:
-                            newv += wv[unknownToken]
+                            newv = wv[unknownToken]
                             found = True
                             break;
                     
                     if not found:
                         raise Exception("The unknown was not found")
+                
+                args.wordVectors[idx].append(newv)
             
-            lexicon.put(word);
-            wordVector.append(newv)
             
         args.vocab = lexicon
-        args.wordVectors = wordVector
     
         Postag.run(args)
     
@@ -779,6 +788,7 @@ def main():
     logger.info("Seed: " + str(args.seed))
     
     random.seed(args.seed)
+    numpy.random.seed(args.seed)
         
     doOneExperiment(mainExperimentDir, runNumber, args, DLIDExperiments.w2vStrategy
                            , DLIDExperiments.intermediateStrategy, DLIDExperiments.typeOfNormalizationStrategy

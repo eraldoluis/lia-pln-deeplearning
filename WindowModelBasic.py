@@ -42,12 +42,24 @@ class WindowModelBasic:
         # Logging object.
         self.__log = logging.getLogger(__name__)
 
-        # Word vectors (embeddings).
-        self.Wv = theano.shared(np.asarray(wordVectors.getWordVectors(),
-                                           dtype=theano.config.floatX),
-                                'wordVecs',
-                                borrow=True)
-        self.wordSize = wordVectors.getLenWordVector()
+        self.Wv = []
+        
+        if not isinstance(wordVectors, list):
+            wordVectors = [wordVectors]
+        
+        a = 1
+        self.wordSize = 0
+        
+        for wv in wordVectors:
+            self.Wv.append(theano.shared(name='wordVec' + str(a),
+                                value=np.asarray(wv.getWordVectors(), dtype=theano.config.floatX),
+                                borrow=True))
+            
+            self.wordSize += wv.getLenWordVector()
+            
+            a+=1
+        
+        
         self.lrValue = _lr
         self.lr = T.dscalar('lr')
         self.learningRateUpdStrategy = learningRateUpdStrategy;
@@ -98,9 +110,21 @@ class WindowModelBasic:
         
         # Word embedding layer
         # self.embedding = EmbeddingLayer(self.windowIdxs, self.Wv, self.wordSize, True,self.wordVecsUpdStrategy,self.norm_coef)
-        self.embedding = EmbeddingLayer(examples=self.windowIdxs,
-                                        embedding=self.Wv,
-                                        structGrad=self.__structGrad)
+#         self.embedding = EmbeddingLayer(examples=self.windowIdxs,
+#                                         embedding=self.Wv,
+#                                         structGrad=self.__structGrad)
+        
+        # Camada: lookup table.
+        self.embeddings = []
+        
+        for Wv in self.Wv:
+            embedding = EmbeddingLayer(examples=self.windowIdxs,
+                                embedding=Wv,
+                                structGrad=self.__structGrad)
+            self.embeddings.append(embedding)
+        
+        concatenateEmbeddings = T.concatenate( [embeddingLayer.getOutput() for embeddingLayer in self.embeddings],axis=1)
+        
         
         # Camada: hidden layer com a função Tanh como função de ativaçãos
         if not withoutHiddenLayer:
@@ -108,13 +132,13 @@ class WindowModelBasic:
             
             if self.charModel == None:
                 # Camada: hidden layer com a função Tanh como função de ativação
-                self.hiddenLayer = HiddenLayer(self.embedding.getOutput(),
+                self.hiddenLayer = HiddenLayer(concatenateEmbeddings,
                                                self.wordSize * self.windowSize,
                                                self.hiddenSize,
                                                activation=self.networkAct)
             else:
                 # Camada: hidden layer com a função Tanh como função de ativação
-                self.hiddenLayer = HiddenLayer(T.concatenate([self.embedding.getOutput(),
+                self.hiddenLayer = HiddenLayer(T.concatenate([concatenateEmbeddings,
                                                               self.charModel.getOutput()],
                                                              axis=1),
                                                (self.wordSize + self.charModel.convSize) * self.windowSize,
@@ -228,7 +252,7 @@ class WindowModelBasic:
             # Train each mini-batch.
             for idx in idxList:
                 train(idx, lr)
-                # train(windowIdxs[idx * self.batchSize : (idx + 1) * self.batchSize], idx, lr)
+                # train(windowIdxs[idx * self.batchSize : (idx + 1) * self.batchSize], idx, lr)    
             
             print 'Time to training the epoch  ' + str(time.time() - t1)
             

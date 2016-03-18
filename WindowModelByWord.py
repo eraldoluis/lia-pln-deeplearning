@@ -1,6 +1,7 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
-
+    
+import itertools
 import numpy as np
 import theano
 from NNet.SoftmaxLayer import SoftmaxLayer
@@ -10,12 +11,12 @@ from WindowModelBasic import WindowModelBasic
 import numpy
 
 class WindowModelByWord(WindowModelBasic):
-
+    
     def __init__(self, lexicon, wordVectors , windowSize, hiddenSize, _lr,
                  numClasses, numEpochs, batchSize=1, c=0.0, charModel=None,
                  learningRateUpdStrategy=LearningRateUpdNormalStrategy(),
                  wordVecsUpdStrategy='normal', networkAct='tanh', norm_coef=1.0,
-                 structGrad=True, adaGrad=False):
+                 structGrad=True, adaGrad=False,embeddingNotUpdate = []):
         #
         # Base class constructor.
         #
@@ -45,9 +46,18 @@ class WindowModelByWord(WindowModelBasic):
         #
         
         # List of layers.
-        layers = [self.embedding, self.hiddenLayer, self.softmax]
+        layers = self.embeddings + [self.hiddenLayer, self.softmax]
+        idxToUpdateLayer = filter(lambda k: k not in embeddingNotUpdate , range(0,len(layers)))
+        layersToUpdate = [layers[idx] for idx in idxToUpdateLayer]
+        
+        
+        for indexToNotUpdate in embeddingNotUpdate:
+            if indexToNotUpdate >= len(self.embeddings):
+                raise Exception("Desabilitando updates de layers que não são embeddings")
+              
         if charModel:
             layers.append(charModel)
+            layersToUpdate.append(charModel)
         
         # Lists of variables that store the sum of the squared historical 
         # gradients for the parameters of all layers. Since some layers use
@@ -59,7 +69,7 @@ class WindowModelByWord(WindowModelBasic):
         self.__sumsSqStructGrads = None
         if self.isAdaGrad():
             sumsSqDefGrads = []
-            for l in layers:
+            for l in  layersToUpdate:
                 # Default gradient parameters also follow a default AdaGrad update.
                 params = l.getDefaultGradParameters()
                 ssgs = []
@@ -77,7 +87,7 @@ class WindowModelByWord(WindowModelBasic):
             self.__sumsSqDefGrads = sumsSqDefGrads
             
             sumsSqStructGrads = []
-            for l in layers:
+            for l in  layersToUpdate:
                 # Structured parameters also need structured updates for the 
                 # historical gradients. These updates are computed by each layer.
                 params = l.getStructuredParameters()
@@ -100,7 +110,7 @@ class WindowModelByWord(WindowModelBasic):
         defaultGradParams = []
         
         # Get structured updates and default-gradient parameters from all layers.
-        for (idx, l) in enumerate(layers):
+        for (idx, l) in enumerate(layersToUpdate):
             # Structured updates (embeddings, basically).
             ssgs = None
             if self.isAdaGrad():

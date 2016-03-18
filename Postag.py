@@ -27,7 +27,7 @@ import os
 
 def readVocabAndWord(args):
     # Este if só foi criado para permitir que DLIDPostag possa reusar o run do postag
-    if isinstance(args.vocab, Lexicon) and isinstance(args.wordVectors, WordVector): 
+    if isinstance(args.vocab, Lexicon) and isinstance(args.wordVectors, (WordVector,list)): 
         return args.vocab, args.wordVectors
     
     if args.vocab == args.wordVectors or args.vocab is not None or args.wordVectors is not None:
@@ -122,8 +122,18 @@ def run(args):
                 raise Exception("O vocabulário não possui o símbolo de começo\"<s>)\"")
             if lexicon.isUnknownIndex(lexicon.getLexiconIndex(WindowModelBasic.endSymbolStr)):
                 raise Exception("O vocabulário não possui o símbolo de final\"<\s>)\"")
-            if lexicon.getLen() != wordVector.getLength():
-                raise Exception("O número de palavras no vacabulário é diferente do número de palavras do word Vector")
+#             if lexicon.getLen() != wordVector.getLength():
+#                 raise Exception("O número de palavras no vacabulário é diferente do número de palavras do word Vector")
+            if isinstance(wordVector, WordVector):
+                wvs = [wordVector]
+            else:
+                wvs = wordVector
+                    
+            for wv in wvs:
+                if lexicon.getLen() != wv.getLength():
+                    raise Exception("O número de palavras no vacabulário é diferente do número de palavras do word Vector")
+            
+
             if args.testOOUV:
                 lexiconFindInWV = set([word for word in lexicon.getLexiconDict()])
             addWordUnknown = False
@@ -142,6 +152,9 @@ def run(args):
             addWordUnknown = True
         
         unknownNameDefault = u'UUUNKKK'
+        
+        if isinstance(wordVector, WordVector):
+            wordVector = [wordVector]
 
         if args.unknownWordStrategy == "random":
             if lexicon.isWordExist(unknownNameDefault):
@@ -149,7 +162,10 @@ def run(args):
             
             lexiconIndex = lexicon.put(unknownNameDefault)
             lexicon.setUnknownIndex(lexiconIndex)
-            wordVector.append(None)
+#             wordVector.append(None)
+            for wv in wordVector:
+                wv.append(None) 
+            
         
         elif args.unknownWordStrategy == "mean_vector":
             if lexicon.isWordExist(unknownNameDefault):
@@ -159,10 +175,13 @@ def run(args):
             else:
                 mean_size = int(args.meanSize)
             
-            unknownWordVector = numpy.mean(numpy.asarray(wordVector.getWordVectors()[wordVector.getLength() - mean_size:]), 0)
             lexiconIndex = lexicon.put(unknownNameDefault)
             lexicon.setUnknownIndex(lexiconIndex)
-            wordVector.append(unknownWordVector.tolist())
+#             wordVector.append(unknownWordVector.tolist())
+            for wv in wordVector:
+                unknownWordVector = numpy.mean(numpy.asarray(wv.getWordVectors()[wv.getLength() - mean_size:]), 0)
+                wv.append(unknownWordVector.tolist())
+            
 
         elif args.unknownWordStrategy == "word_vocab":
             lexiconIndex = lexicon.getLexiconIndex(unicode(args.unknownWord, "utf-8"))
@@ -256,7 +275,7 @@ def run(args):
                                       charModel, learningRateUpdStrategy,
                                       args.wordVecsUpdStrategy, args.networkAct,
                                       args.norm_coef, not args.noStructGrad,
-                                      adaGrad=args.adaGrad)
+                                      adaGrad=args.adaGrad,embeddingNotUpdate = args.nonupdatewv)
         
         elif args.alg == "window_sentence":
             separeSentence = True
@@ -529,6 +548,9 @@ def main():
     
     parser.add_argument('--savePrediction', dest='savePrediction', action='store',
                        help='The file path where the prediction will be saved')
+    
+    parser.add_argument('--nonupdatewv',dest='nonupdatewv', action='store', nargs='*', type=int,default=[],
+                        help='Receive word embedding indexes which is not to be updated. The index begin with 0.')
     
     #parser.add_argument('--saveSolution', dest='saveSolution', action='store',
     #                  help='The file path where the prediction will be saved')

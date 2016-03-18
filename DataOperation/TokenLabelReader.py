@@ -42,7 +42,11 @@ class TokenLabelReader:
 
         if addWordUnknown and lexicon.isUnknownIndex(lexiconIndex):
             lexiconIndex = lexicon.put(word)
-            wordVecs.append(None)
+            if isinstance(wordVecs, list):
+                for wv in wordVecs:
+                    wv.append(None)
+            else:
+                wordVecs.append(None)
         
         if setWordsInDataSet is not None:
             setWordsInDataSet.add(word)
@@ -134,7 +138,7 @@ class TokenLabelReader:
             
             line_split = line.split()
             # Ignore empty lines.
-            if len(line_split) < 2:
+            if len(line_split) == 0:
                 continue
             
             if separateSentences:

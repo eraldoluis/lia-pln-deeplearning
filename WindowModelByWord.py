@@ -16,14 +16,14 @@ class WindowModelByWord(WindowModelBasic):
                  numClasses, numEpochs, batchSize=1, c=0.0, charModel=None,
                  learningRateUpdStrategy=LearningRateUpdNormalStrategy(),
                  wordVecsUpdStrategy='normal', networkAct='tanh', norm_coef=1.0,
-                 structGrad=True, adaGrad=False,embeddingNotUpdate = []):
+                 structGrad=True, adaGrad=False,randomizeInput = True,embeddingNotUpdate = []):
         #
         # Base class constructor.
         #
         WindowModelBasic.__init__(self, lexicon, wordVectors, windowSize,
                                   hiddenSize, _lr, numClasses, numEpochs,
                                   batchSize, c, charModel,
-                                  learningRateUpdStrategy, False,
+                                  learningRateUpdStrategy, randomizeInput,
                                   wordVecsUpdStrategy, False, networkAct,
                                   norm_coef, structGrad, adaGrad)
         

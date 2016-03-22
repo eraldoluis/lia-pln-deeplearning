@@ -35,7 +35,7 @@ class DLIDExperiments:
     intermediateStrategy = ["random_interpolation", "avg", "files", "random"]
     unknownWordStrategy = ["random", "mean_vector", "word_vocab"]
     typeOfNormalizationStrategy = ["none", "mean", "without_change_signal", "z_score"]
-    updateWvChoices= ["complete","target_intermediaries"]
+    updateWvChoices = ["complete", "target_intermediaries", "source_intermediaries", ]
     
     
     @staticmethod
@@ -224,7 +224,7 @@ class DLIDExperiments:
                            help='Do the test OOUV')
         
         
-        nnParser.add_argument('--updateWv', dest='updateWv', action='store',default=DLIDExperiments.updateWvChoices[0],choices=DLIDExperiments.updateWvChoices)
+        nnParser.add_argument('--updateWv', dest='updateWv', action='store', default=DLIDExperiments.updateWvChoices[0], choices=DLIDExperiments.updateWvChoices)
         
        
         
@@ -452,6 +452,8 @@ def doOneExperiment(mainExperimentDir, runNumber, args, w2vStrategy, intermediat
     
     targetVector = sourceVector = None
     
+    idxSource = -1
+    idxTarget  = -1
     
     if useSource:
         sourceVector, exist = getWordVector(args.source, word2VecGenerate, args,
@@ -460,17 +462,30 @@ def doOneExperiment(mainExperimentDir, runNumber, args, w2vStrategy, intermediat
         experimentHasAlreadyDone = experimentHasAlreadyDone and exist
                 
         logger.info('Using ' + sourceName)
+        idxSource = len(wordVectors)
         wordVectors.append(sourceVector)
         
     if useTarget:
-        
         targetVector, exist = getWordVector(args.target, word2VecGenerate, args,
                                            runNumber, targetName, logger)
         experimentHasAlreadyDone = experimentHasAlreadyDone and exist
+        idxTarget = len(wordVectors)
         wordVectors.append(targetVector)
         logger.info('Using ' + targetName)
     
-         
+    if len(args.additionalWordVector) != 0:
+        for additionalWvPath in args.additionalWordVector:
+            additionalWv = Word2VecGenerate.readW2VFile(additionalWvPath)
+            
+            unknownVec = unknownGenerateStrategy.generateUnkown(additionalWv,additionalWvPath)
+            unknownToken = unknownGenerateStrategy.getUnknownStr()
+            additionalWv[unknownToken] = unknownVec
+            
+            logger.info('Using additional embedding ' + additionalWvPath)
+            wordVectors.append(additionalWv)
+            
+            
+    
     # Se é para usar intermediário e a estratégia dos intermediário é diferente da média dos word vectors
     if useIntermediate and args.intermediateStrategy != None:
         if args.intermediateStrategy == intermediateStrategy[0]:
@@ -707,8 +722,11 @@ def doOneExperiment(mainExperimentDir, runNumber, args, w2vStrategy, intermediat
         args.wordVecsInit = "random"
         args.saveModel = None
         
-        if useSource and args.updateWv == DLIDExperiments.updateWvChoices[1]: 
-            args.nonupdatewv = [0]
+        
+        if args.updateWv == DLIDExperiments.updateWvChoices[1] and idxSource > -1:
+            args.nonupdatewv = [idxSource]     
+        elif args.updateWv == DLIDExperiments.updateWvChoices[2] and idxTarget > -1 : 
+            args.nonupdatewv = [idxTarget]
         else:
             args.nonupdatewv = []
         
@@ -731,7 +749,7 @@ def doOneExperiment(mainExperimentDir, runNumber, args, w2vStrategy, intermediat
         for word in wordsSet:
             lexicon.put(word);
             
-            for idx,wv in enumerate(wordVectors):
+            for idx, wv in enumerate(wordVectors):
                 if word in wv:
                     newv = wv[word]
                 else:

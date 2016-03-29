@@ -21,8 +21,10 @@ def totalUtility(a,amostra,sol):
     print 'sol len'
     print len(sol)
     
+    
     i = 0
     for elem in u:
+        print sol[i]
         elem[sol[i]] = 1.0
         i = i + 1
     

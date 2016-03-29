@@ -120,6 +120,10 @@ def main():
     sysSol = []
     lexiconOfLabel = []
     
+    
+    a_result = []
+    b_result = []
+    
     a_dictLabel = {}
     a_lexiLabel = []
     a_preds = []
@@ -139,23 +143,27 @@ def main():
                 sysPYX, sysP, sysS, lexiL = pickle.load(f)
                 f.close()
                 if len(sysPreds) == 0:
-                    sysPred_y_given_x = sysPYX 
+                    sysSol = np.array(sysS)
+                    a_dictLabel = lexiL.getLexiconDict()
+                    a_lexiLabel = lexiL.getAllLexicon()
+                    a_result = np.array(sysPYX)
+                    a_preds = np.array(sysP)
                     sysPreds = sysP
-                    sysSol = sysS
-                    lexiconOfLabel = lexiL
-                    a_dictLabel = lexiconOfLabel.getDict()
-                    a_lexiLabel = lexiconOfLabel.getAllLexicon()
-                    a_result = np.transpose(sysPred_y_given_x)
-                    a_preds = sysPreds
                                         
                 else :
                     
+                    if len(np.where(np.array(sysS) != sysSol)[0]) > 0 :
+                        print 'Error: different target file'
+                        return
+                        
                     b_dictLabel = lexiL.getLexiconDict()
                     b_lexiLabel = lexiL.getAllLexicon()
-                    a_preds = sysP
+                    b_preds = np.array(sysP)
                      
-                    b_result = []
+                    
                     if a_dictLabel != b_dictLabel:
+                        
+                        a_result = np.transpose(a_result)
                         m = len(a_dictLabel)
                         for i in range(m):
                             idx = b_dictLabel.pop(a_lexiLabel[i], None)
@@ -180,27 +188,43 @@ def main():
                             a_dictLabel[b_lexiLabel[i]] = len(a_dictLabel)
                             a_lexiLabel.append(b_lexiLabel[i]) 
                             a_result = np.vstack((a_result,np.zeros(len(sysS))))
-                                                    
+                        
+                        a_result = np.transpose(a_result)
+                        b_result = np.transpose(b_result)    
+                                            
                     else:
-                        b_result = np.transpose(sysPYX)
-                                        
-                                    
-                    sysPred_y_given_x = [sysPred_y_given_x ,sysPYX]
+                        b_result = np.array(sysPYX)
+                    
+                        
+                         
+                    #sysPred_y_given_x = [sysPred_y_given_x ,sysPYX]
                     sysPreds = [sysPreds, sysP]
-                    sysSol = [sysSol, sysS]
+                    #sysSol = [sysSol, sysS]
                     
+                    if  args.sampling == 'divergent':
+                        print 'Apenas as predicoes divergentes'
+                        
+                        idx = np.where(a_preds!=b_preds)[0]
+                        
+                        a_result = a_result[idx]
+                        b_result = b_result[idx]
+                        
+                        sysSol = sysSol[idx] 
+                    else:
+                        print 'Todas as predicoes'
                     
-    
-    a_result = np.transpose(a_result)
-    b_result = np.transpose(b_result)
     
     num = 0
     if args.samplingSize <=1.0:
         num = int(args.samplingSize*len(a_result))
-    else: 
+    elif args.samplingSize < len(a_result): 
         num = args.samplingSize
-    
-    
+    else :
+        num = len(a_result)
+        
+    if num == 0:
+        print 'Nothing to be compared'
+        return
     Q = np.zeros(len(sysS))
     random_sample = np.random.random_sample((num,))
     
@@ -215,15 +239,15 @@ def main():
         
         print '\n\nUtilidade Total Euclidiana'
         
-        print 'A: ', totalUtility(a_result,Q,sysSol[0])
-        print 'B: ', totalUtility(b_result,Q,sysSol[0])
-        print 'Diferenca das Utilidades (UA-UB): ', compTotalUtility(a_result,b_result,Q,sysSol[0])
+        print 'A: ', totalUtility(a_result,Q,sysSol)
+        print 'B: ', totalUtility(b_result,Q,sysSol)
+        print 'Diferenca das Utilidades (UA-UB): ', compTotalUtility(a_result,b_result,Q,sysSol)
         
         
         print '\nUtilidade Amostrada Euclidiana'
-        print 'A: ', utility(a_result,Q,sysSol[0],num,random_sample)
-        print 'B: ', utility(b_result,Q,sysSol[0],num,random_sample)
-        print 'Diferenca das Utilidades Amostradas (UA-UB): ', compUtility(a_result,b_result,Q,sysSol[0],num,random_sample)    
+        print 'A: ', utility(a_result,Q,sysSol,num,random_sample)
+        print 'B: ', utility(b_result,Q,sysSol,num,random_sample)
+        print 'Diferenca das Utilidades Amostradas (UA-UB): ', compUtility(a_result,b_result,Q,sysSol,num,random_sample)    
         
       
     if args.evaluation == 'kl_divergence' or args.evaluation =='all':
@@ -231,14 +255,14 @@ def main():
         Q = norm(Q)
         
         print '\n\nUtilidade Total KL_divergencia'
-        print 'A: ', totalUtility(a_result,Q,sysSol[0])
-        print 'B: ', totalUtility(b_result,Q,sysSol[0])
-        print 'Diferenca das Utilidades (UA-UB): ', compTotalUtility(a_result,b_result,Q,sysSol[0])
+        print 'A: ', totalUtility(a_result,Q,sysSol)
+        print 'B: ', totalUtility(b_result,Q,sysSol)
+        print 'Diferenca das Utilidades (UA-UB): ', compTotalUtility(a_result,b_result,Q,sysSol)
         
         print '\nUtilidade Amostrada KL_divergencia'
-        print 'A: ', utility(a_result,Q,sysSol[0],num,random_sample)
-        print 'B: ', utility(b_result,Q,sysSol[0],num,random_sample)
-        print 'Diferenca das Utilidades Amostradas (UA-UB):', compUtility(a_result,b_result,Q,sysSol[0],num,random_sample)
+        print 'A: ', utility(a_result,Q,sysSol,num,random_sample)
+        print 'B: ', utility(b_result,Q,sysSol,num,random_sample)
+        print 'Diferenca das Utilidades Amostradas (UA-UB):', compUtility(a_result,b_result,Q,sysSol,num,random_sample)
                          
                 
                 

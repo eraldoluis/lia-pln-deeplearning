@@ -215,7 +215,10 @@ def main():
                         a_result = a_result[idx]
                         b_result = b_result[idx]
                         
-                        sysSol = sysSol[idx] 
+                        sysSol = sysSol[idx]
+                        
+                        print '\nNumero de predicoes diferentes' 
+                        print len(idx)
                     else:
                         print 'Todas as predicoes'
                     

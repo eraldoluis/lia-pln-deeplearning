@@ -15,6 +15,12 @@ def norm(a):
 def totalUtility(a,amostra,sol):
     u  = np.zeros(a.shape)
     amostra = np.reshape(amostra, (a.shape[0],1))
+    print 'a.shape'
+    print a.shape
+    
+    print 'sol len'
+    print len(sol)
+    
     i = 0
     for elem in u:
         elem[sol[i]] = 1.0

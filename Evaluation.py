@@ -12,18 +12,53 @@ def kl_divergence(a,b):
 def norm(a):
     return a/np.sum(a)
 
-def totalUtility(a,b,amostra,sol):
+def totalUtility(a,amostra,sol):
     u  = np.zeros(a.shape)
     amostra = np.reshape(amostra, (a.shape[0],1))
     i = 0
     for elem in u:
         elem[sol[i]] = 1.0
         i = i + 1
-        
+    
+    #mm = np.sqrt((a)*(a))
+    #return np.sum(u*(a)/mm)/float(a.shape[0])
+    return np.sum(u*(a)/amostra)/float(a.shape[0]) 
+
+
+def compTotalUtility(a,b,amostra,sol):
+    u  = np.zeros(a.shape)
+    amostra = np.reshape(amostra, (a.shape[0],1))
+    i = 0
+    for elem in u:
+        elem[sol[i]] = 1.0
+        i = i + 1
+    
+    #mm = np.sqrt((a-b)*(a-b))
+    #return np.sum(u*(a-b)/mm)/float(a.shape[0])
     return np.sum(u*(a-b)/amostra)/float(a.shape[0]) 
     
+def utility(a,amostra,sol,n,random_sample):
+    u  = np.zeros(a.shape)
     
-def utility(a,b,amostra,sol,n,random_sample):
+    amostra_soma = np.zeros(len(amostra))
+    for i in range(len(amostra)):
+        amostra_soma[i] = np.sum(amostra[:i+1])
+        
+    
+    i = 0
+    for elem in u:
+        elem[sol[i]] = 1.0
+        i = i + 1
+    
+    utili = 0.0
+    
+    for i in range(n):
+        index = np.searchsorted(amostra_soma, random_sample[i], side='left')
+        utili += np.sum(u[index]*(a[index])/amostra[index])      
+     
+    return utili/float(n)    
+
+def compUtility(a,b,amostra,sol,n,random_sample):
     u  = np.zeros(a.shape)
     
     amostra_soma = np.zeros(len(amostra))
@@ -49,10 +84,10 @@ def main():
     
     parser = argparse.ArgumentParser();
     
-    evaluationStrategyChoices = ["euclidian", "kl_divergence"]
+    evaluationStrategyChoices = ["euclidian", "kl_divergence", "all"]
     
-    parser.add_argument('--evaluation', dest='evaluation', action='store', default=evaluationStrategyChoices[0], choices=evaluationStrategyChoices,
-                       help='Set the EVALUATION strategy. EUCLIDIAN and KL_DIVERGENCE are the options available')
+    parser.add_argument('--evaluation', dest='evaluation', action='store', default=evaluationStrategyChoices[2], choices=evaluationStrategyChoices,
+                       help='Set the EVALUATION strategy. EUCLIDIAN and KL_DIVERGENCE and ALL are the options available')
 
     samplingStrategyChoices = ["divergent", "all"]
     
@@ -87,8 +122,10 @@ def main():
     
     a_dictLabel = {}
     a_lexiLabel = []
+    a_preds = []
     b_dictLabel = {}
     b_lexiLabel = []
+    b_preds = []
     lexiPos = []
     
     if args.systemFiles:
@@ -109,11 +146,13 @@ def main():
                     a_dictLabel = lexiconOfLabel.getDict()
                     a_lexiLabel = lexiconOfLabel.getAllLexicon()
                     a_result = np.transpose(sysPred_y_given_x)
+                    a_preds = sysPreds
                                         
                 else :
                     
                     b_dictLabel = lexiL.getLexiconDict()
                     b_lexiLabel = lexiL.getAllLexicon()
+                    a_preds = sysP
                      
                     b_result = []
                     if a_dictLabel != b_dictLabel:
@@ -155,7 +194,6 @@ def main():
     a_result = np.transpose(a_result)
     b_result = np.transpose(b_result)
     
-    
     num = 0
     if args.samplingSize <=1.0:
         num = int(args.samplingSize*len(a_result))
@@ -165,19 +203,42 @@ def main():
     
     Q = np.zeros(len(sysS))
     random_sample = np.random.random_sample((num,))
-    #if args.evaluation == 'euclidian':
-    if True:
+    
+    print 'A: ', args.systemFiles[0]
+    print 'B: ', args.systemFiles[1]
+    
+    
+    if args.evaluation == 'euclidian' or args.evaluation =='all':
+        
         Q = euclidian(a_result, b_result)
         Q = norm(Q)
-        print 'Utilidade Total Euclidiana: ', totalUtility(a_result,b_result,Q,sysSol[0])
-        print 'Utilidade Amostrada Euclidiana: ', utility(a_result,b_result,Q,sysSol[0],num,random_sample)    
         
-    if True:    
-    #elif args.evaluation == 'kl_divergence':
+        print '\n\nUtilidade Total Euclidiana'
+        
+        print 'A: ', totalUtility(a_result,Q,sysSol[0])
+        print 'B: ', totalUtility(b_result,Q,sysSol[0])
+        print 'Diferenca das Utilidades (UA-UB): ', compTotalUtility(a_result,b_result,Q,sysSol[0])
+        
+        
+        print '\nUtilidade Amostrada Euclidiana'
+        print 'A: ', utility(a_result,Q,sysSol[0],num,random_sample)
+        print 'B: ', utility(b_result,Q,sysSol[0],num,random_sample)
+        print 'Diferenca das Utilidades Amostradas (UA-UB): ', compUtility(a_result,b_result,Q,sysSol[0],num,random_sample)    
+        
+      
+    if args.evaluation == 'kl_divergence' or args.evaluation =='all':
         Q = kl_divergence(a_result, b_result)
         Q = norm(Q)
-        print 'Utilidade Total KL_divergencia: ', totalUtility(a_result,b_result,Q,sysSol[0])
-        print 'Utilidade Amostrada KL_divergencia: ', utility(a_result,b_result,Q,sysSol[0],num,random_sample)
+        
+        print '\n\nUtilidade Total KL_divergencia'
+        print 'A: ', totalUtility(a_result,Q,sysSol[0])
+        print 'B: ', totalUtility(b_result,Q,sysSol[0])
+        print 'Diferenca das Utilidades (UA-UB): ', compTotalUtility(a_result,b_result,Q,sysSol[0])
+        
+        print '\nUtilidade Amostrada KL_divergencia'
+        print 'A: ', utility(a_result,Q,sysSol[0],num,random_sample)
+        print 'B: ', utility(b_result,Q,sysSol[0],num,random_sample)
+        print 'Diferenca das Utilidades Amostradas (UA-UB):', compUtility(a_result,b_result,Q,sysSol[0],num,random_sample)
                          
                 
                 

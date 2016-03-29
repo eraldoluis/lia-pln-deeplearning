@@ -224,7 +224,7 @@ def main():
     if args.samplingSize <=1.0:
         num = int(args.samplingSize*len(a_result))
     elif args.samplingSize < len(a_result): 
-        num = args.samplingSize
+        num = int(args.samplingSize)
     else :
         num = len(a_result)
         

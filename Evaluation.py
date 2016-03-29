@@ -15,17 +15,12 @@ def norm(a):
 def totalUtility(a,amostra,sol):
     u  = np.zeros(a.shape)
     amostra = np.reshape(amostra, (a.shape[0],1))
-    print 'a.shape'
-    print a.shape
-    
-    print 'sol len'
-    print len(sol)
     
     
     i = 0
     for elem in u:
-        print sol[i]
-        elem[sol[i]] = 1.0
+        if sol[i] < a.shape[1]:
+            elem[sol[i]] = 1.0
         i = i + 1
     
     #mm = np.sqrt((a)*(a))
@@ -38,7 +33,8 @@ def compTotalUtility(a,b,amostra,sol):
     amostra = np.reshape(amostra, (a.shape[0],1))
     i = 0
     for elem in u:
-        elem[sol[i]] = 1.0
+        if sol[i] < a.shape[1]:
+            elem[sol[i]] = 1.0
         i = i + 1
     
     #mm = np.sqrt((a-b)*(a-b))
@@ -55,7 +51,8 @@ def utility(a,amostra,sol,n,random_sample):
     
     i = 0
     for elem in u:
-        elem[sol[i]] = 1.0
+        if sol[i] < a.shape[1]:
+            elem[sol[i]] = 1.0
         i = i + 1
     
     utili = 0.0
@@ -76,7 +73,8 @@ def compUtility(a,b,amostra,sol,n,random_sample):
     
     i = 0
     for elem in u:
-        elem[sol[i]] = 1.0
+        if sol[i] < a.shape[1]:
+            elem[sol[i]] = 1.0
         i = i + 1
     
     utili = 0.0

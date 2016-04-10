@@ -45,6 +45,10 @@ class HiddenLayer(Layer):
         
         elif activation == 'hard_sigmoid':
             activation = T.nnet.hard_sigmoid
+            
+        elif activation == 'None':
+            activation = None
+        
         
         
         # `W` is initialized with `W_values` which is uniformely sampled

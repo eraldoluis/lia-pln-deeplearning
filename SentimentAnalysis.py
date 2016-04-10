@@ -499,7 +499,7 @@ def main():
     
     parser.add_argument('--networkAct', dest='networkAct', action='store',
                         default="tanh",
-                        choices=["tanh", "hard_tanh", "sigmoid", "hard_sigmoid", "ultra_fast_sigmoid"])
+                        choices=["tanh", "hard_tanh", "sigmoid", "hard_sigmoid", "ultra_fast_sigmoid","None"])
     
     parser.add_argument('--charNetAct', dest='charNetAct', action='store', 
                         default="tanh", 

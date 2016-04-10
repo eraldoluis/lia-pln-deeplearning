@@ -269,10 +269,8 @@ def run(args):
             elif args.charVecsUpdStrategy == 'z_score' or args.charVecsInit == 'z_score':
                 charVars[1].zScore(args.norm_coef)
 
-            # TODO: o tamanho da representação de caracteres está fixa (20).
-            # Precisamos colocar isso como argumento do programa.
             charModel = EmbeddingConvolutionalLayer(charVars[0], charVars[1], 
-                                                    charVars[2], 20, 
+                                                    charVars[2], args.maxSizeOfWord, 
                                                     args.charWindowSize, 
                                                     args.wordWindowSize,
                                                     args.charConvSize, 
@@ -543,6 +541,9 @@ def main():
     
     parser.add_argument('--structPrediction', dest='structPrediction', action='store_true', default=False, 
                        help='Not usage of structured prediction for sentence model')
+    
+    parser.add_argument('--maxSizeOfWord', dest='maxSizeOfWord', action='store', type=int, default=20,
+                       help='The max length of each word in dataset')
     
     #parser.add_argument('--saveSolution', dest='saveSolution', action='store',
     #                  help='The file path where the prediction will be saved')

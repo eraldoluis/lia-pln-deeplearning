@@ -342,17 +342,19 @@ def run(args):
     print 'Testing...'
     
     predicts = model.predict(testData[0], testData[2], unknownDataTestCharIdxs)
-    predicts_y_given_x = model.predict(testData[0], testData[2], unknownDataTestCharIdxs)
+    #predicts_y_given_x = model.predict(testData[0], testData[2], unknownDataTestCharIdxs)
     
     testData[1] = numpy.reshape(testData[1], (len(testData[1]), 1))
     
     
-    if args.savePrediction is not None:
-            print 'Saving Prediction...'
-            f = open(args.savePrediction, "wb")
-            pickle.dump([predicts_y_given_x,predicts, testData[1],lexiconOfLabel], f, pickle.HIGHEST_PROTOCOL)
-            f.close()
-            print 'Prediction save with sucess in ' + args.savePrediction
+    #===========================================================================
+    # if args.savePrediction is not None:
+    #         print 'Saving Prediction...'
+    #         f = open(args.savePrediction, "wb")
+    #         pickle.dump([predicts_y_given_x,predicts, testData[1],lexiconOfLabel], f, pickle.HIGHEST_PROTOCOL)
+    #         f.close()
+    #         print 'Prediction save with sucess in ' + args.savePrediction
+    #===========================================================================
     
     
     evalue = EvaluateAccuracy()

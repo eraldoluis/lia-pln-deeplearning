@@ -24,6 +24,11 @@ from NNet.Util import LearningRateUpdDivideByEpochStrategy, \
 from Evaluate.EvaluatePercPredictsCorrectNotInWordSet import EvaluatePercPredictsCorrectNotInWordSet
 import random
 import os
+import theano
+
+theano.config.exception_verbosity='high'
+theano.config.optimizer='None'
+
 
 def readVocabAndWord(args):
     # Este if só foi criado para permitir que DLIDPostag possa reusar o run do postag
@@ -32,7 +37,7 @@ def readVocabAndWord(args):
     
     if args.vocab == args.wordVectors or args.vocab is not None or args.wordVectors is not None:
         fi = args.wordVectors if args.wordVectors is not None else args.vocab
-        lexicon, wordVector = ReaderLexiconAndWordVec().readData(fi)
+        lexicon, wordVector = ReaderLexiconAndWordVec().readData2(fi)
     else:
         wordVector = WordVector(args.wordVectors)
         lexicon = Lexicon(args.vocab)
@@ -52,7 +57,7 @@ def run(args):
         a += 2
     
     t0 = time.time()
-    datasetReader = TokenLabelReader(args.fileWithFeatures, args.tokenLabelSeparator,'postag')
+    datasetReader = TokenLabelReader(args.fileWithFeatures, args.tokenLabelSeparator,'sentiment_analysis')
     testData = None
     if args.testOOUV:
         unknownDataTest = []
@@ -119,9 +124,13 @@ def run(args):
             lexicon, wordVector = readVocabAndWord(args)
             
             if lexicon.isUnknownIndex(lexicon.getLexiconIndex(WindowModelBasic.startSymbolStr)):
-                raise Exception("O vocabulário não possui o símbolo de começo\"<s>)\"")
+                print "O vocabulário não possui o símbolo de começo\"<s>)\""
+                lexicon.put(WindowModelBasic.startSymbolStr)
+                wordVector.append(None)
             if lexicon.isUnknownIndex(lexicon.getLexiconIndex(WindowModelBasic.endSymbolStr)):
-                raise Exception("O vocabulário não possui o símbolo de final\"<\s>)\"")
+                print "O vocabulário não possui o símbolo de final\"<\s>)\""
+                lexicon.put(WindowModelBasic.endSymbolStr)
+                wordVector.append(None)
 #             if lexicon.getLen() != wordVector.getLength():
 #                 raise Exception("O número de palavras no vacabulário é diferente do número de palavras do word Vector")
             if isinstance(wordVector, WordVector):
@@ -139,6 +148,7 @@ def run(args):
             addWordUnknown = False
         else:
             wordVector = WordVector(wordSize=args.wordVecSize, mode=args.wordVecsInit)
+            #wordVector = WordVector(wordSize=args.wordVecSize)
             lexicon = Lexicon()
             
             lexicon.put(WindowModelBasic.startSymbolStr)
@@ -151,7 +161,7 @@ def run(args):
                 lexiconFindInWV = set()
             addWordUnknown = True
         
-        unknownNameDefault = u'UUUNKKK'
+        unknownNameDefault = 'UUUNKKK'
         
         if isinstance(wordVector, WordVector):
             wordVector = [wordVector]
@@ -184,7 +194,8 @@ def run(args):
             
 
         elif args.unknownWordStrategy == "word_vocab":
-            lexiconIndex = lexicon.getLexiconIndex(unicode(args.unknownWord, "utf-8"))
+            #lexiconIndex = lexicon.getLexiconIndex(unicode(args.unknownWord, "utf-8"))
+            lexiconIndex = lexicon.getLexiconIndex(args.unknownWord)
             if lexicon.isUnknownIndex(lexiconIndex):
                 raise Exception('Unknown Word Value passed does not exist in the unsupervised dictionary')
             lexicon.setUnknownIndex(lexiconIndex)
@@ -227,115 +238,69 @@ def run(args):
             learningRateUpdStrategy = LearningRateUpdDivideByEpochStrategy()
         
         lexiconFindInTrain = set() if args.testOOSV else None
-        if args.alg == "window_word":
-            separeSentence = False
-            print 'Loading train data...'
-            trainData = datasetReader.readData(args.train, lexicon,
-                                               lexiconOfLabel, lexiconRaw,
-                                               wordVector, separeSentence,
-                                               addWordUnknown, args.withCharwnn,
-                                               charVars, True, filters,
-                                               lexiconFindInTrain)
-            
-            numClasses = lexiconOfLabel.getLen()
-            
-            if args.withCharwnn:
-                if args.charVecsInit == 'randomAll':
-                    charVars[1].startAllRandom()
-                if args.charVecsUpdStrategy == 'min_max' or args.charVecsInit == 'min_max':
-                    charVars[1].minMax(args.norm_coef)
-                elif args.charVecsUpdStrategy == 'z_score' or args.charVecsInit == 'z_score':
-                    charVars[1].zScore(args.norm_coef)
+        
+        #if args.alg == "window_word":
+        separeSentence = True
+        print 'Loading train data...'
+        trainData = datasetReader.readData(args.train, lexicon,
+                                           lexiconOfLabel, lexiconRaw,
+                                           wordVector, separeSentence,
+                                           addWordUnknown, args.withCharwnn,
+                                           charVars, True, filters,
+                                           lexiconFindInTrain)
+        
+        
+        if args.networkChoice == "complete":
+                networkChoice = NeuralNetworkChoiceEnum.COMPLETE
+        elif args.networkChoice == "without_hidden_update_wv":
+            networkChoice = NeuralNetworkChoiceEnum.WITHOUT_HIDDEN_LAYER_AND_UPD_WV
+        elif args.networkChoice == "without_update_wv":
+            networkChoice = NeuralNetworkChoiceEnum.WITHOUT_UPD_WV
+        else:
+            networkChoice = NeuralNetworkChoiceEnum.COMPLETE
+    
+        numClasses = lexiconOfLabel.getLen()
+        
+        if args.withCharwnn:
+            if args.charVecsInit == 'randomAll':
+                charVars[1].startAllRandom()
+            if args.charVecsUpdStrategy == 'min_max' or args.charVecsInit == 'min_max':
+                charVars[1].minMax(args.norm_coef)
+            elif args.charVecsUpdStrategy == 'z_score' or args.charVecsInit == 'z_score':
+                charVars[1].zScore(args.norm_coef)
 
-                
-                charModel = EmbeddingConvolutionalLayer(charVars[0], charVars[1], 
-                                                        charVars[2], args.maxSizeOfWord, 
-                                                        args.charWindowSize, 
-                                                        args.wordWindowSize,
-                                                        args.convSize, 
-                                                        numClasses, args.c, 
-                                                        learningRateUpdStrategy, 
-                                                        separeSentence, 
-                                                        args.charwnnWithAct, 
-                                                        args.charVecsUpdStrategy, 
-                                                        args.networkAct, 
-                                                        args.norm_coef)
-            
-            if args.wordVecsInit == 'randomAll':
-                wordVector.startAllRandom()
-            if args.wordVecsUpdStrategy == 'min_max' or args.wordVecsInit == 'min_max':
-                wordVector.minMax(args.norm_coef)
-            elif args.wordVecsUpdStrategy == 'z_score' or args.wordVecsInit == 'z_score':
-                wordVector.zScore(args.norm_coef)
-            
-            model = WindowModelByWord(lexicon, wordVector, args.wordWindowSize,
-                                      args.hiddenSize, args.lr, numClasses,
-                                      args.numepochs, args.batchSize, args.c,
-                                      charModel, learningRateUpdStrategy,
-                                      args.wordVecsUpdStrategy, args.networkAct,
-                                      args.norm_coef, not args.noStructGrad,
+            # TODO: o tamanho da representação de caracteres está fixa (20).
+            # Precisamos colocar isso como argumento do programa.
+            charModel = EmbeddingConvolutionalLayer(charVars[0], charVars[1], 
+                                                    charVars[2], 20, 
+                                                    args.charWindowSize, 
+                                                    args.wordWindowSize,
+                                                    args.charConvSize, 
+                                                    numClasses, args.c, 
+                                                    learningRateUpdStrategy, 
+                                                    separeSentence, 
+                                                    args.charwnnWithAct, 
+                                                    args.charVecsUpdStrategy, 
+                                                    args.networkAct, 
+                                                    args.norm_coef)
+        
+        if args.wordVecsInit == 'randomAll':
+            wordVector.startAllRandom()
+        if args.wordVecsUpdStrategy == 'min_max' or args.wordVecsInit == 'min_max':
+            wordVector.minMax(args.norm_coef)
+        elif args.wordVecsUpdStrategy == 'z_score' or args.wordVecsInit == 'z_score':
+            wordVector.zScore(args.norm_coef)
+        
+       
+        model = WindowModelBySentence(lexicon, wordVector, args.wordWindowSize, 
+                                      args.hiddenSize, args.wordConvSize, args.lr, numClasses, 
+                                      args.numepochs, args.batchSize, args.c, 
+                                      charModel, learningRateUpdStrategy, 
+                                      args.wordVecsUpdStrategy, networkChoice, 
+                                      args.networkAct, args.norm_coef, not args.noStructGrad,
                                       adaGrad=args.adaGrad,
                                       randomizeInput=not args.notRandomizeInput,
-                                      embeddingNotUpdate = args.nonupdatewv, task='postag')
-            
-            
-        
-        elif args.alg == "window_sentence":
-            separeSentence = True
-            
-            print 'Loading train data...'
-            trainData = datasetReader.readData(args.train, lexicon,
-                                               lexiconOfLabel, lexiconRaw,
-                                               wordVector, separeSentence,
-                                               addWordUnknown, args.withCharwnn,
-                                               charVars, True, filters,
-                                               lexiconFindInTrain)
-
-            if args.networkChoice == "complete":
-                networkChoice = NeuralNetworkChoiceEnum.COMPLETE
-            elif args.networkChoice == "without_hidden_update_wv":
-                networkChoice = NeuralNetworkChoiceEnum.WITHOUT_HIDDEN_LAYER_AND_UPD_WV
-            elif args.networkChoice == "without_update_wv":
-                networkChoice = NeuralNetworkChoiceEnum.WITHOUT_UPD_WV
-            else:
-                networkChoice = NeuralNetworkChoiceEnum.COMPLETE
-
-            numClasses = lexiconOfLabel.getLen()
-            
-            if args.withCharwnn:
-                if args.charVecsInit == 'randomAll':
-                    charVars[1].startAllRandom()
-                if args.charVecsUpdStrategy == 'min_max' or args.charVecsInit == 'min_max':
-                    charVars[1].minMax(args.norm_coef)
-                elif args.charVecsUpdStrategy == 'z_score' or args.charVecsInit == 'z_score':
-                    charVars[1].zScore(args.norm_coef)
-                    
-                    
-                charModel = EmbeddingConvolutionalLayer(charVars[0], charVars[1], 
-                                                        charVars[2], args.maxSizeOfWord,
-                                                        args.charWindowSize, args.wordWindowSize,
-                                                        args.convSize, numClasses, args.c,
-                                                        learningRateUpdStrategy, separeSentence,
-                                                        args.charwnnWithAct, args.charVecsUpdStrategy,
-                                                        args.networkAct, args.norm_coef)
-            
-            if args.wordVecsInit == 'randomAll':
-                wordVector.startAllRandom()
-            if args.wordVecsUpdStrategy == 'min_max' or args.wordVecsInit == 'min_max':
-                wordVector.minMax(args.norm_coef)
-            elif args.wordVecsUpdStrategy == 'z_score' or args.wordVecsInit == 'z_score':
-                wordVector.zScore(args.norm_coef)
-                
-            
-            model = WindowModelBySentence(lexicon, wordVector, args.wordWindowSize, 
-                                          args.hiddenSize, 0, args.lr, numClasses, 
-                                          args.numepochs, args.batchSize, args.c, 
-                                          charModel, learningRateUpdStrategy, 
-                                          args.wordVecsUpdStrategy, networkChoice, 
-                                          args.networkAct, args.norm_coef,not args.noStructGrad,
-                                          adaGrad=args.adaGrad,
-                                          randomizeInput=not args.notRandomizeInput,
-                                          embeddingNotUpdate=args.nonupdatewv, task='postag', structPrediction=args.structPrediction)
+                                      embeddingNotUpdate=args.nonupdatewv, task='sentiment_analysis', structPrediction=args.structPrediction )
         
         if args.numPerEpoch is not None and len(args.numPerEpoch) != 0:
             print 'Loading test data...'
@@ -377,13 +342,13 @@ def run(args):
     print 'Testing...'
     
     predicts = model.predict(testData[0], testData[2], unknownDataTestCharIdxs)
- 
+    predicts_y_given_x = model.predict(testData[0], testData[2], unknownDataTestCharIdxs)
+    
+    testData[1] = numpy.reshape(testData[1], (len(testData[1]), 1))
     
     
     if args.savePrediction is not None:
             print 'Saving Prediction...'
-            predicts_y_given_x = model.predict(testData[0], testData[2], unknownDataTestCharIdxs)
-            
             f = open(args.savePrediction, "wb")
             pickle.dump([predicts_y_given_x,predicts, testData[1],lexiconOfLabel], f, pickle.HIGHEST_PROTOCOL)
             f.close()
@@ -433,14 +398,17 @@ def main():
     parser.add_argument('--hiddenlayersize', dest='hiddenSize', action='store', type=int,
                        help='The number of neurons in the hidden layer', default=300)
     
-    parser.add_argument('--convolutionalLayerSize', dest='convSize', action='store', type=int,
-                       help='The number of neurons in the convolutional layer', default=50)
+    parser.add_argument('--charConvolutionalLayerSize', dest='charConvSize', action='store', type=int,
+                       help='The number of neurons in the character convolutional layer', default=50)
+    
+    parser.add_argument('--wordConvolutionalLayerSize', dest='wordConvSize', action='store', type=int,
+                       help='The number of neurons in the word convolutional layer', default=4)
     
     parser.add_argument('--wordWindowSize', dest='wordWindowSize', action='store', type=int,
                        help='The size of words for the wordsWindow', default=5)
     
     parser.add_argument('--charWindowSize', dest='charWindowSize', action='store', type=int,
-                       help='The size of char for the charsWindow', default=5)
+                       help='The size of char for the charsWindow', default=3)
     
     parser.add_argument('--numperepoch', dest='numPerEpoch', action='store', nargs='*', type=int,
                        help="The evaluation on the test corpus will "
@@ -458,10 +426,10 @@ def main():
                        help='The larger C is the more the regularization pushes the weights of all our parameters to zero.')    
     
     parser.add_argument('--wordVecSize', dest='wordVecSize', action='store', type=int,
-                       help='Word vector size', default=100)
+                       help='Word vector size', default=30)
     
     parser.add_argument('--charVecSize', dest='charVecSize', action='store', type=int,
-                       help='Char vector size', default=10)
+                       help='Char vector size', default=5)
 
     parser.add_argument('--vocab', dest='vocab', action='store',
                        help='Vocabulary File Path')
@@ -551,10 +519,7 @@ def main():
 
     parser.add_argument('--norm_coef', dest='norm_coef', action='store', type=float, default=1.0,
                        help='The coefficient that will be multiplied to the normalized vectors')
-    
-    parser.add_argument('--maxSizeOfWord', dest='maxSizeOfWord', action='store', type=int, default=20,
-                       help='The max length of each word in dataset')
-    
+
     parser.add_argument('--seed', dest='seed', action='store', type=long,
                        help='', default=None)
     
@@ -571,8 +536,8 @@ def main():
     parser.add_argument('--nonupdatewv',dest='nonupdatewv', action='store', nargs='*', type=int,default=[],
                         help='Receive word embedding indexes which is not to be updated. The index begin with 0.')
     
-    parser.add_argument('--notRandomizeInput', dest='notRandomizeInput', action='store_true', default=False,
-                       help='The file path where the prediction will be saved')
+    parser.add_argument('--notRandomizeInput', dest='notRandomizeInput', action='store_true', default=False, 
+                       help='Not randomize inputs during training')
     
     parser.add_argument('--structPrediction', dest='structPrediction', action='store_true', default=False, 
                        help='Not usage of structured prediction for sentence model')

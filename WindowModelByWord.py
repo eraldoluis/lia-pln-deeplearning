@@ -16,16 +16,16 @@ class WindowModelByWord(WindowModelBasic):
                  numClasses, numEpochs, batchSize=1, c=0.0, charModel=None,
                  learningRateUpdStrategy=LearningRateUpdNormalStrategy(),
                  wordVecsUpdStrategy='normal', networkAct='tanh', norm_coef=1.0,
-                 structGrad=True, adaGrad=False,randomizeInput = True,embeddingNotUpdate = []):
+                 structGrad=True, adaGrad=False,randomizeInput = True,embeddingNotUpdate = [], task='postag'):
         #
         # Base class constructor.
         #
         WindowModelBasic.__init__(self, lexicon, wordVectors, windowSize,
-                                  hiddenSize, _lr, numClasses, numEpochs,
+                                  hiddenSize, 0, _lr, numClasses, numEpochs,
                                   batchSize, c, charModel,
                                   learningRateUpdStrategy, randomizeInput,
                                   wordVecsUpdStrategy, False, networkAct,
-                                  norm_coef, structGrad, adaGrad)
+                                  norm_coef, structGrad, adaGrad, task)
         
         self.setTestValues = True
         
@@ -156,11 +156,14 @@ class WindowModelByWord(WindowModelBasic):
                 raise Exception("The total number of words in batch exceeds the number of words in inputData")
             
             return np.asarray(self.batchSize, dtype=np.int32);
-
-        num = numWords / self.batchSize  
-        arr = np.full(num, self.batchSize, dtype=np.int32)
-        if numWords % self.batchSize:
-            arr = np.append(arr, numWords % self.batchSize)
+        else:
+            if self.batchSize > 0 :
+                num = numWords / self.batchSize  
+                arr = np.full(num, self.batchSize, dtype=np.int32)
+                if numWords % self.batchSize:
+                    arr = np.append(arr, numWords % self.batchSize)
+            else:
+                arr = [numWords]
         
         return arr
         # return np.full(numWords/self.batchSize + 1,self.batchSize,dtype=np.int32)

@@ -33,12 +33,12 @@ class WindowModelBasic:
         self.__dict__.update(d)
         self.__log = logging.getLogger(__name__)
 
-    def __init__(self, lexicon, wordVectors , windowSize, hiddenSize, _lr,
+    def __init__(self, lexicon, wordVectors , windowSize, hiddenSize, wordConvSize, _lr,
                  numClasses, numEpochs, batchSize=1.0, c=0.0, charModel=None,
                  learningRateUpdStrategy=LearningRateUpdNormalStrategy(),
                  randomizeInput=False, wordVecsUpdStrategy='normal',
                  withoutHiddenLayer=False, networkAct='tanh', norm_coef=1.0,
-                 structGrad=True, adaGrad=False):
+                 structGrad=True, adaGrad=False, task='postag'):
         # Logging object.
         self.__log = logging.getLogger(__name__)
 
@@ -74,6 +74,7 @@ class WindowModelBasic:
         self.cost = None
         self.update = None
         self.regularizationFactor = theano.shared(c)
+        self.wordConvSize = wordConvSize
         
         self.wordVecsUpdStrategy = wordVecsUpdStrategy
         self.charModel = charModel
@@ -85,6 +86,9 @@ class WindowModelBasic:
         
         self.__structGrad = structGrad
         self.__adaGrad = adaGrad
+        
+        self.task = task
+        
         
         self.initWithBasicLayers(withoutHiddenLayer)
         
@@ -125,25 +129,59 @@ class WindowModelBasic:
         
         concatenateEmbeddings = T.concatenate( [embeddingLayer.getOutput() for embeddingLayer in self.embeddings],axis=1)
         
-        
-        # Camada: hidden layer com a função Tanh como função de ativaçãos
+        # Camada: sentence layer 
+        if self.task == 'sentiment_analysis':
+            print 'With Sentence Layer'
+            
+            if self.charModel == None:
+                self.sentenceLayer  =   HiddenLayer(concatenateEmbeddings,
+                                                        self.wordSize * self.windowSize,
+                                                        self.wordConvSize,
+                                                        activation=self.networkAct)
+                    
+            else:
+                
+                self.sentenceLayer  =   HiddenLayer(T.concatenate([concatenateEmbeddings,
+                                                                       self.charModel.getOutput()],
+                                                                      axis=1),
+                                                        (self.wordSize + self.charModel.convSize) * self.windowSize,
+                                                        self.wordConvSize,
+                                                        activation=self.networkAct)
+                                
+            mm     =   T.max(self.sentenceLayer.getOutput(), axis=0)
+
+            self.sentenceFeature = mm.reshape((1, self.wordConvSize))
+            
+
+
+        # Camada: hidden layer com a função Tanh com função de ativação
         if not withoutHiddenLayer:
             print 'With Hidden Layer'
             
-            if self.charModel == None:
-                # Camada: hidden layer com a função Tanh como função de ativação
-                self.hiddenLayer = HiddenLayer(concatenateEmbeddings,
-                                               self.wordSize * self.windowSize,
-                                               self.hiddenSize,
-                                               activation=self.networkAct)
+            if self.task == 'postag':
+                if self.charModel == None:
+                
+                    self.hiddenLayer    =   HiddenLayer(concatenateEmbeddings,
+                                                        self.wordSize * self.windowSize,
+                                                        self.hiddenSize,
+                                                        activation=self.networkAct)
+                                    
+                else:
+                
+                    self.hiddenLayer    =   HiddenLayer(T.concatenate([concatenateEmbeddings,
+                                                                       self.charModel.getOutput()],
+                                                                      axis=1),
+                                                        (self.wordSize + self.charModel.convSize) * self.windowSize,
+                                                        self.hiddenSize,
+                                                        activation=self.networkAct)
             else:
-                # Camada: hidden layer com a função Tanh como função de ativação
-                self.hiddenLayer = HiddenLayer(T.concatenate([concatenateEmbeddings,
-                                                              self.charModel.getOutput()],
-                                                             axis=1),
-                                               (self.wordSize + self.charModel.convSize) * self.windowSize,
-                                               self.hiddenSize,
-                                               activation=self.networkAct)
+                            
+                self.hiddenLayer    =   HiddenLayer(self.sentenceFeature,
+                                                    self.wordConvSize,
+                                                    self.hiddenSize,
+                                                    activation='tanh')
+
+                    
         else:
             print 'Without Hidden Layer'
     
@@ -192,51 +230,93 @@ class WindowModelBasic:
                           name="y_shared",
                           borrow=True)
         
-        numExs = len(inputData)
-        if self.batchSize > 0:
-            numBatches = numExs / self.batchSize
-            if numBatches <= 0:
-                numBatches = 1
-                self.batchSize = numExs
-            elif numExs % self.batchSize > 0:
-                numBatches += 1
-        else:
-            numBatches = 1
-            self.batchSize = numExs
-
-        log.info("Training with %d examples using %d mini-batches (batchSize=%d)..." % (numExs, numBatches, self.batchSize))
         
+#===============================================================================
+#         numExs = len(inputData)
+#         if self.batchSize > 0:
+#             numBatches = numExs / self.batchSize
+#             if numBatches <= 0:
+#                 numBatches = 1
+#                 self.batchSize = numExs
+#             elif numExs % self.batchSize > 0:
+#                 numBatches += 1
+#         else:
+#             numBatches = 1
+#             self.batchSize = numExs
+#         
+# 
+#         log.info("Training with %d examples using %d mini-batches (batchSize=%d)..." % (numExs, numBatches, self.batchSize))
+#===============================================================================
+        
+        
+              
         # This is the index of the batch to be trained.
         # It is multiplied by self.batchSize to provide the correct slice
         # for each training iteration.
         batchIndex = T.iscalar("batchIndex")
+        index = T.iscalar("index")
+        senIndex = T.iscalar("senIndex")
+        batchesSize = self.confBatchSize(inputData)
+        numBatches = len(batchesSize)
         
-        # Word-level training data (input and output).
+        self.beginBlock = []    
+        pos = 0
         
+        for v in batchesSize:
+            self.beginBlock.append(pos)
+            pos += v
+        
+        # Word-level training data (input and output).    
         # Character-level training data.
-        if self.charModel:
-            charInput = theano.shared(self.charModel.getAllWordCharWindowIndexes(indexesOfRawWord), borrow=True)
-            givens = {
-                      self.windowIdxs: windowIdxs[batchIndex * self.batchSize : (batchIndex + 1) * self.batchSize],
-                      self.y: y[batchIndex * self.batchSize : (batchIndex + 1) * self.batchSize],
-                      self.charModel.charWindowIdxs : charInput[batchIndex * self.batchSize : (batchIndex + 1) * self.batchSize]
-                     }
-        else:
-            givens = {
-                      self.windowIdxs: windowIdxs[batchIndex * self.batchSize : (batchIndex + 1) * self.batchSize],
-                      self.y: y[batchIndex * self.batchSize : (batchIndex + 1) * self.batchSize],
-                     }
         
-        # Train function.
-        # train = theano.function(inputs=[self.windowIdxs, batchIndex, self.lr],
-        train = theano.function(inputs=[batchIndex, self.lr],
-                                outputs=self.cost,
-                                updates=self.updates,
-                                givens=givens)
-        
+        if self.task == 'postag':
+            if self.charModel:
+                charInput = theano.shared(self.charModel.getAllWordCharWindowIndexes(indexesOfRawWord), borrow=True)
+                givens = {
+                          self.windowIdxs: windowIdxs[ index : index + batchIndex ],
+                          self.y: y[ index : index + batchIndex],
+                          self.charModel.charWindowIdxs : charInput[ index : index + batchIndex ]
+                         }
+            else:
+                givens = {
+                          self.windowIdxs: windowIdxs[ index : index + batchIndex ],
+                          self.y: y[ index : index + batchIndex ]
+                         }
+            
+            # Train function.
+            train = theano.function(inputs=[index, batchIndex, self.lr],
+                                    outputs=self.cost,
+                                    updates=self.updates,
+                                    givens=givens)
+            
+            
+        elif self.task == 'sentiment_analysis':
+            
+            if self.charModel:
+                
+                charInput = theano.shared(self.charModel.getAllWordCharWindowIndexes(indexesOfRawWord), borrow=True)
+                givens = {
+                          self.windowIdxs: windowIdxs[ index : index + batchIndex ],
+                          self.y: y[ senIndex : senIndex + 1],
+                          self.charModel.charWindowIdxs : charInput[ index : index + batchIndex ]
+                         }
+            else:
+                givens = {
+                          self.windowIdxs: windowIdxs[ index : index + batchIndex ],
+                          self.y: y[ senIndex : senIndex + 1]
+                         }
+            
+            # Train function.
+            train = theano.function(inputs=[senIndex, index, batchIndex, self.lr],
+                                    outputs=self.cost,
+                                    updates=self.updates,
+                                    givens=givens)
+            
+                
+               
         # Indexes of all training (mini) batches.
         idxList = range(numBatches)
-        
+                
         for epoch in range(1, self.numEpochs + 1):
             print 'Training epoch ' + str(epoch) + '...'
             
@@ -251,7 +331,12 @@ class WindowModelBasic:
             
             # Train each mini-batch.
             for idx in idxList:
-                train(idx, lr)
+                if self.task == 'postag':
+                    train( self.beginBlock[idx], batchesSize[idx], lr)
+                    
+                else:
+                    train( idx, self.beginBlock[idx], batchesSize[idx], lr)
+                    
                 # train(windowIdxs[idx * self.batchSize : (idx + 1) * self.batchSize], idx, lr)    
             
             print 'Time to training the epoch  ' + str(time.time() - t1)

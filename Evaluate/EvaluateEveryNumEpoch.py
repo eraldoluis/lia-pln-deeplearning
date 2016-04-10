@@ -1,5 +1,5 @@
 from _collections import deque
-
+import numpy as np
 
 
 class EvaluateEveryNumEpoch:
@@ -34,11 +34,14 @@ class EvaluateEveryNumEpoch:
         
         numEpochToEval = self.deque[0];
         
-        if numEpochToEval > 0 and numEpoch != numEpochToEval :
+        if numEpochToEval > 0 and numEpoch != numEpochToEval:
             return;
         
         print 'Testing...'        
         predicts = self.model.predict(self.inputData,self.inputDataRaw,self.unknownDataTest)
+        predicts = np.asarray(predicts).flatten()
+        self.correct = np.asarray(self.correct).flatten()
+        
         self.evaluate.evaluateWithPrint(predicts,self.correct)
         
         self.deque.popleft()

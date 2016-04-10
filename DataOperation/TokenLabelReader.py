@@ -6,12 +6,14 @@
 import re
 import codecs
 import logging
+import csv
 
 class TokenLabelReader:
     
-    def __init__(self, fileWithFeatures, tokenLabelSeparator):
+    def __init__(self, fileWithFeatures, tokenLabelSeparator, task):
         self.fileWithFeatures = fileWithFeatures
         self.__tokenLabelSeparator = tokenLabelSeparator
+        self.task = task
     
     def readTestData(self, filename, lexicon, lexiconOfLabel, lexiconRaw, 
                      separateSentences=True, addWordUnknown=False, 
@@ -114,9 +116,22 @@ class TokenLabelReader:
         
             self.addLabel(lexiconOfLabel, labelsBySentence, s[1])
     
+    def readTokenAndSentOfRawFile(self, lexicon, wordVecs, addWordUnknown, filters, indexesBySentence, lexiconRaw, indexesOfRawBySentence, numCharsOfRawBySentence, token, setWordsInDataSet, unknownData, withCharwnn, charVars, addCharUnknown, unknownDataCharIdxs):
     
-
+        self.addToken(lexicon, wordVecs, addWordUnknown, filters, indexesBySentence, token, setWordsInDataSet, unknownData,
+                          lexiconRaw, indexesOfRawBySentence, numCharsOfRawBySentence, withCharwnn, charVars, addCharUnknown, unknownDataCharIdxs)
+        
+ 
     def readData(self, filename, lexicon, lexiconOfLabel, lexiconRaw, wordVecs=None, separateSentences=True, addWordUnknown=False, withCharwnn=False, charVars=[None, None, {}, []], addCharUnknown=False, filters=[], setWordsInDataSet=None, unknownDataTest=[], unknownDataTestCharIdxs=None):
+        
+        if self.task == 'postag':
+            return self.readDataPostag(filename, lexicon, lexiconOfLabel, lexiconRaw, wordVecs, separateSentences, addWordUnknown, withCharwnn, charVars, addCharUnknown, filters, setWordsInDataSet, unknownDataTest, unknownDataTestCharIdxs)
+        elif self.task == 'sentiment_analysis':
+            return self.readDataSentAnalysis(filename, lexicon, lexiconOfLabel, lexiconRaw, wordVecs, separateSentences, addWordUnknown, withCharwnn, charVars, addCharUnknown, filters, setWordsInDataSet, unknownDataTest, unknownDataTestCharIdxs)
+            
+    
+    def readDataPostag(self, filename, lexicon, lexiconOfLabel, lexiconRaw, wordVecs=None, separateSentences=True, addWordUnknown=False, withCharwnn=False, charVars=[None, None, {}, []], addCharUnknown=False, filters=[], setWordsInDataSet=None, unknownDataTest=[], unknownDataTestCharIdxs=None):
+                
         '''
         Read the data from a file and return a matrix which the first row is the words indexes, second row is the labels values and 
         the third row has the indexes of the raw words, and the fourth the number of chars each word in the training set has.
@@ -175,5 +190,57 @@ class TokenLabelReader:
         
         return data
     
+    def readDataSentAnalysis(self, filename, lexicon, lexiconOfLabel, lexiconRaw, wordVecs=None, separateSentences=True, addWordUnknown=False, withCharwnn=False, charVars=[None, None, {}, []], addCharUnknown=False, filters=[], setWordsInDataSet=None, unknownDataTest=[], unknownDataTestCharIdxs=None):
+                
+        '''
+        Read the data from a file and return a matrix which the first row is the words indexes, second row is the labels values and 
+        the third row has the indexes of the raw words, and the fourth the number of chars each word in the training set has.
+        '''
+        data = [[], [], [], []]
+        indexes = data[0]
+        labels = data[1]
+        indexesOfRaw = data[2]
+        numCharsOfRaw = data[3]
+        
+                
+        func = self.readTokenAndSentOfRawFile
+        
+        f = open(filename, 'rb') # opens the csv file
+        try:
+            reader = csv.reader(f)  # creates the reader object
+            for row in reader:   # iterates the rows of the file in orders
+                
+                # Ignore empty lines.
+                if len(row) < 2:
+                    continue
+                
+                line_split = row[1].split()
+                # Ignore empty twittes.
+                if len(line_split) == 0:
+                    continue
+                
+                labels.append(lexiconOfLabel.put(row[0]))
+                               
+                indexesBySentence = []
+                indexesOfRawBySentence = []
+                numCharsOfRawBySentence = []
+                unknownDataBySentence = [] if unknownDataTest is not None else None
+                
+                for token in line_split:
+                    func(lexicon, wordVecs, addWordUnknown, filters, indexesBySentence, lexiconRaw, 
+                         indexesOfRawBySentence, numCharsOfRawBySentence, token, setWordsInDataSet,
+                         unknownDataBySentence, withCharwnn, charVars, addCharUnknown, unknownDataTestCharIdxs)
+                
+                indexes.append(indexesBySentence)
+                indexesOfRaw.append(indexesOfRawBySentence)
+                numCharsOfRaw.append(numCharsOfRawBySentence)
+                
+                if unknownDataTest is not None:
+                    unknownDataTest.append(unknownDataBySentence)
+                
+        finally:
+            f.close()
+                            
+        return data
     
     

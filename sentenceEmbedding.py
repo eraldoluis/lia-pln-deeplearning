@@ -10,7 +10,7 @@ from NNet.Util import LearningRateUpdNormalStrategy
 from WindowModelBasic import WindowModelBasic
 from NNet.Layer import Layer
 
-class EmbeddingConvolutionalLayer(Layer):
+class SentenceEmbedding(Layer):
     """
     Convolutional layer of embedding features.
     
@@ -46,7 +46,7 @@ class EmbeddingConvolutionalLayer(Layer):
         self.CharIdxWord = charIdxWord
         
         # Feature embedding
-        self.__embedding = theano.shared(name='conv_embedding',
+        self.__embedding = theano.shared(name='sen_conv_embedding',
                                          value=np.asarray(charVectors.getWordVectors(),
                                                           dtype=theano.config.floatX),
                                          borrow=True)

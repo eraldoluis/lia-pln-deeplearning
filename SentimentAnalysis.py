@@ -24,10 +24,10 @@ from NNet.Util import LearningRateUpdDivideByEpochStrategy, \
 from Evaluate.EvaluatePercPredictsCorrectNotInWordSet import EvaluatePercPredictsCorrectNotInWordSet
 import random
 import os
-import theano
+#import theano
 
-theano.config.exception_verbosity='high'
-theano.config.optimizer='None'
+#theano.config.exception_verbosity='high'
+#theano.config.optimizer='None'
 
 
 def readVocabAndWord(args):

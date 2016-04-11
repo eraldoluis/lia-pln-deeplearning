@@ -9,6 +9,9 @@ from NNet.Util import negative_log_likelihood, LearningRateUpdNormalStrategy, \
     defaultGradParameters
 from WindowModelBasic import WindowModelBasic
 import numpy
+from WindowModelBySentence import NeuralNetworkChoiceEnum
+import theano.tensor as T
+import logging
 
 class WindowModelByWord(WindowModelBasic):
     
@@ -16,7 +19,10 @@ class WindowModelByWord(WindowModelBasic):
                  numClasses, numEpochs, batchSize=1, c=0.0, charModel=None,
                  learningRateUpdStrategy=LearningRateUpdNormalStrategy(),
                  wordVecsUpdStrategy='normal', networkAct='tanh', norm_coef=1.0,
-                 structGrad=True, adaGrad=False,randomizeInput = True,embeddingNotUpdate = []):
+                 structGrad=True, adaGrad=False,randomizeInput = True,
+                 embeddingNotUpdate = [],choiceNetwork = NeuralNetworkChoiceEnum.COMPLETE):
+        
+        self.__log  = logging.getLogger(__name__)
         #
         # Base class constructor.
         #
@@ -24,15 +30,25 @@ class WindowModelByWord(WindowModelBasic):
                                   hiddenSize, _lr, numClasses, numEpochs,
                                   batchSize, c, charModel,
                                   learningRateUpdStrategy, randomizeInput,
-                                  wordVecsUpdStrategy, False, networkAct,
-                                  norm_coef, structGrad, adaGrad)
+                                  wordVecsUpdStrategy, NeuralNetworkChoiceEnum.withoutHiddenLayer(choiceNetwork), 
+                                  networkAct,norm_coef, structGrad, adaGrad)
         
         self.setTestValues = True
         
-        # A camada de saída é um softmax sobre as classes.
-        self.softmax = SoftmaxLayer(self.hiddenLayer.getOutput(),
-                                    self.hiddenSize,
-                                    numClasses)
+        if NeuralNetworkChoiceEnum.withoutHiddenLayer(choiceNetwork):
+            if self.charModel == None:
+                self.__log.info('Softmax linked with w2v')
+                self.softmax = SoftmaxLayer(self.concatenateEmbeddings, self.wordSize * self.windowSize, numClasses);
+            else:
+                self.__log.info('Softmax linked with w2v and charwv')    
+                self.softmax = SoftmaxLayer(T.concatenate([self.concatenateEmbeddings, self.charModel.getOutput()], axis=1), 
+                                            (self.wordSize + self.charModel.convSize) * self.windowSize , 
+                                            numClasses);
+        else:
+            # A camada de saída é um softmax sobre as classes.
+            self.softmax = SoftmaxLayer(self.hiddenLayer.getOutput(),
+                                        self.hiddenSize,
+                                        numClasses)
         
         # Saída da rede.
         output = self.softmax.getOutput()
@@ -44,9 +60,16 @@ class WindowModelByWord(WindowModelBasic):
         # TODO: criar uma forma de integrar a regularização.
         # + regularizationSquareSumParamaters(self.parameters, self.regularizationFactor, self.y.shape[0])
         #
+        if NeuralNetworkChoiceEnum.withoutUpdateWv(choiceNetwork):
+            self.__log.info("Without update word embeddings")
+            embeddingNotUpdate += range(len(self.embeddings))
         
         # List of layers.
-        layers = self.embeddings + [self.hiddenLayer, self.softmax]
+        layers = self.embeddings + [self.softmax]
+        
+        if not NeuralNetworkChoiceEnum.withoutHiddenLayer(choiceNetwork):
+            layers.append(self.hiddenLayer)
+            
         idxToUpdateLayer = filter(lambda k: k not in embeddingNotUpdate , range(0,len(layers)))
         layersToUpdate = [layers[idx] for idx in idxToUpdateLayer]
         

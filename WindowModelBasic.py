@@ -123,29 +123,29 @@ class WindowModelBasic:
                                 structGrad=self.__structGrad)
             self.embeddings.append(embedding)
         
-        concatenateEmbeddings = T.concatenate( [embeddingLayer.getOutput() for embeddingLayer in self.embeddings],axis=1)
+        self.concatenateEmbeddings = T.concatenate( [embeddingLayer.getOutput() for embeddingLayer in self.embeddings],axis=1)
         
         
         # Camada: hidden layer com a função Tanh como função de ativaçãos
         if not withoutHiddenLayer:
-            print 'With Hidden Layer'
+            self.__log.info('With Hidden Layer')
             
             if self.charModel == None:
                 # Camada: hidden layer com a função Tanh como função de ativação
-                self.hiddenLayer = HiddenLayer(concatenateEmbeddings,
+                self.hiddenLayer = HiddenLayer(self.concatenateEmbeddings,
                                                self.wordSize * self.windowSize,
                                                self.hiddenSize,
                                                activation=self.networkAct)
             else:
                 # Camada: hidden layer com a função Tanh como função de ativação
-                self.hiddenLayer = HiddenLayer(T.concatenate([concatenateEmbeddings,
+                self.hiddenLayer = HiddenLayer(T.concatenate([self.concatenateEmbeddings,
                                                               self.charModel.getOutput()],
                                                              axis=1),
                                                (self.wordSize + self.charModel.convSize) * self.windowSize,
                                                self.hiddenSize,
                                                activation=self.networkAct)
         else:
-            print 'Without Hidden Layer'
+            self.__log.info('Without Hidden Layer')
     
     def getAllWindowIndexes(self, data):
         raise NotImplementedError();
@@ -252,7 +252,12 @@ class WindowModelBasic:
             # Train each mini-batch.
             for idx in idxList:
                 train(idx, lr)
-                # train(windowIdxs[idx * self.batchSize : (idx + 1) * self.batchSize], idx, lr)    
+                # train(windowIdxs[idx * self.batchSize : (idx + 1) * self.batchSize], idx, lr)
+            
+#             for idx, w in enumerate(self.Wv):
+#                 print idx
+#                 print w.get_value()
+#             
             
             print 'Time to training the epoch  ' + str(time.time() - t1)
             

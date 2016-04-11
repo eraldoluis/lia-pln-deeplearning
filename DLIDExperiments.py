@@ -5,6 +5,7 @@ import sys
 import argparse
 import os
 import logging
+import logging.config
 import codecs
 import calendar
 import time
@@ -806,26 +807,32 @@ def doOneExperiment(mainExperimentDir, runNumber, args, w2vStrategy, intermediat
     
 
 def main():
+    full_path = os.path.realpath(__file__)
+    path, filename = os.path.split(full_path)
         
-    parser = DLIDExperiments.getArgumentParser()
+    logging.config.fileConfig(os.path.join(path,'logging.conf'))
     
+    logger = logging.getLogger("Logger")
+    formatter = logging.Formatter('[%(asctime)s]\t%(message)s')
+    
+    ch = logging.StreamHandler()
+    ch.setLevel(logging.INFO)
+    ch.setFormatter(formatter)
+    logger.addHandler(ch)
+    
+    logger.setLevel(logging.INFO)
+    
+    
+    parser = DLIDExperiments.getArgumentParser()
    
     try:
         args = parser.parse_args();
     except:
         parser.print_help()
         sys.exit(0)
-    logger = logging.getLogger("Logger")
-    formatter = logging.Formatter('[%(asctime)s]\t%(message)s')
     
-    ch = logging.StreamHandler()
-    ch.setLevel(logging.INFO)
     
-    ch.setFormatter(formatter)
-
-    logger.addHandler(ch)
-    logger.setLevel(logging.INFO)
-        
+            
     beginExperimentDate = datetime.datetime.now().strftime("%Y-%m-%d_%H-%M-%S.%f")
     mainExperimentDirName = beginExperimentDate;
     mainExperimentDir = os.path.join(args.dirOutputTrain, mainExperimentDirName) 

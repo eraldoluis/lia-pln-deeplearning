@@ -304,7 +304,10 @@ def run(args):
             print 'Loading test data...'
             unknownDataTestCharIdxs = []
             
-            testData = datasetReader.readTestData(args.test, lexicon, lexiconOfLabel, lexiconRaw, separeSentence, False, args.withCharwnn, charVars, False, filters, unknownDataTest, unknownDataTestCharIdxs)
+            testData = datasetReader.readTestData(args.test, lexicon, lexiconOfLabel, lexiconRaw, 
+                                                  separeSentence, False, args.withCharwnn, charVars, False, 
+                                                  filters, unknownDataTest, unknownDataTestCharIdxs)
+            
             
             evalListener = EvaluateEveryNumEpoch(args.numepochs, args.numPerEpoch, EvaluateAccuracy(), model, testData[0], testData[1], testData[2], unknownDataTestCharIdxs)
             

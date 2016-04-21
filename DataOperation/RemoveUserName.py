@@ -6,8 +6,10 @@ import re
 class RemoveUserName:
     
     def filter(self,token):
-        if re.search('@[_a-zA-Z]+', token):
+        if re.search('@[_]*[a-zA-Z]+', token):
             return '<user>'
-        return token        
+    
+        return token       
+                
         
     

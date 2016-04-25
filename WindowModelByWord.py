@@ -15,14 +15,26 @@ import logging
 
 class WindowModelByWord(WindowModelBasic):
     
+    def __getstate__(self):
+        d = dict(self.__dict__)
+        del d['_WindowModelByWord__log']
+        del d['_WindowModelBasic__log']
+        return d
+    
+    def __setstate__(self, d):
+        d['_WindowModelBasic__log'] = logging.getLogger(WindowModelBasic.__name__)
+        self.__dict__.update(d)
+        self.__log = logging.getLogger(__name__)
+    
+    
     def __init__(self, lexicon, wordVectors , windowSize, hiddenSize, _lr,
                  numClasses, numEpochs, batchSize=1, c=0.0, charModel=None,
                  learningRateUpdStrategy=LearningRateUpdNormalStrategy(),
                  wordVecsUpdStrategy='normal', networkAct='tanh', norm_coef=1.0,
                  structGrad=True, adaGrad=False,randomizeInput = True,
                  embeddingNotUpdate = [],choiceNetwork = NeuralNetworkChoiceEnum.COMPLETE):
+        self.__log = logging.getLogger(__name__)
         
-        self.__log  = logging.getLogger(__name__)
         #
         # Base class constructor.
         #

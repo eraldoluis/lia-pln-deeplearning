@@ -18,7 +18,7 @@ from TransferRate.WordFeatureGenerator import Word2VecGenerate, \
     ChosenUnknownStrategy
 from DataOperation.WordVector import WordVector
 from util.util import getFileNameInPath, removeExtension
-from TransferRate import CRFSuite
+# from TransferRate import CRFSuite
 import Postag
 import importlib
 from DataOperation.Lexicon import Lexicon

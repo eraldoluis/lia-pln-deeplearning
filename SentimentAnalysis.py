@@ -261,7 +261,9 @@ def run(args):
         else:
             raise Exception('Unknown Word Value passed does not exist in the unsupervised dictionary')
 
-        print "No dataset tem: " + str(lexicon.getLen()) + " vocabularios e \n\t\t"+ str(charVars[0].getLen()) + " caracteres diferentes."
+        print "No dataset tem: " + str(lexicon.getLen()) + " vocabularios "
+        if args.withCharwnn:
+            print '\t\t' + str(charVars[0].getLen()) + " caracteres diferentes."
         
                
         if args.networkChoice == "complete":

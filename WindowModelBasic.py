@@ -38,7 +38,7 @@ class WindowModelBasic:
                  learningRateUpdStrategy=LearningRateUpdNormalStrategy(),
                  randomizeInput=False, wordVecsUpdStrategy='normal',
                  withoutHiddenLayer=False, networkAct='tanh', norm_coef=1.0,
-                 structGrad=True, adaGrad=False, task='postag'):
+                 structGrad=True, adaGrad=False, task='postag', senLayerWithAct=False):
         # Logging object.
         self.__log = logging.getLogger(__name__)
 
@@ -65,7 +65,7 @@ class WindowModelBasic:
         self.learningRateUpdStrategy = learningRateUpdStrategy;
         self.hiddenSize = hiddenSize;
         self.windowSize = windowSize
-        self.regularizationFactor = c;
+        
         self.startSymbol = lexicon.getLexiconIndex(WindowModelBasic.startSymbolStr)
         self.endSymbol = lexicon.getLexiconIndex(WindowModelBasic.endSymbolStr)
         self.numClasses = numClasses
@@ -88,7 +88,7 @@ class WindowModelBasic:
         self.__adaGrad = adaGrad
         
         self.task = task
-        
+        self.senLayerWithAct = senLayerWithAct
         
         self.initWithBasicLayers(withoutHiddenLayer)
         
@@ -127,26 +127,27 @@ class WindowModelBasic:
                                 structGrad=self.__structGrad)
             self.embeddings.append(embedding)
         
-        concatenateEmbeddings = T.concatenate( [embeddingLayer.getOutput() for embeddingLayer in self.embeddings],axis=1)
+        self.concatenateEmbeddings = T.concatenate( [embeddingLayer.getOutput() for embeddingLayer in self.embeddings],axis=1)
         
         # Camada: sentence layer 
         if self.task == 'sentiment_analysis':
             print 'With Sentence Layer'
             
+            act = self.networkAct if self.senLayerWithAct == True else None
             if self.charModel == None:
-                self.sentenceLayer  =   HiddenLayer(concatenateEmbeddings,
+                self.sentenceLayer  =   HiddenLayer(self.concatenateEmbeddings,
                                                         self.wordSize * self.windowSize,
                                                         self.wordConvSize,
-                                                        activation=self.networkAct)
+                                                        activation=act)
                     
             else:
                 
-                self.sentenceLayer  =   HiddenLayer(T.concatenate([concatenateEmbeddings,
+                self.sentenceLayer  =   HiddenLayer(T.concatenate([self.concatenateEmbeddings,
                                                                        self.charModel.getOutput()],
                                                                       axis=1),
                                                         (self.wordSize + self.charModel.convSize) * self.windowSize,
                                                         self.wordConvSize,
-                                                        activation=self.networkAct)
+                                                        activation=act)
                                 
             mm     =   T.max(self.sentenceLayer.getOutput(), axis=0)
 
@@ -161,14 +162,14 @@ class WindowModelBasic:
             if self.task == 'postag':
                 if self.charModel == None:
                 
-                    self.hiddenLayer    =   HiddenLayer(concatenateEmbeddings,
+                    self.hiddenLayer    =   HiddenLayer(self.concatenateEmbeddings,
                                                         self.wordSize * self.windowSize,
                                                         self.hiddenSize,
                                                         activation=self.networkAct)
                                     
                 else:
                 
-                    self.hiddenLayer    =   HiddenLayer(T.concatenate([concatenateEmbeddings,
+                    self.hiddenLayer    =   HiddenLayer(T.concatenate([self.concatenateEmbeddings,
                                                                        self.charModel.getOutput()],
                                                                       axis=1),
                                                         (self.wordSize + self.charModel.convSize) * self.windowSize,
@@ -179,7 +180,7 @@ class WindowModelBasic:
                 self.hiddenLayer    =   HiddenLayer(self.sentenceFeature,
                                                     self.wordConvSize,
                                                     self.hiddenSize,
-                                                    activation='tanh')
+                                                    activation=self.networkAct)
 
                     
         else:

@@ -4,7 +4,7 @@ import numpy as np
 
 class EvaluateEveryNumEpoch:
     
-    def __init__(self,numEpochToTrain,numEpochToEval,evaluate,model,inputData,correct,inputDataRaw,unknownDataTestCharIdxs):
+    def __init__(self, numEpochToTrain, numEpochToEval, evaluate, model, inputData ,correct ,inputDataRaw, unknownDataTestCharIdxs):
         self.model = model
         self.inputData = inputData
         self.inputDataRaw = inputDataRaw
@@ -27,7 +27,7 @@ class EvaluateEveryNumEpoch:
                 a += numEpochToEval[0]        
         
     
-    def afterEpoch(self,numEpoch):
+    def afterEpoch(self, numEpoch):
         
         if len(self.deque) == 0:
             return;
@@ -38,10 +38,10 @@ class EvaluateEveryNumEpoch:
             return;
         
         print 'Testing...'        
-        predicts = self.model.predict(self.inputData,self.inputDataRaw,self.unknownDataTest)
+        predicts = self.model.predict(self.inputData, self.inputDataRaw, self.unknownDataTest)
         predicts = np.asarray(predicts).flatten()
         self.correct = np.asarray(self.correct).flatten()
         
-        self.evaluate.evaluateWithPrint(predicts,self.correct)
+        self.evaluate.evaluateWithPrint(predicts, self.correct)
         
         self.deque.popleft()

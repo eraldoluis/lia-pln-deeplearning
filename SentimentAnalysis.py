@@ -72,10 +72,10 @@ def run(args):
         lexicon, lexiconOfLabel, lexiconRaw, model, charVars = pickle.load(f)
         f.close()
 
-        if isinstance(model, WindowModelByWord):
-            separeSentence = False
-        elif isinstance(model, WindowModelBySentence):
-            separeSentence = True
+        #if isinstance(model, WindowModelByWord):
+        #    separeSentence = False
+        #elif isinstance(model, WindowModelBySentence):
+        separeSentence = True
         if model.charModel == None:
             print "The loaded model does not include a char embedding"
             args.withCharwnn = False
@@ -122,13 +122,14 @@ def run(args):
         
         if args.vocab is not None or args.wordVectors is not None:
             lexicon, wordVector = readVocabAndWord(args)
+            args.wordVecsInit = 'vocab'
             
             if lexicon.isUnknownIndex(lexicon.getLexiconIndex(WindowModelBasic.startSymbolStr)):
-                print "O vocabulário não possui o símbolo de começo\"<s>)\""
+                print "O vocabulário não possui o símbolo de começo '<s>'"
                 lexicon.put(WindowModelBasic.startSymbolStr)
                 wordVector.append(None)
             if lexicon.isUnknownIndex(lexicon.getLexiconIndex(WindowModelBasic.endSymbolStr)):
-                print "O vocabulário não possui o símbolo de final\"<\s>)\""
+                print "O vocabulário não possui o símbolo de fim '<\s>'"
                 lexicon.put(WindowModelBasic.endSymbolStr)
                 wordVector.append(None)
 #             if lexicon.getLen() != wordVector.getLength():
@@ -165,44 +166,7 @@ def run(args):
         
         if isinstance(wordVector, WordVector):
             wordVector = [wordVector]
-
-        if args.unknownWordStrategy == "random":
-            if lexicon.isWordExist(unknownNameDefault):
-                raise Exception(unknownNameDefault + u' already exists in the vocabulary.')
-            
-            lexiconIndex = lexicon.put(unknownNameDefault)
-            lexicon.setUnknownIndex(lexiconIndex)
-#             wordVector.append(None)
-            for wv in wordVector:
-                wv.append(None) 
-            
-        
-        elif args.unknownWordStrategy == "mean_vector":
-            if lexicon.isWordExist(unknownNameDefault):
-                raise Exception(unknownNameDefault + u' already exists in the vocabulary.')
-            if args.meanSize < 1 and args.meanSize > 0:
-                mean_size = int(wordVector.getLength() * args.meanSize)
-            else:
-                mean_size = int(args.meanSize)
-            
-            lexiconIndex = lexicon.put(unknownNameDefault)
-            lexicon.setUnknownIndex(lexiconIndex)
-#             wordVector.append(unknownWordVector.tolist())
-            for wv in wordVector:
-                unknownWordVector = numpy.mean(numpy.asarray(wv.getWordVectors()[wv.getLength() - mean_size:]), 0)
-                wv.append(unknownWordVector.tolist())
-            
-
-        elif args.unknownWordStrategy == "word_vocab":
-            #lexiconIndex = lexicon.getLexiconIndex(unicode(args.unknownWord, "utf-8"))
-            lexiconIndex = lexicon.getLexiconIndex(args.unknownWord)
-            if lexicon.isUnknownIndex(lexiconIndex):
-                raise Exception('Unknown Word Value passed does not exist in the unsupervised dictionary')
-            lexicon.setUnknownIndex(lexiconIndex)
-        
-        else:
-            raise Exception('Unknown Word Value passed does not exist in the unsupervised dictionary')
-        
+                
         if args.withCharwnn:
             
             idx = lexiconRaw.put(WindowModelBasic.startSymbolStr)
@@ -239,9 +203,9 @@ def run(args):
         
         lexiconFindInTrain = set() if args.testOOSV else None
         
-        #if args.alg == "window_word":
         separeSentence = True
         print 'Loading train data...'
+        
         trainData = datasetReader.readData(args.train, lexicon,
                                            lexiconOfLabel, lexiconRaw,
                                            wordVector, separeSentence,
@@ -250,6 +214,56 @@ def run(args):
                                            lexiconFindInTrain)
         
         
+        if args.unknownWordStrategy == "random":
+            if lexicon.isWordExist(unknownNameDefault):
+                raise Exception(unknownNameDefault + u' already exists in the vocabulary.')
+            
+            lexiconIndex = lexicon.put(unknownNameDefault)
+            lexicon.setUnknownIndex(lexiconIndex)
+#             wordVector.append(None)
+            for wv in wordVector:
+                wv.append(None)
+                
+                if args.wordVecsInit == 'randomAll':
+                    wv.startAllRandom()
+            
+        elif args.unknownWordStrategy == "mean_vector":
+            
+            
+            if lexicon.isWordExist(unknownNameDefault):
+                raise Exception(unknownNameDefault + u' already exists in the vocabulary.')
+            if args.meanSize < 1 and args.meanSize > 0:
+                mean_size = int(wordVector.getLength() * args.meanSize)
+            else:
+                mean_size = int(args.meanSize)
+            
+            lexiconIndex = lexicon.put(unknownNameDefault)
+            lexicon.setUnknownIndex(lexiconIndex)
+#             wordVector.append(unknownWordVector.tolist())
+            for wv in wordVector:
+                if args.wordVecsInit == 'randomAll':
+                    wv.startAllRandom()
+                
+                unknownWordVector = numpy.mean(numpy.asarray(wv.getWordVectors()[wv.getLength() - mean_size:]), 0)
+                wv.append(unknownWordVector.tolist())
+
+        elif args.unknownWordStrategy == "word_vocab":
+            
+            if args.wordVecsInit == 'randomAll':
+                for wv in wordVector:
+                    wv.startAllRandom()
+            #lexiconIndex = lexicon.getLexiconIndex(unicode(args.unknownWord, "utf-8"))
+            lexiconIndex = lexicon.getLexiconIndex(args.unknownWord)
+            if lexicon.isUnknownIndex(lexiconIndex):
+                raise Exception('Unknown Word Value passed does not exist in the unsupervised dictionary')
+            lexicon.setUnknownIndex(lexiconIndex)
+
+        else:
+            raise Exception('Unknown Word Value passed does not exist in the unsupervised dictionary')
+
+        print "No dataset tem: " + str(lexicon.getLen()) + " vocabularios e \n\t\t"+ str(charVars[0].getLen()) + " caracteres diferentes."
+        
+               
         if args.networkChoice == "complete":
                 networkChoice = NeuralNetworkChoiceEnum.COMPLETE
         elif args.networkChoice == "without_hidden_update_wv":
@@ -264,17 +278,22 @@ def run(args):
         if args.withCharwnn:
             if args.charVecsInit == 'randomAll':
                 charVars[1].startAllRandom()
-            if args.charVecsUpdStrategy == 'min_max' or args.charVecsInit == 'min_max':
+            if args.charVecsUpdStrategy == 'minmax' or args.charVecsInit == 'minmax':
                 charVars[1].minMax(args.norm_coef)
-            elif args.charVecsUpdStrategy == 'z_score' or args.charVecsInit == 'z_score':
+            elif args.charVecsUpdStrategy == 'zscore' or args.charVecsInit == 'zscore':
                 charVars[1].zScore(args.norm_coef)
-
+                
+                
+            regularization_factor = args.c
+            if args.diff_reg:
+                regularization_factor = args.reg_coef_char
+                
             charModel = EmbeddingConvolutionalLayer(charVars[0], charVars[1], 
                                                     charVars[2], args.maxSizeOfWord, 
                                                     args.charWindowSize, 
                                                     args.wordWindowSize,
                                                     args.charConvSize, 
-                                                    numClasses, args.c, 
+                                                    numClasses, regularization_factor, 
                                                     learningRateUpdStrategy, 
                                                     separeSentence, 
                                                     args.charwnnWithAct, 
@@ -282,23 +301,28 @@ def run(args):
                                                     args.networkAct, 
                                                     args.norm_coef)
         
-        if args.wordVecsInit == 'randomAll':
-            wordVector.startAllRandom()
-        if args.wordVecsUpdStrategy == 'min_max' or args.wordVecsInit == 'min_max':
-            wordVector.minMax(args.norm_coef)
-        elif args.wordVecsUpdStrategy == 'z_score' or args.wordVecsInit == 'z_score':
-            wordVector.zScore(args.norm_coef)
+    
+        if args.wordVecsUpdStrategy == 'minmax' or args.wordVecsInit == 'minmax':
+            for wv in wordVector:
+                wv.minMax(args.norm_coef)
+        elif args.wordVecsUpdStrategy == 'zscore' or args.wordVecsInit == 'zscore':
+            for wv in wordVector:
+                wv.zScore(args.norm_coef)
         
+        regularization_factor = args.c
+        if args.diff_reg:
+            regularization_factor = [args.reg_coef_char, args.reg_coef_sen, args.reg_coef_hid]
        
         model = WindowModelBySentence(lexicon, wordVector, args.wordWindowSize, 
                                       args.hiddenSize, args.wordConvSize, args.lr, numClasses, 
-                                      args.numepochs, args.batchSize, args.c, 
+                                      args.numepochs, args.batchSize, regularization_factor, 
                                       charModel, learningRateUpdStrategy, 
                                       args.wordVecsUpdStrategy, networkChoice, 
                                       args.networkAct, args.norm_coef, not args.noStructGrad,
                                       adaGrad=args.adaGrad,
                                       randomizeInput=not args.notRandomizeInput,
-                                      embeddingNotUpdate=args.nonupdatewv, task='sentiment_analysis', structPrediction=args.structPrediction )
+                                      embeddingNotUpdate=args.nonupdatewv, task='sentiment_analysis', 
+                                      structPrediction=args.structPrediction, senLayerWithAct=args.senLayerWithAct)
         
         if args.numPerEpoch is not None and len(args.numPerEpoch) != 0:
             print 'Loading test data...'
@@ -347,7 +371,7 @@ def run(args):
     
     testData[1] = numpy.reshape(testData[1], (len(testData[1]), 1))
     
-    
+       
     #===========================================================================
     # if args.savePrediction is not None:
     #         print 'Saving Prediction...'
@@ -382,21 +406,21 @@ def main():
                        help='Training File Path', required=True)
     
     parser.add_argument('--test', dest='test', action='store',
-                       help='TypeTest File Path', required=True)
+                       help='Test File Path', required=True)
         
     parser.add_argument('--numepochs', dest='numepochs', action='store', type=int, required=True,
                        help='Number of epochs: how many iterations over the training set.')
     
-    parser.add_argument('--withCharwnn', dest='withCharwnn', action='store_true',
+    parser.add_argument('--withCharwnn', dest='withCharwnn', action='store_true', default=False,
                        help='Set training with character embeddings')
     
     parser.add_argument('--tokenLabelSeparator', dest='tokenLabelSeparator', action='store', required=False, default="_",
                             help="Specify the character that is being used to separate the token from the label in the dataset.")
     
-    parser.add_argument('--alg', dest='alg', action='store',
-                        default="window_sentence",
-                        choices=["window_word", "window_sentence"],
-                        help='The type of algorithm to train and test')
+    #parser.add_argument('--alg', dest='alg', action='store',
+    #                    default="window_sentence",
+    #                    choices=["window_word", "window_sentence"],
+    #                    help='The type of algorithm to train and test')
     
     parser.add_argument('--hiddenlayersize', dest='hiddenSize', action='store', type=int,
                        help='The number of neurons in the hidden layer', default=300)
@@ -405,7 +429,7 @@ def main():
                        help='The number of neurons in the character convolutional layer', default=50)
     
     parser.add_argument('--wordConvolutionalLayerSize', dest='wordConvSize', action='store', type=int,
-                       help='The number of neurons in the word convolutional layer', default=4)
+                       help='The number of neurons in the word convolutional layer', default=300)
     
     parser.add_argument('--wordWindowSize', dest='wordWindowSize', action='store', type=int,
                        help='The size of words for the wordsWindow', default=5)
@@ -422,7 +446,7 @@ def main():
     parser.add_argument('--batchSize', dest='batchSize', action='store', type=int,
                        help='The size of the batch in the train', default=1)
     
-    parser.add_argument('--lr', dest='lr', action='store', type=float , default=0.0075,
+    parser.add_argument('--lr', dest='lr', action='store', type=float , default=0.01,
                        help='The value of the learning rate')
 
     parser.add_argument('--c', dest='c', action='store', type=float , default=0.0,
@@ -485,16 +509,19 @@ def main():
     parser.add_argument('--filewithfeatures', dest='fileWithFeatures', action='store_true',
                        help='Set that the training e testing files have features')
     
-    vecsInitChoices = ["randomAll", "random", "zeros", "z_score", "min_max"]
+    vecsInitChoices = ["randomAll", "random", "zeros", "zscore", "minmax"]
     
-    parser.add_argument('--charVecsInit', dest='charVecsInit', action='store', default=vecsInitChoices[1], choices=vecsInitChoices,
+    parser.add_argument('--charVecsInit', dest='charVecsInit', action='store', default=vecsInitChoices[0], choices=vecsInitChoices,
                        help='Set the way to initialize the char vectors. RANDOM, RANDOMALL, ZEROS, Z_SCORE and MIN_MAX are the options available')
     
-    parser.add_argument('--wordVecsInit', dest='wordVecsInit', action='store', default=vecsInitChoices[1], choices=vecsInitChoices,
+    parser.add_argument('--wordVecsInit', dest='wordVecsInit', action='store', default=vecsInitChoices[0], choices=vecsInitChoices,
                        help='Set the way to initialize the char vectors. RANDOM, RANDOMALL, ZEROS, Z_SCORE and MIN_MAX are the options available')
     
-    parser.add_argument('--charwnnwithact', dest='charwnnWithAct', action='store_true',
-                       help='Set training with character embeddings')
+    parser.add_argument('--charwnnwithact', dest='charwnnWithAct', action='store_true', default=False,
+                       help='Set character convolutional layer with act')
+    
+    parser.add_argument('--senlayerwithact', dest='senLayerWithAct', action='store_true', default=False,
+                       help='Set sentence convolutional layer with act')
     
     parser.add_argument('--networkChoice', dest='networkChoice', action='store',
                         default="complete",
@@ -504,24 +531,36 @@ def main():
                         default="tanh",
                         choices=["tanh", "hard_tanh", "sigmoid", "hard_sigmoid", "ultra_fast_sigmoid","None"])
     
-    parser.add_argument('--charNetAct', dest='charNetAct', action='store', 
-                        default="tanh", 
-                        choices=["tanh","hard_tanh","sigmoid","hard_sigmoid"])
+    #parser.add_argument('--charNetAct', dest='charNetAct', action='store', 
+    #                    default="tanh", 
+    #                    choices=["tanh","hard_tanh","sigmoid","hard_sigmoid"])
     
     parser.add_argument('--mean_size', dest='meanSize', action='store', type=float, default=1.0,
                        help='The number of the least used words in the train for unknown word' 
                        + 'Number between 0 and 1 for percentage, number > 1 for literal number to make the mean and negative for mean_all')
     
-    vecsUpStrategyChoices = ["normal", "min_max", "z_score"]
+    vecsUpStrategyChoices = ["normal", "minmax", "zscore", "sphere"]
 
     parser.add_argument('--wordvecsupdstrategy', dest='wordVecsUpdStrategy', action='store', default=vecsUpStrategyChoices[0], choices=vecsUpStrategyChoices,
-                       help='Set the word vectors update strategy. NORMAL, MIN_MAX and Z_SCORE are the options available')
+                       help='Set the word vectors update strategy. NORMAL, MINMAX and ZSCORE are the options available')
     
     parser.add_argument('--charvecsupdstrategy', dest='charVecsUpdStrategy', action='store', default=vecsUpStrategyChoices[0], choices=vecsUpStrategyChoices,
-                       help='Set the char vectors update strategy. NORMAL, MIN_MAX and Z_SCORE are the options available')
+                       help='Set the char vectors update strategy. NORMAL, MINMAX and ZSCORE are the options available')
 
     parser.add_argument('--norm_coef', dest='norm_coef', action='store', type=float, default=1.0,
                        help='The coefficient that will be multiplied to the normalized vectors')
+    
+    parser.add_argument('--diff_reg', dest='diff_reg', action='store_true',
+                       help='Activate the usage of different regularization factor.')
+    
+    parser.add_argument('--reg_coef_char', dest='reg_coef_char', action='store', type=float, default=0.0,
+                       help='The regularization factor for charwnn')
+       
+    parser.add_argument('--reg_coef_sen', dest='reg_coef_sen', action='store', type=float, default=0.0,
+                       help='The regularization factor for sentence layer')
+    
+    parser.add_argument('--reg_coef_hid', dest='reg_coef_hid', action='store', type=float, default=0.0,
+                       help='The regularization factor for hidden layer')
 
     parser.add_argument('--seed', dest='seed', action='store', type=long,
                        help='', default=None)
@@ -543,7 +582,7 @@ def main():
                        help='Not randomize inputs during training')
     
     parser.add_argument('--structPrediction', dest='structPrediction', action='store_true', default=False, 
-                       help='Not usage of structured prediction for sentence model')
+                       help='Usage of structured prediction for sentence model')
     
     parser.add_argument('--maxSizeOfWord', dest='maxSizeOfWord', action='store', type=int, default=20,
                        help='The max length of each word in dataset')

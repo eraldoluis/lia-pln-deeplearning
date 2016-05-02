@@ -38,8 +38,17 @@ class WordVector:
             if self.__wordSize != len(wordVector):
                 raise Exception("O vetor a ser adicionado tem um tamanho de" + str(len(wordVector)) +  " que " + 
                             "é diferente do tamanho dos outros vetores " + str(self.__wordSize) + " index " + str(self.getLength()))
-        
+                
+            if self.mode == 'randomAll':
+                self.__len +=1
+                self.__wordVecs = np.append(self.__wordVecs,[wordVector], axis=0)
+                
+                return
+                
+        #print len(self.__wordVecs), len(wordVector)
         self.__wordVecs.append(wordVector)
+        #self.__wordVecs = np.append(self.__wordVecs,[wordVector], axis=0)
+        
     
     def putUsingFile(self,vecfilename):
         fVec = codecs.open(vecfilename, 'r','utf-8')

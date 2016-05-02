@@ -4,7 +4,7 @@ import numpy
 
 
 ################################ FUNCTIONS ########################
-def defaultGradParameters(cost, parameters, learningRate, sumsSqGrads=None):
+def defaultGradParameters(cost, parameters, learningRate, sumsSqGrads=None, regularization=0.0):
     """
     :param cost: symbolic variable expressing the cost function value.
     
@@ -15,6 +15,7 @@ def defaultGradParameters(cost, parameters, learningRate, sumsSqGrads=None):
     :param sumsSqGrads: (optional) shared variable storing the sum of the 
         squared historical gradient for each parameter,
         which are used in AdaGrad.
+    :param regularization: list containing the regularization factors of each parameter
     """
     # Compute gradient of the cost function w.r.t. each parameter.
     grads = [T.grad(cost, param) for param in parameters]
@@ -32,8 +33,8 @@ def defaultGradParameters(cost, parameters, learningRate, sumsSqGrads=None):
             updates.append((param, newParam))
     else:
         # Ordinary SGD updates.
-        updates = [(param, param - learningRate * grad) 
-                   for param, grad in zip(parameters, grads)]
+        updates = [(param, param - learningRate * (grad + reg * param)) 
+                   for param, grad, reg in zip(parameters, grads, regularization)]
 
     return updates
 
@@ -63,12 +64,26 @@ def negative_log_likelihood(output, y):
     return -T.mean(T.log(output)[T.arange(y.shape[0]), y])
     
 def regularizationSquareSumParamaters(parameters, regularizationFactor, numberExamples):
+    
     p = 0
+    res = 0.0 
+    if not isinstance(regularizationFactor, list):
+        for par in parameters:
+            p += T.sum(T.pow(par, 2));
+        #res = regularizationFactor * p / (2 * numberExamples)
+        res = regularizationFactor * p / (2 )
     
-    for par in parameters:
-        p += T.sum(T.pow(par, 2));
-    
-    return regularizationFactor * p / (2 * numberExamples)
+    else:
+        
+        for param, reg in zip (parameters, regularizationFactor):
+            p = 0
+            for par in param:
+                p += T.sum(T.pow(par, 2));
+            res = res + (reg * p) 
+        #res = res/(2 * numberExamples)
+        res = res/(2 )        
+        
+    return res
 
 
 
@@ -117,6 +132,10 @@ class FeatureVectorsGenerator:
     
     def generateVector(self, num_features, min_value=-0.1, max_value=0.1):
         return  (max_value * 2) * numpy.random.random_sample(num_features) + min_value
+    
+    def generateWeight(self, n_in, n_out):
+        high = numpy.sqrt(6. / (n_in + n_out))
+        return generateRandomNumberUniformly(-high, high, n_in, n_out)
 
 class LearningRateUpdNormalStrategy:
     

@@ -15,6 +15,7 @@ import numpy
 import theano
 
 from NNet.HiddenLayer import HiddenLayer
+from NNet.EmbeddingLayer import EmbeddingLayer
 
 class NeuralNetworkChoiceEnum:
     COMPLETE = 1
@@ -38,18 +39,26 @@ class WindowModelBySentence(WindowModelBasic):
                  learningRateUpdStrategy = LearningRateUpdNormalStrategy(),
                  wordVecsUpdStrategy='normal', choice = NeuralNetworkChoiceEnum.COMPLETE,
                  networkAct = 'tanh', norm_coef=1.0, structGrad=True, adaGrad=False,
-                 randomizeInput = True, embeddingNotUpdate = [], task='postag', structPrediction = False):
+                 randomizeInput = True, embeddingNotUpdate = [], task='postag', structPrediction = False, senLayerWithAct=False):
         
         WindowModelBasic.__init__(self, lexicon, wordVectors, windowSize,
                                   hiddenSize, wordConvSize, _lr, numClasses, numEpochs,
                                   batchSize, c, charModel,
                                   learningRateUpdStrategy, randomizeInput,
                                   wordVecsUpdStrategy, NeuralNetworkChoiceEnum.withoutHiddenLayer(choice),
-                                  networkAct, norm_coef, structGrad, adaGrad, task)
+                                  networkAct, norm_coef, structGrad, adaGrad, task, senLayerWithAct)
     
         self.setTestValues = True
         self.structPrediction = structPrediction
+        
+        diff_reg = False
+        self.regularizationFactor = c
+        if isinstance(c, list):
+            self.regularizationFactor = []
+            diff_reg = True
+            
         # Camada: softmax
+         
         
         cost = []
         layers = self.embeddings 
@@ -82,15 +91,22 @@ class WindowModelBySentence(WindowModelBasic):
                 if self.task == 'postag':
                     if self.charModel == None:
                         print 'Softmax linked with w2v'
-                        self.sentenceSoftmax = SoftmaxLayer(self.embedding.getOutput(), self.wordSize * self.windowSize, numClasses);
+                        self.sentenceSoftmax = SoftmaxLayer(self.concatenateEmbeddings, self.wordSize * self.windowSize, numClasses);
                     else:
                         print 'Softmax linked with w2v and charwv'    
-                        self.sentenceSoftmax = SoftmaxLayer(T.concatenate([self.embedding.getOutput(), self.charModel.getOutput()], axis=1), (self.wordSize + self.charModel.convSize) * self.windowSize , numClasses);
-                
+                        self.sentenceSoftmax = SoftmaxLayer(T.concatenate([self.concatenateEmbeddings, self.charModel.getOutput()], axis=1), (self.wordSize + self.charModel.convSize) * self.windowSize , numClasses);
+                    parameters = self.sentenceSoftmax.getParameters()
+                    
                 else:
                     self.sentenceSoftmax = SoftmaxLayer(self.sentenceFeature, self.wordConvSize, numClasses);
+                    #parameters = self.sentenceSoftmax.getParameters() + self.sentenceLayer.getParameters()
                     
-                parameters = self.sentenceSoftmax.getParameters()
+                    if diff_reg:
+                        self.regularizationFactor.append(c[1])
+                        parameters = [self.sentenceLayer.getParameters()]
+                    else:
+                        parameters = self.sentenceLayer.getParameters()
+                
                 layers = layers + [self.sentenceSoftmax]
             else:
                 print 'Softmax linked with hidden'
@@ -98,8 +114,14 @@ class WindowModelBySentence(WindowModelBasic):
                 self.sentenceSoftmax = SoftmaxLayer(self.hiddenLayer.getOutput(), self.hiddenSize, numClasses);
                 
                 if self.task == 'sentiment_analysis':
-                    parameters = self.sentenceSoftmax.getParameters() + self.sentenceLayer.getParameters() + self.hiddenLayer.getParameters()
+                    #parameters = self.sentenceSoftmax.getParameters() + self.sentenceLayer.getParameters() + self.hiddenLayer.getParameters()
+                    
                     layers = layers + [self.sentenceLayer, self.hiddenLayer, self.sentenceSoftmax]
+                    if diff_reg:
+                        self.regularizationFactor += c[1:]
+                        parameters = [self.sentenceLayer.getParameters()] + [self.hiddenLayer.getParameters()]
+                    else:
+                        parameters = self.sentenceLayer.getParameters() + self.hiddenLayer.getParameters()
                 else:
                     parameters = self.sentenceSoftmax.getParameters() + self.hiddenLayer.getParameters()
                     layers = layers + [ self.hiddenLayer, self.sentenceSoftmax]
@@ -115,11 +137,14 @@ class WindowModelBySentence(WindowModelBasic):
         
         
         if charModel != None:
-            parameters += self.charModel.hiddenLayer.getParameters()
+            
             layers.append(charModel)
             layersToUpdate.append(charModel)
-                            
-            
+            if diff_reg:
+                self.regularizationFactor.append(c[0])
+                parameters += [self.charModel.hiddenLayer.getParameters()]
+            else:
+                parameters += self.charModel.hiddenLayer.getParameters()
         # Custo      
         if structPrediction == True:
             
@@ -132,7 +157,7 @@ class WindowModelBySentence(WindowModelBasic):
             output = self.sentenceSoftmax.getOutput()
         
             # Training cost function.
-            cost = negative_log_likelihood(output, self.y)
+            cost = negative_log_likelihood(output, self.y) + regularizationSquareSumParamaters(parameters, self.regularizationFactor, self.y.shape[0])
             
         # Lists of variables that store the sum of the squared historical 
         # gradients for the parameters of all layers. Since some layers use
@@ -183,7 +208,8 @@ class WindowModelBySentence(WindowModelBasic):
         # Build list of updates.
         updates = []
         defaultGradParams = []
-        
+        regularization = []
+        i = 0
             
         # Get structured updates and default-gradient parameters from all layers.
         for (idx, l) in enumerate(layersToUpdate):
@@ -191,19 +217,33 @@ class WindowModelBySentence(WindowModelBasic):
             ssgs = None
             if self.isAdaGrad():
                 ssgs = self.__sumsSqStructGrads[idx]
+                
             updates += l.getUpdates(cost, self.lr, ssgs)
-            # Default gradient parameters (all the remaining).
-            defaultGradParams += l.getDefaultGradParameters()
-        
+            
+            
+            if len(l.getDefaultGradParameters())!=0:
+                # Default gradient parameters (all the remaining).
+                defaultGradParams += l.getDefaultGradParameters()
+                
+                if isinstance(l ,HiddenLayer):
+                    if diff_reg:
+                        regularization += [self.regularizationFactor[i]]*len(l.getDefaultGradParameters())
+                        i +=1
+                    else:
+                        regularization += [self.regularizationFactor]*len(l.getDefaultGradParameters())
+                else:
+                    regularization += [0.0]*len(l.getDefaultGradParameters())
+                    
         # Add updates for default-gradient parameters.
         updates += defaultGradParameters(cost, defaultGradParams,
-                                         self.lr, self.__sumsSqDefGrads)
+                                         self.lr, self.__sumsSqDefGrads, regularization)
         
         # Add normalization updates.
-        if (self.wordVecsUpdStrategy != 'normal'):
-            updates += self.embedding.getNormalizationUpdate(self.wordVecsUpdStrategy, self.norm_coef)
-        if (self.charModel and self.charModel.charVecsUpdStrategy != 'normal'):
-            updates += self.charModel.getNormalizationUpdate(self.charModel.charVecsUpdStrategy, self.norm_coef)
+        #Not working
+        #if (self.wordVecsUpdStrategy != 'normal'):
+        #    updates += self.embedding.getNormalizationUpdate(self.wordVecsUpdStrategy, self.norm_coef)
+        #if (self.charModel and self.charModel.charVecsUpdStrategy != 'normal'):
+        #    updates += self.charModel.getNormalizationUpdate(self.charModel.charVecsUpdStrategy, self.norm_coef)
 
         # Store cost and updates to be used in the training function.        
         self.cost = cost

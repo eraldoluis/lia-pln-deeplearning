@@ -30,6 +30,9 @@ class ReaderLexiconAndWordVec:
             
             line_split = line.split(' ', 1 );
             
+            if len(line_split) < 2:
+                continue 
+            
             lexicon.put(line_split[0]);
             wordVector.putWordVecStr(line_split[1])
             

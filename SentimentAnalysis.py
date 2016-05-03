@@ -37,7 +37,7 @@ def readVocabAndWord(args):
     
     if args.vocab == args.wordVectors or args.vocab is not None or args.wordVectors is not None:
         fi = args.wordVectors if args.wordVectors is not None else args.vocab
-        lexicon, wordVector = ReaderLexiconAndWordVec().readData2(fi)
+        lexicon, wordVector = ReaderLexiconAndWordVec().readData(fi)
     else:
         wordVector = WordVector(args.wordVectors)
         lexicon = Lexicon(args.vocab)
@@ -149,7 +149,6 @@ def run(args):
             addWordUnknown = False
         else:
             wordVector = WordVector(wordSize=args.wordVecSize, mode=args.wordVecsInit)
-            #wordVector = WordVector(wordSize=args.wordVecSize)
             lexicon = Lexicon()
             
             lexicon.put(WindowModelBasic.startSymbolStr)
@@ -162,10 +161,50 @@ def run(args):
                 lexiconFindInWV = set()
             addWordUnknown = True
         
-        unknownNameDefault = 'UUUNKKK'
+        unknownNameDefault = u'UUUNKKK'
         
         if isinstance(wordVector, WordVector):
             wordVector = [wordVector]
+            
+        if args.unknownWordStrategy == "random":
+            if lexicon.isWordExist(unknownNameDefault):
+                raise Exception(unknownNameDefault + u' already exists in the vocabulary.')
+            
+            lexiconIndex = lexicon.put(unknownNameDefault)
+            lexicon.setUnknownIndex(lexiconIndex)
+#             wordVector.append(None)
+            for wv in wordVector:
+                wv.append(None) 
+            
+        
+        elif args.unknownWordStrategy == "mean_vector":
+            if lexicon.isWordExist(unknownNameDefault):
+                raise Exception(unknownNameDefault + u' already exists in the vocabulary.')
+            if args.meanSize < 1 and args.meanSize > 0:
+                mean_size = int(wordVector.getLength() * args.meanSize)
+            else:
+                mean_size = int(args.meanSize)
+            
+            lexiconIndex = lexicon.put(unknownNameDefault)
+            lexicon.setUnknownIndex(lexiconIndex)
+#            wordVector.append(unknownWordVector.tolist())
+            if args.wordVecsInit == 'vocab':
+                for wv in wordVector:
+                    unknownWordVector = numpy.mean(numpy.asarray(wv.getWordVectors()[wv.getLength() - mean_size:]), 0)
+                    wv.append(unknownWordVector.tolist())
+            else : 
+                for wv in wordVector:
+                    wv.append(None) 
+
+        elif args.unknownWordStrategy == "word_vocab":
+            lexiconIndex = lexicon.getLexiconIndex(unicode(args.unknownWord, "utf-8"))
+            if lexicon.isUnknownIndex(lexiconIndex):
+                raise Exception('Unknown Word Value passed does not exist in the unsupervised dictionary')
+            lexicon.setUnknownIndex(lexiconIndex)
+        
+        else:
+            raise Exception('Unknown Word Value passed does not exist in the unsupervised dictionary')
+
                 
         if args.withCharwnn:
             
@@ -212,58 +251,11 @@ def run(args):
                                            addWordUnknown, args.withCharwnn,
                                            charVars, True, filters,
                                            lexiconFindInTrain)
+            
         
-        
-        if args.unknownWordStrategy == "random":
-            if lexicon.isWordExist(unknownNameDefault):
-                raise Exception(unknownNameDefault + u' already exists in the vocabulary.')
-            
-            lexiconIndex = lexicon.put(unknownNameDefault)
-            lexicon.setUnknownIndex(lexiconIndex)
-#             wordVector.append(None)
-            for wv in wordVector:
-                wv.append(None)
-                
-                if args.wordVecsInit == 'randomAll':
-                    wv.startAllRandom()
-            
-        elif args.unknownWordStrategy == "mean_vector":
-            
-            
-            if lexicon.isWordExist(unknownNameDefault):
-                raise Exception(unknownNameDefault + u' already exists in the vocabulary.')
-            if args.meanSize < 1 and args.meanSize > 0:
-                mean_size = int(wordVector.getLength() * args.meanSize)
-            else:
-                mean_size = int(args.meanSize)
-            
-            lexiconIndex = lexicon.put(unknownNameDefault)
-            lexicon.setUnknownIndex(lexiconIndex)
-#             wordVector.append(unknownWordVector.tolist())
-            for wv in wordVector:
-                if args.wordVecsInit == 'randomAll':
-                    wv.startAllRandom()
-                
-                unknownWordVector = numpy.mean(numpy.asarray(wv.getWordVectors()[wv.getLength() - mean_size:]), 0)
-                wv.append(unknownWordVector.tolist())
-
-        elif args.unknownWordStrategy == "word_vocab":
-            
-            if args.wordVecsInit == 'randomAll':
-                for wv in wordVector:
-                    wv.startAllRandom()
-            #lexiconIndex = lexicon.getLexiconIndex(unicode(args.unknownWord, "utf-8"))
-            lexiconIndex = lexicon.getLexiconIndex(args.unknownWord)
-            if lexicon.isUnknownIndex(lexiconIndex):
-                raise Exception('Unknown Word Value passed does not exist in the unsupervised dictionary')
-            lexicon.setUnknownIndex(lexiconIndex)
-
-        else:
-            raise Exception('Unknown Word Value passed does not exist in the unsupervised dictionary')
-
-        print "No dataset tem: " + str(lexicon.getLen()) + " vocabularios "
+        print "The dataset contains: " + str(lexicon.getLen()) + " vocabularies "
         if args.withCharwnn:
-            print '\t\t' + str(charVars[0].getLen()) + " caracteres diferentes."
+            print '\t\t' + str(charVars[0].getLen()) + " different characters"
         
                
         if args.networkChoice == "complete":
@@ -303,7 +295,9 @@ def run(args):
                                                     args.networkAct, 
                                                     args.norm_coef)
         
-    
+        if args.wordVecsInit == 'randomAll':
+            for wv in wordVector:
+                wv.startAllRandom()
         if args.wordVecsUpdStrategy == 'minmax' or args.wordVecsInit == 'minmax':
             for wv in wordVector:
                 wv.minMax(args.norm_coef)

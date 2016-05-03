@@ -205,41 +205,41 @@ class TokenLabelReader:
                 
         func = self.readTokenAndSentOfRawFile
         
-        f = open(filename, 'rb') # opens the csv file
-        try:
-            reader = csv.reader(f)  # creates the reader object
-            for row in reader:   # iterates the rows of the file in orders
+        f = codecs.open(filename, 'r', 'utf-8')
+        
+        for line in f:
+            
+            row = line.split(',',1)
+            
+            if len(row) < 2:
+                continue
                 
-                # Ignore empty lines.
-                if len(row) < 2:
-                    continue
+            line_split = row[1].split()
+            
+            # Ignore empty twittes.
+            if len(line_split) == 0:
+                continue
                 
-                line_split = row[1].split()
-                # Ignore empty twittes.
-                if len(line_split) == 0:
-                    continue
-                
-                labels.append(lexiconOfLabel.put(row[0]))
+            labels.append(lexiconOfLabel.put(row[0]))
                                
-                indexesBySentence = []
-                indexesOfRawBySentence = []
-                numCharsOfRawBySentence = []
-                unknownDataBySentence = [] if unknownDataTest is not None else None
+            indexesBySentence = []
+            indexesOfRawBySentence = []
+            numCharsOfRawBySentence = []
+            unknownDataBySentence = [] if unknownDataTest is not None else None
                 
-                for token in line_split:
-                    func(lexicon, wordVecs, addWordUnknown, filters, indexesBySentence, lexiconRaw, 
-                         indexesOfRawBySentence, numCharsOfRawBySentence, token, setWordsInDataSet,
-                         unknownDataBySentence, withCharwnn, charVars, addCharUnknown, unknownDataTestCharIdxs)
+            for token in line_split:
+                func(lexicon, wordVecs, addWordUnknown, filters, indexesBySentence, lexiconRaw, 
+                     indexesOfRawBySentence, numCharsOfRawBySentence, token, setWordsInDataSet,
+                     unknownDataBySentence, withCharwnn, charVars, addCharUnknown, unknownDataTestCharIdxs)
                 
-                indexes.append(indexesBySentence)
-                indexesOfRaw.append(indexesOfRawBySentence)
-                numCharsOfRaw.append(numCharsOfRawBySentence)
+            indexes.append(indexesBySentence)
+            indexesOfRaw.append(indexesOfRawBySentence)
+            numCharsOfRaw.append(numCharsOfRawBySentence)
                 
-                if unknownDataTest is not None:
-                    unknownDataTest.append(unknownDataBySentence)
+            if unknownDataTest is not None:
+                unknownDataTest.append(unknownDataBySentence)
                 
-        finally:
-            f.close()
+        f.close()
                             
         return data
     

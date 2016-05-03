@@ -41,8 +41,7 @@ class WordVector:
                 
             if self.mode == 'randomAll':
                 self.__len +=1
-                self.__wordVecs = np.append(self.__wordVecs,[wordVector], axis=0)
-                
+                #self.__wordVecs = np.append(self.__wordVecs,[wordVector], axis=0)
                 return
                 
         #print len(self.__wordVecs), len(wordVector)

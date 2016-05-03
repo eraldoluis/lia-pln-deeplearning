@@ -335,7 +335,8 @@ def run(args):
                                           args.networkAct, args.norm_coef,not args.noStructGrad,
                                           adaGrad=args.adaGrad,
                                           randomizeInput=not args.notRandomizeInput,
-                                          embeddingNotUpdate=args.nonupdatewv, task='postag', structPrediction=args.structPrediction)
+                                          embeddingNotUpdate=args.nonupdatewv, task='postag',
+                                          structPrediction=args.structPrediction)
         
         if args.numPerEpoch is not None and len(args.numPerEpoch) != 0:
             print 'Loading test data...'

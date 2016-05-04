@@ -6,7 +6,8 @@
 import re
 import codecs
 import logging
-import csv
+from DataOperation.TransformNumberToZeroFilter import TransformNumberToZeroFilter
+from DataOperation.TransformLowerCaseFilter import TransformLowerCaseFilter
 
 class TokenLabelReader:
     
@@ -35,10 +36,18 @@ class TokenLabelReader:
         charIndexesOfLexiconRaw = charVars[2]
         numCharsOfLexiconRaw = charVars[3]
         
-        for f in filters[:-1]:
-            rawWord = f.filter(rawWord)
-            
-        word = filters[-1].filter(rawWord)        
+        word = rawWord
+        
+        for f in filters:
+            if isinstance(f, TransformLowerCaseFilter):
+                word = f.filter(word)
+            elif isinstance(f, TransformNumberToZeroFilter):
+                word = f.filter(word) 
+            else:
+                rawWord = f.filter(rawWord)
+                word = f.filter(word)
+                
+        #word = filters[-1].filter(rawWord)        
         lexiconIndex = lexicon.getLexiconIndex(word)
         
 

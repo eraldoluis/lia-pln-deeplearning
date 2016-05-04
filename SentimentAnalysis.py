@@ -45,7 +45,7 @@ def readVocabAndWord(args):
     return lexicon, wordVector
 
 def run(args):
-    
+    print "Mod filter"
     filters = []
     a = 0
     args.filters.append('DataOperation.TransformLowerCaseFilter')

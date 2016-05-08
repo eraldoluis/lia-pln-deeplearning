@@ -15,10 +15,7 @@ class TransformBrac:
         
         token = re.sub('-LCB-', '{', token)
         token = re.sub('-RCB-', '}', token)
-               
-        if re.search(':-)', token) or re.search(';-)', token):
-            return '<smile>'
-        
+                   
         return token        
         
     

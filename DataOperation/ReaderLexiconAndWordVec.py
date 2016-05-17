@@ -33,7 +33,7 @@ class ReaderLexiconAndWordVec:
             if len(line_split) < 2:
                 continue 
             
-            lexicon.put(line_split[0]);
+            lexicon.put(line_split[0].lower());
             wordVector.putWordVecStr(line_split[1])
             
             

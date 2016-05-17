@@ -209,15 +209,17 @@ class TokenLabelReader:
         
         f = codecs.open(filename, 'r', 'utf-8')
         
+                
         for line in f:
             
             row = line.split(',',1)
             
+            
             if len(row) < 2:
                 continue
-                
+                            
             line_split = row[1].split()
-            
+                        
             # Ignore empty twittes.
             if len(line_split) == 0:
                 continue

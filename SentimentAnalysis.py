@@ -109,8 +109,8 @@ def run(args):
     else:
         print 'Loading dictionary...'
         
-        WindowModelBasic.setStartSymbol(args.startSymbol)
-        WindowModelBasic.setEndSymbol(args.endSymbol)
+        WindowModelBasic.setStartSymbol(unicode(args.startSymbol, "utf-8"))
+        WindowModelBasic.setEndSymbol(unicode(args.endSymbol, "utf-8"))
         
         lexiconRaw = Lexicon()
         charcon = Lexicon()
@@ -254,8 +254,10 @@ def run(args):
             
         
         print "The dataset contains: " + str(lexicon.getLen()) + " vocabularies "
+        #print lexicon.getLexiconDict()
         if args.withCharwnn:
             print '\t\t' + str(charVars[0].getLen()) + " different characters"
+            #print charVars[0].getLexiconDict()
         
                
         if args.networkChoice == "complete":

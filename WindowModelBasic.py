@@ -13,8 +13,8 @@ import random
 import logging
 
 class WindowModelBasic:
-    startSymbolStr = "<s>"
-    endSymbolStr = "</s>"
+    startSymbolStr = u'<s>'
+    endSymbolStr = u'</s>'
     
     @staticmethod
     def setStartSymbol(startSymbol):

@@ -7,7 +7,7 @@ class RemoveUserName:
     
     def filter(self,token):
         if re.search('@[_]*[a-zA-Z0-9]+', token):
-            return '<user>'
+            return u'<user>'
     
         return token       
                 

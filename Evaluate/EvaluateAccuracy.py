@@ -17,6 +17,7 @@ class EvaluateAccuracy:
     
     def evaluateWithPrint(self,predicts,corrects):
         print "Accuracy Test:  ",self.evaluate(predicts,corrects)
+        return self.evaluate(predicts,corrects)
         
     def evaluate(self,predicts,corrects):
         predict = numpy.asarray(predicts)

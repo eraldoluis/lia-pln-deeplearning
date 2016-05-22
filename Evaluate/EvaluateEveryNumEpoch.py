@@ -1,10 +1,10 @@
 from _collections import deque
 import numpy as np
-
+import cPickle as pickle
 
 class EvaluateEveryNumEpoch:
     
-    def __init__(self, numEpochToTrain, numEpochToEval, evaluate, model, inputData ,correct ,inputDataRaw, unknownDataTestCharIdxs):
+    def __init__(self, numEpochToTrain, numEpochToEval, evaluate, model, inputData ,correct ,inputDataRaw, unknownDataTestCharIdxs, varsToSave, fileToSave):
         self.model = model
         self.inputData = inputData
         self.inputDataRaw = inputDataRaw
@@ -12,7 +12,9 @@ class EvaluateEveryNumEpoch:
         self.unknownDataTest = unknownDataTestCharIdxs
         self.evaluate = evaluate
         self.deque = deque();
-        
+        self.bestAccuracy = 0.0
+        self.varsToSave = varsToSave
+        self.fileToSave = fileToSave
         
         if len(numEpochToEval) > 1:
             self.deque.extend(sorted(numEpochToEval, key=int) )
@@ -42,6 +44,17 @@ class EvaluateEveryNumEpoch:
         predicts = np.asarray(predicts).flatten()
         self.correct = np.asarray(self.correct).flatten()
         
-        self.evaluate.evaluateWithPrint(predicts, self.correct)
+        acc = self.evaluate.evaluateWithPrint(predicts, self.correct)
+        
+        if acc > self.bestAccuracy:
+            self.bestAccuracy = acc
+            
+            if self.fileToSave is not None:
+                print 'Saving Model...'
+                f = open(self.fileToSave, "w")
+                pickle.dump(self.varsToSave, f, pickle.HIGHEST_PROTOCOL)
+                
+                f.close()
+                print 'Model saved with sucess in ' + self.fileToSave
         
         self.deque.popleft()

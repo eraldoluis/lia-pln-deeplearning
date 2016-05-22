@@ -76,6 +76,8 @@ class TokenLabelReader:
                     if addCharUnknown and charcon.isUnknownIndex(idx):
                         idx = charcon.put(char)
                         charVector.append(None)
+                    #elif not addCharUnknown and charcon.isUnknownIndex(idx):
+                    #    print char
                     charIndexes.append(idx)
                 charIndexesOfLexiconRaw[lexiconIndex] = charIndexes
                 if unknownDataCharIdxs is not None:
@@ -209,8 +211,14 @@ class TokenLabelReader:
         
         f = codecs.open(filename, 'r', 'utf-8')
         
+        
+        ii = 0
                 
         for line in f:
+            #TODO: debug
+            #ii += 1
+            #if ii == 1000:
+            #    break 
             
             row = line.split(',',1)
             

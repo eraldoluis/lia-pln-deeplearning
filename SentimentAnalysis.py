@@ -257,7 +257,8 @@ def run(args):
         #print lexicon.getLexiconDict()
         if args.withCharwnn:
             print '\t\t' + str(charVars[0].getLen()) + " different characters"
-            #print charVars[0].getLexiconDict()
+            #for k in charVars[0].getLexiconDict().iterkeys():
+            #    print k,
         
                
         if args.networkChoice == "complete":
@@ -331,28 +332,18 @@ def run(args):
                                                   filters, unknownDataTest, unknownDataTestCharIdxs)
             
             
-            evalListener = EvaluateEveryNumEpoch(args.numepochs, args.numPerEpoch, EvaluateAccuracy(), model, testData[0], testData[1], testData[2], unknownDataTestCharIdxs)
+            if model.charModel is not None and len(model.charModel.AllCharWindowIndexes) != lexiconRaw.getLen():
+                model.charModel.updateAllCharIndexes(unknownDataTestCharIdxs)
+            
+            varsToSave= [lexicon, lexiconOfLabel, lexiconRaw, model, charVars]
+            evalListener = EvaluateEveryNumEpoch(args.numepochs, args.numPerEpoch, EvaluateAccuracy(), model, testData[0], testData[1], testData[2], unknownDataTestCharIdxs, varsToSave, args.saveModel)
             
             model.addListener(evalListener)
         
         print 'Training...'
         model.train(trainData[0], trainData[1], trainData[2])
         
-        if args.saveModel is not None:
-            print 'Saving Model...'
-            f = open(args.saveModel, "wb")
-            
-            # When the test data is loaded by the script, but no one predict is done, 
-            #   so it's necessary to update all char indexes, because the lexiconRaw is going to have data,
-            #    that is not in AllCharWindowIndexes.
-            if len(charModel.AllCharWindowIndexes) != lexiconRaw.getLen():
-                charModel.updateAllCharIndexes(unknownDataTestCharIdxs)
-            
-            pickle.dump([lexicon, lexiconOfLabel, lexiconRaw, model, charVars], f, pickle.HIGHEST_PROTOCOL)
-            
-            f.close()
-            print 'Model save with sucess in ' + args.saveModel
-    
+        
     t1 = time.time()
     
     print "Train time: %s seconds" % (str(t1 - t0))
@@ -361,6 +352,14 @@ def run(args):
     if testData is None:
         unknownDataTestCharIdxs = []
         testData = datasetReader.readTestData(args.test, lexicon, lexiconOfLabel, lexiconRaw, separeSentence, False, args.withCharwnn, charVars, False, filters, unknownDataTest, unknownDataTestCharIdxs)
+        
+        # When the test data is loaded by the script, but no one predict is done, 
+        #   so it's necessary to update all char indexes, because the lexiconRaw is going to have data,
+        #    that is not in AllCharWindowIndexes.
+        if model.charModel is not None and len(model.charModel.AllCharWindowIndexes) != lexiconRaw.getLen():
+            model.charModel.updateAllCharIndexes(unknownDataTestCharIdxs)
+        
+        
     
     print 'Testing...'
     
@@ -381,7 +380,26 @@ def run(args):
     
     
     evalue = EvaluateAccuracy()
-    evalue.evaluateWithPrint(predicts, testData[1])
+    acc = evalue.evaluateWithPrint(predicts, testData[1])
+    
+    if args.saveModel is not None:
+            
+        bestAcc = 0.0
+        if len(model.listeners) != 0:
+            for l in model.listeners:
+                if l.bestAccuracy > bestAcc:
+                    bestAcc = l.bestAccuracy  
+        
+        if acc > bestAcc:
+            print 'Saving Model...'
+            f = open(args.saveModel, "w")
+            
+            pickle.dump([lexicon, lexiconOfLabel, lexiconRaw, model, charVars], f, pickle.HIGHEST_PROTOCOL)
+            
+            f.close()
+            print 'Model save with sucess in ' + args.saveModel
+    
+    
 
     if args.testOOSV:
         oosv = EvaluatePercPredictsCorrectNotInWordSet(lexicon, lexiconFindInTrain, 'OOSV')

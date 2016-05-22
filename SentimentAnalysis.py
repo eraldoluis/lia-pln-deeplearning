@@ -87,15 +87,15 @@ def run(args):
         
         if args.testOOSV:
             lexiconFindInTrain = set()
-            unkownData = []
-            # datasetReader.readData(args.train,lexicon,lexiconOfLabel, separateSentences=separateSentence,filters=filters,lexiconFindInTrain=lexiconFindInTrain)
+                        
             datasetReader.readData(args.train, lexicon, lexiconOfLabel, 
                                    lexiconRaw, separateSentences=separeSentence, 
                                    withCharwnn=args.withCharwnn, 
                                    charVars=charVars, filters=filters, 
-                                   setWordsInDataSet=lexiconFindInTrain,unknownDataTestCharIdxs=unkownData)
-            if model.charModel is not None:
-                model.charModel.updateAllCharIndexes(unkownData)
+                                   setWordsInDataSet=lexiconFindInTrain)
+            
+                       
+                
         if args.testOOUV:
             if args.vocab is not None or args.wordVectors is not None:
                 lexiconWV, _ = readVocabAndWord(args)
@@ -351,7 +351,9 @@ def run(args):
     
     if testData is None:
         unknownDataTestCharIdxs = []
-        testData = datasetReader.readTestData(args.test, lexicon, lexiconOfLabel, lexiconRaw, separeSentence, False, args.withCharwnn, charVars, False, filters, unknownDataTest, unknownDataTestCharIdxs)
+        testData = datasetReader.readTestData(args.test, lexicon, lexiconOfLabel, lexiconRaw, 
+                                              separeSentence, False, args.withCharwnn, charVars, False, 
+                                              filters, unknownDataTest, unknownDataTestCharIdxs)
         
         # When the test data is loaded by the script, but no one predict is done, 
         #   so it's necessary to update all char indexes, because the lexiconRaw is going to have data,

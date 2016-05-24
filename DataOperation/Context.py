@@ -3,7 +3,7 @@
 import math
 
 '''
-Contains classes that get the context from an object, like word window
+Contains classes that get the context from an object, like window of words
 '''
 
 

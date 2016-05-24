@@ -1,23 +1,17 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
 '''
-Contains a set of classes that read  attributes and/or label of tokens from data set
+Contains a set of classes that read  attributes and/or label of tokens from a data set
 '''
 
 import codecs
 
-
-class Reader(object):
-    def read(self):
-        '''
-        Return attributes or/and labels of tokens in a row at time 
-        '''
-        raise NotImplementedError()
+from DataOperation.DatasetReader import DatasetReader
 
 
-class TokenReader(Reader):
+class TokenReader(DatasetReader):
     """
-    Read unlabel dataset tokens 
+    Read the tokens from a labeled dataset.
     """
 
     def __init__(self, filePath, sep=' '):
@@ -26,24 +20,25 @@ class TokenReader(Reader):
         :param filePath: dataset path
         
         :type sep: string
-        :param sep: character or string which separate tokens
+        :param sep: character or string which separates tokens
         """
         self.__filePath = filePath
         self.__sep = sep
 
     def read(self):
         """
-        Return a tuple  of tokens in a row at time
+        Returns a tuple  of tokens in a row
         """
         f = codecs.open(self.__filePath, "r", "utf-8")
 
         for line in f:
-            yield (line.strip().split(self.__sep),None)
+            tokens = line.strip().split(self.__sep)
+            yield (tokens, tokens)
 
 
-class TokenLabelReader(Reader):
+class TokenLabelReader(DatasetReader):
     """
-    Read unlabel dataset tokens
+    Reads the tokens and label from a labeled data set.
     """
 
     def __init__(self, filePath, labelTknSep, sep=' '):
@@ -55,7 +50,9 @@ class TokenLabelReader(Reader):
         :param labelTknSep: character or string which separate token from label
 
         :type sep: string
-        :param sep: character or string which separate token and label sets
+        :param sep: character or string which separates the expressions formed by token and label
+
+        In example "The_ART man_SUBS is_VERB tall_ADJ", labelTknSep = "_" and  sep = " "
         """
         self.__filePath = filePath
         self.__labelTknSep = labelTknSep
@@ -63,7 +60,7 @@ class TokenLabelReader(Reader):
 
     def read(self):
         """
-        Return a list of tokens and labels in a row at time
+        Returns a list of tokens and labels in a row at time
         """
         f = codecs.open(self.__filePath, "r", "utf-8")
 
@@ -85,4 +82,4 @@ class TokenLabelReader(Reader):
                 labels.append(label)
 
             assert len(tkns) == len(labels)
-            yield (tkns,labels)
+            yield (tkns, labels)

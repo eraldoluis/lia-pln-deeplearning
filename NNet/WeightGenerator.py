@@ -1,10 +1,20 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
+import numpy
+
 from keras import initializations
 
-class Initialization(object):
 
-    def initialize(self,shape):
+def generateRandomNumberUniformly(low, high, n_in, n_out):
+    if n_out == 0.0:
+        return numpy.random.uniform(low, high, n_in)
+    else:
+        return numpy.random.uniform(low, high, (n_in, n_out))
+
+
+class WeightGenerator(object):
+
+    def generateWeight(self,shape):
         '''
         :type shape: tuple
         :param shape: a tuple like numpy
@@ -14,21 +24,26 @@ class Initialization(object):
         raise NotImplementedError()
 
 
-class TanhInilization(Initialization):
+class GlorotUniform(WeightGenerator):
+    """
+    This initialization can be use with tanh.
+    """
 
-    def generateWeight(self, n_in, n_out):
-        high = numpy.sqrt(6. / (n_in + n_out))
-        return generateRandomNumberUniformly(-high, high, n_in, n_out)
+    def generateWeight(self, shape):
+        """
+        :param shape:
+        :return:
+        """
+        high = numpy.sqrt(6. / (shape[0] + shape[1]))
+        return generateRandomNumberUniformly(-high, high, shape[0],shape[1])
 
-    def initialize(self, shape):
-        if len(shape) > 2:
 
+class SigmoidGenerator(WeightGenerator):
+    def generateWeight(self, shape):
+        #   results presented in [Xavier10] suggest that you
+        #   should use 4 times larger initial weights for sigmoid compared to tanh
+        #
 
+        high = numpy.sqrt(6. / (shape[0] + shape[1]))
+        return 4 * generateRandomNumberUniformly(-high, high, shape[0], shape[1])
 
-def generateRandomNumberUniformly(low, high, n_in, n_out):
-    if n_out == 0.0:
-        return numpy.random.uniform(low, high, (n_in))
-    else:
-        return numpy.random.uniform(low, high, (n_in, n_out))
-
-class WeightTanhGenerator:

@@ -228,7 +228,7 @@ class RandomEmbedding(Embedding):
         self.__generatorWeight = FeatureVectorsGenerator()
         
 
-    def put(self, obj):        
+    def put(self, obj):
         vec = self.__generatorWeight.generateVector(self.getEmbeddingSize())
         return Embedding.put(self, obj, vec)
         

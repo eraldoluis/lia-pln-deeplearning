@@ -4,10 +4,9 @@
 import numpy as np
 import theano
 import theano.tensor as T
-from NNet.HiddenLayer import HiddenLayer
-from NNet.EmbeddingLayer import EmbeddingLayer
+from NNet.LinearLayer import LinearLayer
+from NNet.Embedding import EmbeddingLayer
 from NNet.Util import LearningRateUpdNormalStrategy
-from WindowModelBasic import WindowModelBasic
 from NNet.Layer import Layer
 
 class EmbeddingConvolutionalLayer(Layer):
@@ -101,7 +100,7 @@ class EmbeddingConvolutionalLayer(Layer):
         # This is the bank of filters. It is an ordinary hidden layer.
         act = self.charAct if self.withAct else None
         hidInput = self.__embedLayer.getOutput().reshape((numExs * szWrdWin * numMaxCh, szChWin * szChEmb))
-        self.hiddenLayer = HiddenLayer(hidInput, self.charWindowSize * self.charSize , self.convSize, activation=act)
+        self.hiddenLayer = LinearLayer(hidInput, self.charWindowSize * self.charSize, self.convSize, activation=act)
         
         # 3-D tensor with shape (numExs * szWrdWin, numMaxCh, numChFltrs).
         # This tensor is used to perform the max pooling along its 2nd dimension.

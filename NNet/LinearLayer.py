@@ -1,15 +1,16 @@
 import theano.tensor as T
 import numpy
 import theano
+from keras.engine.topology import Layer
 from keras.layers.core import Dense
+from keras.layers.embeddings import Embedding
 
-from NNet.Util import WeightTanhGenerator, WeightEqualZeroGenerator, hard_tanh
 from NNet.Layer import Layer
 from NNet.WeightGenerator import GlorotUniform
 
 
 class LinearLayer(Layer):
-    def __init__(self, lenIn, lenOut, W=None, b=None, weightInitialization=GlorotUniform()):
+    def __init__(self, _input, lenIn, lenOut, W=None, b=None, weightInitialization=GlorotUniform()):
         """
         Typical hidden layer of a MLP: units are fully-connected.
         Weight matrix W is of shape (lenIn,lenOut) 
@@ -20,8 +21,7 @@ class LinearLayer(Layer):
 
         Hidden unit activation is given by: fact(dot(_input,W) + b)
 
-        :type _input: theano.tensor.dmatrix
-        :param _input: a symbolic tensor of shape (n_examples, lenIn)
+        :param _input: the output of a layer
 
         :type lenIn: int
         :param lenIn: dimensionality of _input
@@ -34,7 +34,7 @@ class LinearLayer(Layer):
         
         :type weightInitialization: NNet.WeightGenerator.WeightGenerator
         """
-        Layer.__init__(self)
+        super(LinearLayer, self).__init__(_input)
 
         if W is None:
             W_values = numpy.asarray(
@@ -45,18 +45,19 @@ class LinearLayer(Layer):
             W = theano.shared(value=W_values, name='W_hiddenLayer', borrow=True)
 
         if b is None:
-            b_values = WeightEqualZeroGenerator().generateWeight(lenOut)
+            b_values = numpy.zeros(lenOut, dtype=theano.config.floatX)
             b = theano.shared(value=b_values, name='b_hiddenLayer', borrow=True)
 
         self.W = W
         self.b = b
 
+        self.__output = T.dot(self.getFirstInput(), self.W) + self.b
+
         # parameters of the model
         self.params = [self.W, self.b]
 
-
-    def getOutput(self,x):
-        return T.dot(x, self.W) + self.b
+    def getOutput(self):
+        return self.__output
 
     def getParameters(self):
         return self.params

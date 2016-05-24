@@ -1,6 +1,11 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
-from Optimizers.Optimizers import Optimizer
+import numpy
+
+from Optimizer.Optimizer import Optimizer
+import theano.tensor as T
+import theano
+
 
 
 class Adagrad(Optimizer):
@@ -15,27 +20,86 @@ class Adagrad(Optimizer):
     '''
     def __init__(self, lr=0.01, epsilon=1e-6, *args, **kwargs):
         super(Adagrad, self).__init__(**kwargs)
-        self.__dict__.update(locals())
-        self.lr = K.variable(lr)
+        self.lr = T.scalar(name="lr")
+        self.lrValue = lr
+        self.__sumsSqDefGrads = []
+        self.__sumsSqStructGrads = []
 
-    def get_updates(self, params, constraints, loss):
-        grads = self.get_gradients(loss, params)
-        # accumulators
-        self.weights = [K.variable(np.zeros(K.get_value(p).shape)) for p in params]
-        self.updates = []
+    def getInputTensors(self):
+        return [self.lr]
 
-        for p, g, a in zip(params, grads, self.weights):
-            new_a = a + K.square(g)  # update accumulator
-            self.updates.append((a, new_a))
-            new_p = p - self.lr * g / K.sqrt(new_a + self.epsilon)
-            # apply constraints
-            if p in constraints:
-                c = constraints[p]
-                new_p = c(new_p)
-            self.updates.append((p, new_p))
-        return self.updates
+    def getInputValues(self, nmEpochDone):
+        return [self.lr]
 
-    def get_config(self):
-        return {"name": self.__class__.__name__,
-                "lr": float(K.get_value(self.lr)),
-                "epsilon": self.epsilon}
+    def getUpdates(self, cost, layers):
+        # Lists of variables that store the sum of the squared historical
+        # gradients for the parameters of all layers. Since some layers use
+        # structured gradients, the historical gradients are also structured
+        # and need special treatment. So, we need to store two lists of
+        # historical gradients: one for default gradient parameters and another
+        # for structured gradient parameters.
+        sumsSqDefGrads = []
+        for l in layers:
+            # Default gradient parameters also follow a default AdaGrad update.
+            params = l.getDefaultGradParameters()
+            ssgs = []
+            for param in params:
+                ssgVals = numpy.zeros(param.get_value(borrow=True).shape,
+                                      dtype=theano.config.floatX)
+                ssg = theano.shared(value=ssgVals,
+                                    name='sumSqGrads_' + param.name,
+                                    borrow=True)
+                ssgs.append(ssg)
+            # For default gradient parameters, we do not need to store
+            # parameters or historical gradients separated by layer. We
+            # just store a list of parameters and historical gradients.
+            sumsSqDefGrads += ssgs
+        self.__sumsSqDefGrads = sumsSqDefGrads
+
+        sumsSqStructGrads = []
+        for l in layers:
+            # Structured parameters also need structured updates for the
+            # historical gradients. These updates are computed by each layer.
+            params = l.getStructuredParameters()
+            ssgs = []
+            for param in params:
+                ssgVals = numpy.zeros(param.get_value(borrow=True).shape,
+                                      dtype=theano.config.floatX)
+                ssg = theano.shared(value=ssgVals,
+                                    name='sumSqGrads_' + param.name,
+                                    borrow=True)
+                ssgs.append(ssg)
+            # For structured parameters, we need to store the historical
+            # gradients separated by layer, since the updates of these
+            # variables are performed by each layer.
+            sumsSqStructGrads.append(ssgs)
+        self.__sumsSqStructGrads = sumsSqStructGrads
+
+        # Build list of updates.
+        updates = []
+        defaultGradParams = []
+
+        # Get structured updates and default-gradient parameters from all layers.
+        for (idx, l) in enumerate(layers):
+            # Structured updates (embeddings, basically).
+            ssgs = self.__sumsSqStructGrads[idx]
+            updates += l.getUpdates(cost, self.lr, ssgs)
+            # Default gradient parameters (all the remaining).
+            defaultGradParams += l.getDefaultGradParameters()
+
+        # Add updates for default-gradient parameters.
+        grads = self.defaultGradParam(cost, defaultGradParams)
+
+        # For numerical stability.
+        fudgeFactor = 1e-10
+        updates = []
+        for param, grad, ssg in zip(defaultGradParams, grads, self.__sumsSqDefGrads):
+            # Update of the sum of squared gradient.
+            newSsg = ssg + grad * grad
+            updates.append((ssg, newSsg))
+            # Update of the parameter.
+            newParam = param - self.lr * (grad / (fudgeFactor + T.sqrt(newSsg)))
+            updates.append((param, newParam))
+
+
+        return updates

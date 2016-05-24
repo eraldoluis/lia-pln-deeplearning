@@ -4,6 +4,7 @@ Created on Nov 19, 2015
 @author: eraldo
 '''
 
+
 class Layer(object):
     '''
     Base class for neural network layers. A layer must have an input, some
@@ -21,37 +22,60 @@ class Layer(object):
     since just some of its parameters are used in each learning iteration.
     '''
 
-    def __init__(self, _input):
+    def __init__(self, _inputs, acceptOnlyLayers=True):
         '''
         Constructor
         '''
-        self.__input = _input
+        if not isinstance(_inputs, list):
+            _inputs = [_inputs]
 
-    def getInput(self):
+        self.__previousLayer = []
+        self.__inputs = []
+
+        for _in in _inputs:
+            if isinstance(_in, Layer):
+                self.__previousLayer.append(_in)
+                self.__inputs.append(_in.getOutput())
+            else:
+                if acceptOnlyLayers:
+                    raise Exception("This class only accept layers as input.")
+
+                self.__inputs.append(_in)
+
+    def getFirstInput(self):
+        return self.__inputs[0]
+
+    def getInputs(self):
         '''
         :return the symbolic variable representing the input of this layer.
         '''
-        return self.__input
+        return self.__inputs
+
+    def getPreviousLayer(self):
+        '''
+        :return the symbolic variable representing the input of this layer.
+        '''
+        return self.__previousLayer
 
     def getOutput(self):
         '''
         :return the symbolic variable representing the output of this layer.
         '''
         raise NotImplementedError()
-    
+
     def getParameters(self):
         '''
         :return a list comprising all parameters (shared variables) of this layer.
         '''
         raise NotImplementedError()
-    
+
     def getStructuredParameters(self):
         '''
         :return a list of parameters (shared variables) whose gradients and 
             updates are computed in a structured way, like in an embedding layer.
         '''
         raise NotImplementedError()
-    
+
     def getDefaultGradParameters(self):
         '''
         :return a list of parameters (shared variables) whose gradients and 
@@ -60,7 +84,7 @@ class Layer(object):
                 params = params - learningRate * grad
         '''
         raise NotImplementedError()
-    
+
     def getUpdates(self, cost, learningRate, sumSqGrads=None):
         '''
         Some layers can have an efficient ways of computing the gradient w.r.t. 

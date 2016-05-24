@@ -1,8 +1,8 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
-import keras
+import theano.tensor as T
 
-from Optimizers.Optimizers import Optimizer
+from Optimizers.Optimizer import Optimizer
 
 
 class SGD(Optimizer):
@@ -15,40 +15,36 @@ class SGD(Optimizer):
         decay: float >= 0. Learning rate decay over each update.
         nesterov: boolean. Whether to apply Nesterov momentum.
     '''
-    def __init__(self, lr=0.01, momentum=0., decay=0., nesterov=False,
-                 *args, **kwargs):
-        super(SGD, self).__init__(**kwargs)
-        self.__dict__.update(locals())
-        self.iterations = K.variable(0.)
-        self.lr = K.variable(lr)
-        self.momentum = K.variable(momentum)
-        self.decay = K.variable(decay)
 
-    def get_updates(self, params, constraints, loss):
-        grads = self.get_gradients(loss, params)
-        lr = self.lr * (1. / (1. + self.decay * self.iterations))
-        self.updates = [(self.iterations, self.iterations + 1.)]
+    def __init__(self, lr=0.01, decay=0.):
+        super(SGD,self).__init__()
 
-        # momentum
-        self.weights = [K.variable(np.zeros(K.get_value(p).shape)) for p in params]
-        for p, g, m in zip(params, grads, self.weights):
-            v = self.momentum * m - lr * g  # velocity
-            self.updates.append((m, v))
+        self.lr = T.scalar(name="lr")
+        self.lrValue = lr
+        self.decay = decay
 
-            if self.nesterov:
-                new_p = p + self.momentum * v - lr * g
-            else:
-                new_p = p + v
+    def getInputTensors(self):
+        return [self.lr]
 
-            # apply constraints
-            if p in constraints:
-                c = constraints[p]
-                new_p = c(new_p)
-            self.updates.append((p, new_p))
-        return self.updates
+    def getInputValues(self, nmEpochDone):
+        self.lrValue *= (1. / (1. + self.decay * nmEpochDone))
+        return [self.lrValue]
 
-    def get_config(self):
-        return {"name": self.__class__.__name__,
-                "lr": float(K.get_value(self.lr)),
-                "momentum": float(K.get_value(self.momentum)),
-                "decay": float(K.get_value(self.decay)),
+    def getUpdates(self, cost, layers):
+        updates = []
+        defaultGradParams = []
+
+        for l in layers:
+            # Structured updates (embeddings, basically).
+            updates += l.getUpdates(cost, self.lr)
+            # Default gradient parameters (all the remaining).
+            defaultGradParams += l.getDefaultGradParameters()
+
+        # Add updates for default-gradient parameters.
+        # Compute gradient of the cost function w.r.t. each parameter.
+        grads = self.defaultGradParam(cost, defaultGradParams)
+
+        updates = [(param, param - self.lr * grad)
+                   for param, grad in zip(defaultGradParams, grads)]
+
+        return updates

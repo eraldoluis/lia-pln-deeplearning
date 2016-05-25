@@ -32,7 +32,7 @@ class WindowModelByWord(WindowModelBasic):
                  learningRateUpdStrategy=LearningRateUpdNormalStrategy(),
                  wordVecsUpdStrategy='normal', networkAct='tanh', norm_coef=1.0,
                  structGrad=True, adaGrad=False,randomizeInput = True,
-                 embeddingNotUpdate = [],choiceNetwork = NeuralNetworkChoiceEnum.COMPLETE):
+                 embeddingNotUpdate = [],choiceNetwork = NeuralNetworkChoiceEnum.COMPLETE, loadHiddenWeights=None):
         self.__log = logging.getLogger(__name__)
         
         #
@@ -43,7 +43,7 @@ class WindowModelByWord(WindowModelBasic):
                                   batchSize, c, charModel,
                                   learningRateUpdStrategy, randomizeInput,
                                   wordVecsUpdStrategy, NeuralNetworkChoiceEnum.withoutHiddenLayer(choiceNetwork), 
-                                  networkAct,norm_coef, structGrad, adaGrad)
+                                  networkAct,norm_coef, structGrad, adaGrad,loadHiddenWeights)
         
         self.setTestValues = True
         

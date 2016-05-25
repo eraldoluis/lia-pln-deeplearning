@@ -290,7 +290,8 @@ def run(args):
                                       adaGrad=args.adaGrad,
                                       randomizeInput=not args.notRandomizeInput,
                                       embeddingNotUpdate = args.nonupdatewv,
-                                      choiceNetwork=networkChoice)
+                                      choiceNetwork=networkChoice,
+                                      loadHiddenWeights=args.loadHiddenWeights)
         
         elif args.alg == "window_sentence":
             separeSentence = True
@@ -560,6 +561,8 @@ def main():
     
     parser.add_argument('--notRandomizeInput', dest='notRandomizeInput', action='store_true',
                        help='The file path where the prediction will be saved')
+
+    parser.add_argument('--loadHiddenWeights', dest="loadHiddenWeights", action='store')
     
     #parser.add_argument('--saveSolution', dest='saveSolution', action='store',
     #                  help='The file path where the prediction will be saved')

@@ -4,7 +4,7 @@
 
 class FeatureGenerator(object):
     '''
-    Interface of a class that generate the inputs for a training, which can be attributes or labels.
+    Interface of a class that generates the features for the training.
     '''
 
     def generate(self, rawData):

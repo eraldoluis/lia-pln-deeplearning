@@ -28,22 +28,20 @@ class BatchAssembler:
 
         :param batchSize: If this parameter has a negative or zero value,
             so this algorithm will consider that the training has variable batch.
-            Thus each output of TrainingInputGenerator will consider as the example from a same batch.
-
+            Thus each output of TrainingInputGenerator will consider a same batch.
             If this parameter has a value bigger than zero, so will packed automatically each element of output in a batch.
         '''
 
         self.__reader = reader
         self.__inputGenerators = inputGenerators
-        self.__outputGenerators = outputGenerator
+        self.__outputGenerator = outputGenerator
         self.__batchSize = batchSize
 
 
     def getGeneratorObject(self):
         '''
-        :return: a generator from the yield expression. This generator will return the batches from the dataset.
+        :return: a generator from the yield expression. This generator will return the batches from the data set.
         '''
-        batch = []
         inputs = [[] for inputGenerator in self.__inputGenerators]
         outputs = []
 
@@ -53,16 +51,24 @@ class BatchAssembler:
             for inputGenerator in self.__inputGenerators:
                 generatedInputs.append(inputGenerator.generate(attributes))
 
-            generatedOutputs = self.__outputGenerators.generate(label)
+            # If outputGenerator is None, so neural network won't need of y,
+            #   since y might be produced for some part of the neural network.
+            # This happens with autoencoder.
+            if self.__outputGenerator:
+                generatedOutputs = self.__outputGenerator.generate(label)
 
             if self.__batchSize > 0:
-                for idx in range(len(generatedOutputs)):
+                for idx in range(len(generatedInputs[0])):
                     for idxGen, genInput in enumerate(generatedInputs):
                         inputs[idxGen].append(genInput[idx])
 
-                    outputs.append(generatedOutputs[idx])
+                    # If outputGenerator is None, so neural network won't need of y,
+                    #   since y might be produced for some part of the neural network.
+                    # This happens with autoencoder.
+                    if self.__outputGenerator:
+                        outputs.append(generatedOutputs[idx])
 
-                    if len(outputs) == self.__batchSize:
+                    if len(generatedInputs[0]) == self.__batchSize:
                         yield self.formatToNumpy(inputs, outputs)
 
                         inputs = [[] for inputGenerator in self.__inputGenerators]
@@ -84,7 +90,7 @@ class BatchAssembler:
 
 class SyncBatchIterator(object):
     '''
-    Reader all data from data set and generate the training input at once.
+    Reads all data from data set and generates the training input at once.
     '''
 
     def __init__(self, reader, inputGenerators, outputGenerator, batchSize, shuffle=True):
@@ -139,11 +145,15 @@ class SyncBatchIterator(object):
 
 
 class AsyncBatchIterator(object):
+    '''
+    Reads a certain quantity of batches from the data set at a time.
+    '''
+
     def __init__(self, datasetReader, batchSize, inputsGenerator, outputGenerator, shuffle=True, maxqSize=10,
                  waitTime=0.05):
         self.__batchIterator = BatchAssembler(datasetReader, batchSize, inputsGenerator, outputGenerator)
         self.__generatorObj = self.__batchIterator.getGeneratorObject()
-        self.__queue, self.__stop = self.generatorQueue(maxQsize, waitTime)
+        self.__queue, self.__stop = self.generatorQueue(maxqSize, waitTime)
 
     def __iter__(self):
         return self
@@ -157,14 +167,13 @@ class AsyncBatchIterator(object):
         return b
 
     def generatorQueue(self, maxQsize=10, waitTime=0.05):
-        '''Builds a threading queue out of a data generator.
-        Used in `fit_generator`, `evaluate_generator`, `predict_generator`.
-        '''
+        # Queue of batches
         q = Queue()
 
         _stop = threading.Event()
 
         def data_generator_task():
+            # Batches outside of the queue
             heldData = []
 
             while not _stop.is_set():
@@ -174,15 +183,18 @@ class AsyncBatchIterator(object):
                             generator_output = self.__generatorObj.next()
 
                             if self.__shuffle:
+                                # Run a coin to decide if the batch will be put in queue or not.
                                 c = random.randint(0, 1)
                             else:
                                 c = 1
 
                             if c:
+                                # If coin is true, so this batch will be put in the queue
                                 q.put(generator_output)
                             else:
                                 heldData.append(generator_output)
 
+                                # If heldData has some specific length, so one element of this array will be put on queue.
                                 if len(heldData) == min(2, 100 / self.__batchSize):
                                     c = random.randint(0, len(heldData) - 1)
                                     q.put(heldData.pop(c))
@@ -203,6 +215,7 @@ class AsyncBatchIterator(object):
                     print e
                     raise
 
+        # Create thread that will read the batches
         thread = threading.Thread(target=data_generator_task)
         thread.daemon = True
         thread.start()

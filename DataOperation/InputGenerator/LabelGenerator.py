@@ -16,8 +16,6 @@ class LabelGenerator(FeatureGenerator):
     def generate(self, labels):
         '''
         Returns a list of integers which represent these labels or tags.
-        if isSentenceModel is true, than this class will return
-            all tags as a one example. Else it'll return each tag as one example
 
         :type labels: list[basestring]
         :param labels:

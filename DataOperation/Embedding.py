@@ -5,8 +5,6 @@
 Classes and functions that operate on distributed representations
 '''
 
-
-import numpy
 import logging
 from NNet.Util import FeatureVectorsGenerator
 import codecs
@@ -65,7 +63,7 @@ class ChosenUnknownStrategy(UnknownGenerateStrategy):
 
 class EmbeddingFactory(object):
     '''
-    Create embeddings
+    Creates embeddings
     '''
 
     def  __init__(self):
@@ -101,7 +99,7 @@ class EmbeddingFactory(object):
     
         return embedding
     
-    def createEmptyEmbedding(self,embeddingSize):
+    def createRandomEmbedding(self, embeddingSize):
         '''
         Create a embedding which give for each object a random vector
         '''
@@ -117,7 +115,7 @@ class EmbeddingFactory(object):
 
 class Embedding(object):
     '''
-    Represent an object distributed representation.
+    Represents an object distributed representation.
     This class has a matrix with all vectors and lexicon.
     '''
     

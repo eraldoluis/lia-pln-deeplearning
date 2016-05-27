@@ -34,8 +34,6 @@ class WindowGenerator(FeatureGenerator):
     def generate(self, rawData):
         '''
         Receives a list of tokens and returns window of words.
-        If isSentenceModel is true, than all window of words will be returned as one example.
-        Else each window of words will be returned as one example
 
         :type rawData: list[basestring]
         :param rawData: a list of tokens

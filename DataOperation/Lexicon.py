@@ -28,6 +28,13 @@ class Lexicon(object):
         """
         return self.__stopAdd
 
+    def getLexiconList(self):
+        """
+        :return: return a list of all words of the lexicon. The position of the word in the list is the idx of this word
+            in the lexicon
+        """
+        return self.__lexiconDict
+
     def getLexiconDict(self):
         """
         :return: return a dictionary which contains the integers which represent each word.

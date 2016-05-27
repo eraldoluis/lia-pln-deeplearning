@@ -5,8 +5,7 @@ import logging
 import os
 import sys
 
-from keras.optimizers import SGD
-
+import h5py
 import Model
 from DataOperation.Embedding import EmbeddingFactory
 from DataOperation.InputGenerator.LabelGenerator import LabelGenerator
@@ -17,16 +16,18 @@ from DataOperation.TokenDatasetReader import TokenLabelReader
 from Model import Model
 from Model.Objective import NegativeLogLikelihood
 from Model.Prediction import ArgmaxPrediction
-from NNet import InputLayer, LinearLayer
+from Model.SaveModelCallback import ModelWriter
 from NNet.ActivationLayer import ActivationLayer, softmax, tanh
 from NNet.FlattenLayer import FlattenLayer
-from NNet.InputLayer import InputLayer
 from NNet.LinearLayer import LinearLayer
-from NNet.Embedding import EmbeddingLayer
+from NNet.EmbeddingLayer import EmbeddingLayer
+import theano.tensor as T
 import logging.config
 
 from Optimizers.SGD import SGD
 from Parameters.JsonArgParser import JsonArgParser
+
+import numpy as np
 
 WNN_PARAMETERS = u'''
 {
@@ -38,6 +39,8 @@ WNN_PARAMETERS = u'''
 
     "test": {"desc": "Test File Path"},
     "dev": {"desc": "Development File Path"},
+    "load_model": {"desc": "Model File Path to be loaded."},
+    "save_model": {"desc": "Model File Path to be saved."},
     "alg": {"default":"window_word", "desc": "The type of algorithm to train and test. The posible inputs are: window_word or window_stn"},
     "hidden_size": {"default": 300, "desc": "The number of neurons in the hidden layer"},
     "word_window_size": {"default": 5 , "desc": "The size of words for the wordsWindow" },
@@ -52,6 +55,46 @@ WNN_PARAMETERS = u'''
 
 }
 '''
+
+
+class WNNModelWritter(ModelWriter):
+    def __init__(self, savePath, embeddingLayer, linearLayer1, linearLayer2, embedding):
+        '''
+        :param savePath: path where the model will be saved
+
+        :type embeddingLayer: NNet.EmbeddingLayer.EmbeddingLayer
+        :type linearLayer1: NNet.LinearLayer.LinearLayer
+        :type linearLayer2: NNet.LinearLayer.LinearLayer
+        :type embedding: DataOperation.Embedding.Embedding
+        '''
+        self.__savePath = savePath
+        self.__embeddingLayer = embeddingLayer
+        self.__linear1 = linearLayer1
+        self.__linear2 = linearLayer2
+        self.__embedding = embedding
+        self.__logging = logging.getLogger(__name__)
+
+    def save(self):
+        h5File = h5py.File(self.__savePath, "w")
+
+        # Loading Embedding
+        lexicon = self.__embedding.getLexicon()
+
+        h5File["lexicon"] = lexicon.getLexiconList()
+        h5File["lexicon"].attrs['unknownIdx'] = lexicon.getUnknownIndex()
+        h5File["embedding"]["weights"] = self.__embeddingLayer.getParameters()[0]
+
+        W1, b1 = self.__linear1.getParameters()
+        h5File["linear1"]["W"] = W1
+        h5File["linear1"]["b"] = b1
+
+        W2, b2 = self.__linear1.getParameters()
+        h5File["linear2"]["W"] = W2
+        h5File["linear2"]["b"] = b2
+
+        self.__logging.info("Model Saved")
+
+        h5File.close()
 
 
 def mainWnn(**kwargs):
@@ -81,14 +124,33 @@ def mainWnn(**kwargs):
         module_ = importlib.import_module(moduleName)
         filters.append(getattr(module_, className)())
 
-    if kwargs["word_embedding"]:
-        log.info("Reading W2v File")
-        embedding = EmbeddingFactory().createFromW2V(kwargs["word_embedding"])
-    else:
-        embedding = EmbeddingFactory().createEmptyEmbedding(kwargs["word_emb_size"])
+    if kwargs["load_model"]:
+        h5File = h5py.File(kwargs["load_model"], "r")
 
-    # Get the inputs and output
-    labelLexicon = Lexicon()
+        # Loading Embedding
+        lexicon = h5File["lexicon"]
+        unknowLexicon = h5File["lexicon"].attrs['unknownWord']
+        embeddingMatrix = np.asarray(h5File["embedding"]["weights"])
+
+        W1 = np.asarray(h5File["linear1"]["W"])
+        b1 = np.asarray(h5File["linear1"]["b"])
+        W2 = np.asarray(h5File["linear2"]["W"])
+        b2 = np.asarray(h5File["linear2"]["b"])
+    else:
+        embeddingMatrix = embedding.getEmbeddingMatrix()
+        W1 = None
+        b1 = None
+        W2 = None
+        b2 = None
+
+        if kwargs["word_embedding"]:
+            log.info("Reading W2v File")
+            embedding = EmbeddingFactory().createFromW2V(kwargs["word_embedding"])
+        else:
+            embedding = EmbeddingFactory().createRandomEmbedding(kwargs["word_emb_size"])
+
+        # Get the inputs and output
+        labelLexicon = Lexicon()
 
     log.info("Reading training examples")
 
@@ -96,8 +158,6 @@ def mainWnn(**kwargs):
     inputGenerator = WindowGenerator(wordWindowSize, embedding, filters,
                                      startSymbol, endSymbol)
     outputGenerator = LabelGenerator(labelLexicon)
-
-
 
     trainReader = SyncBatchIterator(trainDatasetReader, [inputGenerator], outputGenerator, batchSize)
     embedding.stopAdd()
@@ -122,9 +182,9 @@ def mainWnn(**kwargs):
     if isSentenceModel:
         raise NotImplementedError("Model of sentence window was't implemented yet.")
     else:
-        inputLayer = InputLayer(1, name="word_window", dtype='int64')
+        input = T.lmatrix("window_words")
 
-        embeddingLayer = EmbeddingLayer(inputLayer, embedding.getEmbeddingMatrix())
+        embeddingLayer = EmbeddingLayer(input, embedding.getEmbeddingMatrix())
         flatten = FlattenLayer(embeddingLayer)
 
         linear1 = LinearLayer(flatten, wordWindowSize * embedding.getEmbeddingSize(), hiddenLayerSize)
@@ -133,10 +193,10 @@ def mainWnn(**kwargs):
         linear2 = LinearLayer(act1, hiddenLayerSize, labelLexicon.getLen())
         act2 = ActivationLayer(linear2, softmax)
 
-    wnnModel = Model.Model(act2, dimOutput=0, dtype="int64")
+    y = T.lvector("y")
+    wnnModel = Model.Model([input], y, act2)
 
     wnnModel.compile(SGD(lr=lr), NegativeLogLikelihood(), ArgmaxPrediction(1), ["acc"])
-
     wnnModel.train(trainReader, numEpochs, devReader)
 
 

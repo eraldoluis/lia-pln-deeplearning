@@ -3,6 +3,7 @@ Created on Nov 19, 2015
 
 @author: eraldo
 '''
+from collections import Set
 
 
 class Layer(object):
@@ -22,40 +23,44 @@ class Layer(object):
     since just some of its parameters are used in each learning iteration.
     '''
 
-    def __init__(self, _inputs, acceptOnlyLayers=True):
+    def __init__(self, _input, trainable=True):
         '''
         Constructor
         '''
-        if not isinstance(_inputs, list):
-            _inputs = [_inputs]
+        self.__set = set()
 
-        self.__previousLayer = []
-        self.__inputs = []
+        if isinstance(_input,list):
+            self.__input = []
+            for i in _input:
+                self.__input.append(self.__auxConst(i))
+        else:
+            self.__input = self.__auxConst(_input)
 
-        for _in in _inputs:
-            if isinstance(_in, Layer):
-                self.__previousLayer.append(_in)
-                self.__inputs.append(_in.getOutput())
-            else:
-                if acceptOnlyLayers:
-                    raise Exception("This class only accept layers as input.")
+        self.__set.add(self)
+        self.__trainable = trainable
 
-                self.__inputs.append(_in)
+    def isTrainable(self):
+        return self.__trainable
 
-    def getFirstInput(self):
-        return self.__inputs[0]
+    def __auxConst(self, _input):
+        if isinstance(_input, Layer):
+            self.__set.union(_input.getLayerSet())
+            return _input.getOutput()
 
-    def getInputs(self):
+        return _input
+
+    def getLayerSet(self):
+        '''
+        :return returns a set with previous layers and this layer.
+        '''
+        return self.__set
+
+
+    def getInput(self):
         '''
         :return the symbolic variable representing the input of this layer.
         '''
-        return self.__inputs
-
-    def getPreviousLayer(self):
-        '''
-        :return the symbolic variable representing the input of this layer.
-        '''
-        return self.__previousLayer
+        return self.__input
 
     def getOutput(self):
         '''

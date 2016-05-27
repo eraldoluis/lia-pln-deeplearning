@@ -20,7 +20,7 @@ class EmbeddingLayer(Layer):
     These vectors comprise the learnable parameters of this layer.
     """
 
-    def __init__(self, _input, embedding, structGrad=True):
+    def __init__(self, _input, embedding, structGrad=True, trainable=True):
         """
         :param _input: _input need be a matrix with 2 dimensions
 
@@ -39,6 +39,8 @@ class EmbeddingLayer(Layer):
             However, when using large batches (ordinary gradient descent, in the
             limit), ordinary gradients and updates are more efficient because
             most (or all of the) word vectors are used on each iteration.
+
+        :param trainable: set if the layer is trainable or not
 
         Considering that:
         
@@ -61,11 +63,10 @@ class EmbeddingLayer(Layer):
             embedding.shape = (numVectors, szEmb)
 
         """
-        super(EmbeddingLayer, self).__init__(_input)
+        super(EmbeddingLayer, self).__init__(_input, trainable)
 
         if isinstance(embedding, list):
             embedding = numpy.asarray(embedding, dtype=theano.config.floatX)
-
 
         self.__embedding = theano.shared(value=embedding, name='embedding', borrow=True)
 
@@ -74,7 +75,7 @@ class EmbeddingLayer(Layer):
 
         # Matrix of the active parameters for the given examples.
         # Its shape is (numExs * szEx, szEmb).
-        input = self.getFirstInput()
+        input = self.getInput()
         self.__activeVectors = self.__embedding[T.flatten(input, 1)]
 
         #

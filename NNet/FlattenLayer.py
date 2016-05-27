@@ -11,7 +11,7 @@ class FlattenLayer(Layer):
         super(FlattenLayer, self).__init__(_input)
 
         # We flat to two dimension, because of the mini-batch
-        self.__output = T.flatten(self.getFirstInput(),2)
+        self.__output = T.flatten(self.getInput(), 2)
 
     def getOutput(self):
         return self.__output

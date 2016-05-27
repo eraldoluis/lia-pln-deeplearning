@@ -35,7 +35,7 @@ class ActivationLayer(Layer):
         """
         super(ActivationLayer, self).__init__(_input)
 
-        self.__output =  actFunction(self.getFirstInput())
+        self.__output =  actFunction(self.getInput())
 
 
     def getOutput(self):

@@ -5,7 +5,7 @@ import numpy as np
 import theano
 import theano.tensor as T
 from NNet.LinearLayer import LinearLayer
-from NNet.Embedding import EmbeddingLayer
+from NNet.EmbeddingLayer import EmbeddingLayer
 from NNet.Util import LearningRateUpdNormalStrategy
 from NNet.Layer import Layer
 

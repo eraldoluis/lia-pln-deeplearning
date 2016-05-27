@@ -2,8 +2,14 @@ import theano
 import theano.tensor as T
 import numpy
 
-
 ################################ FUNCTIONS ########################
+
+def load
+
+
+
+
+
 def defaultGradParameters(cost, parameters, learningRate, sumsSqGrads=None):
     """
     :param cost: symbolic variable expressing the cost function value.

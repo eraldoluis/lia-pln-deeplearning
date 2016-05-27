@@ -9,14 +9,7 @@ import theano
 
 
 class Adagrad(Optimizer):
-    '''Adagrad optimizer.
-
-    It is recommended to leave the parameters of this optimizer
-    at their default values.
-
-    # Arguments
-        lr: float >= 0. Learning rate.
-        epsilon: float >= 0.
+    '''Adagrad optimizer
     '''
     def __init__(self, lr=0.01, epsilon=1e-6, *args, **kwargs):
         super(Adagrad, self).__init__(**kwargs)

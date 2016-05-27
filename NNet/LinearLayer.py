@@ -62,7 +62,7 @@ class LinearLayer(Layer):
         return self.__output
 
     def getParameters(self):
-        return self.params
+        return self.params--
 
     def getDefaultGradParameters(self):
         return self.params

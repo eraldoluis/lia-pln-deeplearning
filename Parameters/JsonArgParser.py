@@ -21,7 +21,11 @@ class JsonArgParser:
                     "parameter_name3": {"required":True}
                 }
         '''
-        self.__parameterRules = json.dumps(parameterRule)
+
+        if isinstance(parameterRule,basestring):
+            self.__parameterRules = json.loads(parameterRule)
+
+        self.__parameterRules = parameterRule
 
     def parse(self, f):
         '''

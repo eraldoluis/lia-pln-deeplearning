@@ -40,5 +40,36 @@ class ReaderLexiconAndWordVec:
         f.close()
         
         return [lexicon,wordVector]
+    
+    def simpleRead(self, filename):
+        
+        labelDict = {}
+        labels = [] 
+        lines = []
+        
+        f = codecs.open(filename, 'r','utf-8')
+        
+        for line in f:
+            
+            if len(line) < 1:
+                continue
+                
+            line_split = line.split(',', 1 );
+                
+            if len(line_split) < 2:
+                    continue 
+            
+            idxLabel = labelDict.get(line_split[0], -1)
+            if idxLabel == -1:
+                labelDict[line_split[0]] = len(labelDict)
+                idxLabel = labelDict[line_split[0]]
+                labels.append(line_split[0])
+                lines.append([])
+                        
+            lines[idxLabel].append(line_split[1])  
+        
+        f.close()
+        
+        return [labels, lines]
 
     

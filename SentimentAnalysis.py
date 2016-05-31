@@ -18,12 +18,15 @@ import numpy
 from WindowModelBasic import WindowModelBasic
 from Evaluate.EvaluateEveryNumEpoch import EvaluateEveryNumEpoch
 from DataOperation.ReaderLexiconAndWordVec import ReaderLexiconAndWordVec
+from DataOperation.GenerateFolds import GenerateFolds
 import importlib
 from NNet.Util import LearningRateUpdDivideByEpochStrategy, \
     LearningRateUpdNormalStrategy
 from Evaluate.EvaluatePercPredictsCorrectNotInWordSet import EvaluatePercPredictsCorrectNotInWordSet
 import random
 import os
+import codecs
+from nltk.chunk.util import accuracy
 #import theano
 
 #theano.config.exception_verbosity='high'
@@ -44,6 +47,7 @@ def readVocabAndWord(args):
     
     return lexicon, wordVector
 
+                
 def run(args):
     
     filters = []
@@ -68,7 +72,7 @@ def run(args):
 
     if args.loadModel:
         print 'Loading model from ' + args.loadModel + ' ...'
-        f = open(args.loadModel, "rb")
+        f = open(args.loadModel, "r")
         lexicon, lexiconOfLabel, lexiconRaw, model, charVars = pickle.load(f)
         f.close()
 
@@ -343,6 +347,10 @@ def run(args):
         print 'Training...'
         model.train(trainData[0], trainData[1], trainData[2])
         
+        acc_hist = []
+        for l in model.listeners:
+            acc_hist = l.acc
+        
         
     t1 = time.time()
     
@@ -383,6 +391,7 @@ def run(args):
     
     evalue = EvaluateAccuracy()
     acc = evalue.evaluateWithPrint(predicts, testData[1])
+    acc_hist.append(acc)
     
     if args.saveModel is not None:
             
@@ -415,6 +424,54 @@ def run(args):
     
     print "Test  time: %s seconds" % (str(t2 - t1))
     print "Total time: %s seconds" % (str(t2 - t0))
+    
+    return acc_hist
+    
+def cross(args):
+    
+    labels, lines = ReaderLexiconAndWordVec().simpleRead(args.train)
+        
+    (dirname, filename) = os.path.split(args.train)    
+    newdirname = dirname+'/'+filename+'_x_'+str(args.kfold)+'_folds/' 
+    if os.path.exists(newdirname):
+        print "\nThe cross validation train e test files of "+ str(args.kfold) + " folds have already been generated"
+        print "\t\t" + 'for the file ' + args.train
+        
+    else:
+        GenerateFolds().readData(newdirname, args.kfold, labels, lines)
+            
+    acc_hist = []
+     
+    
+    for i in range(args.kfold):
+        fileTrain = newdirname + 'train_'+ str(i+1) + '.txt'
+        fileTest =  newdirname + 'test_'+ str(i+1) + '.txt'
+                 
+        
+        args.train = fileTrain
+        args.test = fileTest
+        
+        print "\n----------------------------------------------------------------------------------"
+        print "Running the " + str(i+1)+ " validation of "+ str(args.kfold)+ " folds"   
+        print "----------------------------------------------------------------------------------\n"
+        
+        
+        acc = run(args) 
+        acc_hist.append(acc)
+        
+        
+    acc_hist = numpy.array(acc_hist)
+    
+    mean = numpy.mean(acc_hist, axis=0)
+    
+    print "\nThe average accuracy per epoch\n"
+    
+    i = 1
+    for m in mean:
+        print "Epoch "+ str(i) + ": " + str(m)
+        i += 1
+    print '\n'
+    
 
 def main():
     
@@ -605,6 +662,13 @@ def main():
     parser.add_argument('--maxSizeOfWord', dest='maxSizeOfWord', action='store', type=int, default=20,
                        help='The max length of each word in dataset')
     
+    parser.add_argument('--crossvalidation', dest='crossvalidation', action='store_true', default=False,
+                       help='Activate cross validation')
+
+    parser.add_argument('--kfold', dest='kfold', action='store', type=int,
+                       help='The number of folds of the cross validation', default=2)
+    
+    
     #parser.add_argument('--saveSolution', dest='saveSolution', action='store',
     #                  help='The file path where the prediction will be saved')
     
@@ -633,8 +697,11 @@ def main():
     if args.seed != None:
         random.seed(args.seed)
         numpy.random.seed(args.seed)
-
-    run(args)
+        
+    if args.crossvalidation:
+        cross(args)
+    else:
+        run(args)
 
 if __name__ == '__main__':
     full_path = os.path.realpath(__file__)

@@ -15,6 +15,7 @@ class EvaluateEveryNumEpoch:
         self.bestAccuracy = 0.0
         self.varsToSave = varsToSave
         self.fileToSave = fileToSave
+        self.acc = []
         
         if len(numEpochToEval) > 1:
             self.deque.extend(sorted(numEpochToEval, key=int) )
@@ -45,6 +46,7 @@ class EvaluateEveryNumEpoch:
         self.correct = np.asarray(self.correct).flatten()
         
         acc = self.evaluate.evaluateWithPrint(predicts, self.correct)
+        self.acc.append(acc)
         
         if acc > self.bestAccuracy:
             self.bestAccuracy = acc

@@ -12,7 +12,7 @@ from WindowModelBySentence import WindowModelBySentence, NeuralNetworkChoiceEnum
 from NNet.EmbeddingConvolutionalLayer import EmbeddingConvolutionalLayer
 import cPickle as pickle
 from DataOperation.Lexicon import Lexicon
-#from WindowModelByWord import WindowModelByWord
+from WindowModelByWord import WindowModelByWord
 import sys
 import numpy
 from WindowModelBasic import WindowModelBasic
@@ -25,8 +25,8 @@ from NNet.Util import LearningRateUpdDivideByEpochStrategy, \
 from Evaluate.EvaluatePercPredictsCorrectNotInWordSet import EvaluatePercPredictsCorrectNotInWordSet
 import random
 import os
-#import codecs
-#from nltk.chunk.util import accuracy
+import codecs
+from nltk.chunk.util import accuracy
 #import theano
 
 #theano.config.exception_verbosity='high'
@@ -709,4 +709,3 @@ if __name__ == '__main__':
         
     logging.config.fileConfig(os.path.join(path,'logging.conf'))
     main()
-

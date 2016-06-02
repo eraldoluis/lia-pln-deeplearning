@@ -1,6 +1,7 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
 import logging
+from time import time
 
 
 class Callback(object):
@@ -66,6 +67,8 @@ class BaseLogger(Callback):
         self.__verbose = verbose
         self.log = logging.getLogger(__name__)
 
+        self.__epochBeginTime = -1
+        self.__lastBatchProcessedTime = -1
         self.__totals = {}
         for metric in self.__metrics:
             self.__totals[metric] = 0.0
@@ -73,6 +76,7 @@ class BaseLogger(Callback):
     def onEpochBegin(self, epoch, logs={}):
         self.__seen = 0
         self.__totals = {}
+        self.__epochBeginTime = int(time())
 
         for metric in self.__metrics:
             self.__totals[metric] = 0.0
@@ -80,32 +84,27 @@ class BaseLogger(Callback):
     def onBatchEnd(self, batch, logs={}):
         batch_size = logs.get('batchSize', 0)
         self.__seen += batch_size
+        self.__lastBatchProcessedTime = int(time())
 
         for k, v in logs.items():
             if k in self.__totals:
                 self.__totals[k] += v * batch_size
 
     def onEpochEnd(self, epoch, logs={}):
+
         for k in self.__metrics:
             if k in self.__totals:
                 # make value available to next callbacks
                 logs[k] = self.__totals[k] / self.__seen
 
         if self.__verbose:
-            info = ""
+            info = "epoch %d" % epoch
+            info += " [%ds]" % (self.__lastBatchProcessedTime - self.__epochBeginTime)
+
             for k, v in logs.iteritems():
                 info += ' - %s:' % k
                 info += ' %.6f' % v
 
             self.log.info(info)
 
-class SaveModel:
-
-    def save(self):
-        not In
-
-
-
-class SaveBestLossCallback(Callback):
-    pass
 

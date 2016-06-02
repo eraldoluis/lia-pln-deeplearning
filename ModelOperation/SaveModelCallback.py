@@ -4,7 +4,7 @@ import logging
 
 import sys
 
-from Model import Callback
+from ModelOperation.Callback import Callback
 
 
 class ModelWriter:

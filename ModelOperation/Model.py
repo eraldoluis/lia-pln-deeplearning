@@ -6,7 +6,7 @@ import itertools
 import theano.tensor as T
 import theano
 
-from Model.Callback import BaseLogger
+
 
 
 class Model:
@@ -49,10 +49,10 @@ class Model:
         :type optimizer: Optimizer.Optimizer
         :param optimizer:
 
-        :type loss: Model.Objective.Objective
+        :type loss: ModelOperation.Objective.Objective
         :param loss:
 
-        :type prediction: Model.Prediction.Prediction
+        :type prediction: ModelOperation.Prediction.Prediction
         :param prediction:
 
         :param metrics: the names of the metrics to be measured. Nowadays, this classe just accepted "loss" and "acc"(accuracy)

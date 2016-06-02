@@ -27,13 +27,13 @@ class Layer(object):
         '''
         Constructor
         '''
-        self.__set = set()
 
         if isinstance(_input,list):
             self.__input = []
             for i in _input:
                 self.__input.append(self.__auxConst(i))
         else:
+            self.__set = set()
             self.__input = self.__auxConst(_input)
 
         self.__set.add(self)
@@ -44,7 +44,8 @@ class Layer(object):
 
     def __auxConst(self, _input):
         if isinstance(_input, Layer):
-            self.__set.union(_input.getLayerSet())
+            for s in _input.getLayerSet():
+                self.__set.add(s)
             return _input.getOutput()
 
         return _input

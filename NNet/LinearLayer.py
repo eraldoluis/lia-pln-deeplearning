@@ -32,7 +32,7 @@ class LinearLayer(Layer):
         super(LinearLayer, self).__init__(_input)
 
         if not isinstance(W, TensorSharedVariable):
-            if isinstance(W, (numpy.darray, list)):
+            if isinstance(W, (numpy.ndarray, list)):
                 W_values = numpy.asarray(W, dtype=theano.config.floatX)
             else:
                 W_values = numpy.asarray(
@@ -43,7 +43,7 @@ class LinearLayer(Layer):
             W = theano.shared(value=W_values, name='W_hiddenLayer', borrow=True)
 
         if not isinstance(b,TensorSharedVariable):
-            if isinstance(b, (numpy.darray, list)):
+            if isinstance(b, (numpy.ndarray, list)):
                 b_values = numpy.asarray(b, dtype=theano.config.floatX)
             else:
                 b_values = numpy.zeros(lenOut, dtype=theano.config.floatX)
@@ -62,7 +62,7 @@ class LinearLayer(Layer):
         return self.__output
 
     def getParameters(self):
-        return self.params--
+        return self.params
 
     def getDefaultGradParameters(self):
         return self.params

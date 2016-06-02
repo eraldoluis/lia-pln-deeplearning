@@ -6,6 +6,7 @@ import theano.tensor as T
 from theano.tensor.sharedvar import TensorSharedVariable
 
 from NNet import LinearLayer
+from NNet.Layer import Layer
 
 
 class TiedLayer(Layer):
@@ -23,10 +24,10 @@ class TiedLayer(Layer):
         :type lenOut: int
         :param lenOut: number of units
         """
-        super(LinearLayer, self).__init__(_input)
+        super(TiedLayer, self).__init__(_input)
 
         if not isinstance(b, TensorSharedVariable):
-            if isinstance(b, (numpy.darray, list)):
+            if isinstance(b, (numpy.ndarray, list)):
                 b_values = numpy.asarray(b, dtype=theano.config.floatX)
             else:
                 b_values = numpy.zeros(lenOut, dtype=theano.config.floatX)

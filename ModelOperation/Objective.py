@@ -19,3 +19,5 @@ class MeanSquaredError(Objective):
 class NegativeLogLikelihood(Objective):
     def calculateError(self, output, ypred, ytrue):
         return -T.mean(T.log(output)[T.arange(ytrue.shape[0]), ytrue])
+
+

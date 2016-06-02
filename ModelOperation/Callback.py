@@ -9,7 +9,7 @@ class Callback(object):
     # Properties
         params: dict. Training parameters
             (eg. verbosity, batch size, number of epochs...).
-        model: instance of `keras.models.Model`.
+        model: instance of `keras.models.ModelOperation`.
             Reference of the model being trained.
 
     The `logs` dictionary that callback methods

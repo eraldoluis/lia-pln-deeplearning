@@ -1,12 +1,15 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
 import Queue
+import logging
 import random
 import threading
 
 from datetime import time
 
+
 import numpy
+import time
 
 
 class BatchAssembler:
@@ -68,7 +71,7 @@ class BatchAssembler:
                     if self.__outputGenerator:
                         outputs.append(generatedOutputs[idx])
 
-                    if len(generatedInputs[0]) == self.__batchSize:
+                    if len(inputs[0]) == self.__batchSize:
                         yield self.formatToNumpy(inputs, outputs)
 
                         inputs = [[] for inputGenerator in self.__inputGenerators]
@@ -79,7 +82,7 @@ class BatchAssembler:
 
                 yield self.formatToNumpy(inputs, outputs)
 
-        if len(outputs):
+        if len(inputs[0]):
             yield self.formatToNumpy(inputs, outputs)
 
     def formatToNumpy(self, inputs, outputs):
@@ -116,12 +119,16 @@ class SyncBatchIterator(object):
         self.__batchIdxs = []
         self.__shuffle = shuffle
         self.__current = 0
+        self.__log = logging.getLogger(__name__)
 
         idx = 0
         for batch in BatchAssembler(reader, inputGenerators, outputGenerator, batchSize).getGeneratorObject():
             self.__batches.append(batch)
             self.__batchIdxs.append(idx)
             idx += 1
+
+        self.__log.info("Number of batches: %d"  % len(self.__batchIdxs))
+        self.__log.info("BatchSize: %d" %  batchSize)
 
         if self.__shuffle:
             random.shuffle(self.__batchIdxs)
@@ -149,26 +156,57 @@ class AsyncBatchIterator(object):
     Reads a certain quantity of batches from the data set at a time.
     '''
 
-    def __init__(self, datasetReader, batchSize, inputsGenerator, outputGenerator, shuffle=True, maxqSize=10,
-                 waitTime=0.05):
-        self.__batchIterator = BatchAssembler(datasetReader, batchSize, inputsGenerator, outputGenerator)
+    def __init__(self, datasetReader, inputGenerators, outputGenerator, batchSize, shuffle=True, maxqSize=100,
+                 waitTime=0.005):
+        '''
+            :type reader: DataOperation.DatasetReader.DatasetReader
+            :param reader:
+
+            :type inputGenerators: list[DataOperation.InputGenerator.FeatureGenerator.FeatureGenerator]
+            :param inputGenerators: generate the input of the training
+
+
+            :type outputGenerator: list[DataOperation.InputGenerator.FeatureGenerator.FeatureGenerator]
+            :param outputGenerator: generate the output of the training
+
+            :param batchSize: If this parameter has a negative or zero value,
+                so this algorithm will consider that the training has variable batch.
+                Thus each TrainingInputGenerator has to pass the batch through the generate method.
+                If this parameter has a value bigger than zero, so will treat treat each output of generate method as a normal example.
+
+            :param shuffle: is to shufle or not the batches
+
+            :param maxqSize: maximum number of batches in queue
+
+            :param waitTime: time which de thread is going to wait when the queue is full
+            '''
+        self.__batchIterator = BatchAssembler(datasetReader, inputGenerators, outputGenerator, batchSize)
         self.__generatorObj = self.__batchIterator.getGeneratorObject()
         self.__queue, self.__stop = self.generatorQueue(maxqSize, waitTime)
+        self.__shuffle = shuffle
+        self.__batchSize = batchSize
 
     def __iter__(self):
         return self
 
     def next(self):
-        b = self.__queue.get()
+        while True:
+            try:
+                b = self.__queue.get(timeout=0.0001)
+                break;
+            except Queue.Empty as e:
+                print "empty"
+                continue
 
         if b is None:
             raise StopIteration()
 
+
         return b
 
-    def generatorQueue(self, maxQsize=10, waitTime=0.05):
+    def generatorQueue(self, maxQsize, waitTime):
         # Queue of batches
-        q = Queue()
+        q = Queue.Queue()
 
         _stop = threading.Event()
 
@@ -195,7 +233,7 @@ class AsyncBatchIterator(object):
                                 heldData.append(generator_output)
 
                                 # If heldData has some specific length, so one element of this array will be put on queue.
-                                if len(heldData) == min(2, 100 / self.__batchSize):
+                                if len(heldData) == maxQsize:
                                     c = random.randint(0, len(heldData) - 1)
                                     q.put(heldData.pop(c))
 
@@ -203,7 +241,7 @@ class AsyncBatchIterator(object):
                             random.shuffle(heldData)
 
                             for data in heldData:
-                                q.put(generator_output)
+                                q.put(data)
 
                             q.put(None)
 

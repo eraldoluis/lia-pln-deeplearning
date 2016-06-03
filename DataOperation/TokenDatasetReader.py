@@ -41,7 +41,7 @@ class TokenLabelReader(DatasetReader):
     Reads the tokens and label from a labeled data set.
     """
 
-    def z__init__(self, filePath, labelTknSep, sep=' '):
+    def __init__(self, filePath, labelTknSep, sep=' '):
         """
         :type filePath: String
         :param filePath: dataset path

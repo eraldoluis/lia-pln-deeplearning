@@ -11,7 +11,7 @@ from ModelOperation.Callback import BaseLogger
 
 class Model:
     def __init__(self, x, y, outputLayer):
-        '''.
+        '''
         :param x: list of tensors that represent the inputs.
 
         :param y: tensor that represents the correct output.
@@ -85,7 +85,8 @@ class Model:
                 self.__isY_ProducedByNN = True
 
         # Create the inputs of which theano function
-        inputsOutputs = self.__x
+        inputsOutputs = []
+        inputsOutputs += self.__x
 
         if not self.__isY_ProducedByNN:
             inputsOutputs += [self.__y]
@@ -113,6 +114,8 @@ class Model:
             for cb in callbacks:
                 cb.onEpochBegin(epoch)
 
+            lr = self.__optimizer.getInputValues()
+
             for x, y in trainBatchGenerator:
                 for cb in callbacks:
                     cb.onBatchBegin([x, y], {"batchSize": len(x[0])})
@@ -125,7 +128,7 @@ class Model:
                     # Theano function receives 'y' as an input
                     inputs += [y]
 
-                inputs += self.__optimizer.getInputValues(epoch)
+                inputs += lr
 
                 outputs = self.__trainFunction(*inputs)
 
@@ -153,12 +156,12 @@ class Model:
         for x, y in testBatchInterator:
             logs = {"batchSize": len(x[0])}
 
-            inputs = x
+            inputs = []
+            inputs += x
 
             if not self.__isY_ProducedByNN:
                 # Theano function receives 'y' as an input
                 inputs += [y]
-
             outputs = self.__evaluateFunction(*inputs)
 
             for m, _output in itertools.izip(self.__metrics, outputs):

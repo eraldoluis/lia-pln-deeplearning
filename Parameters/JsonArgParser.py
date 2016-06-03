@@ -22,10 +22,10 @@ class JsonArgParser:
                 }
         '''
 
-        if isinstance(parameterRule,basestring):
+        if isinstance(parameterRule,(basestring,unicode)):
             self.__parameterRules = json.loads(parameterRule)
-
-        self.__parameterRules = parameterRule
+        else:
+            self.__parameterRules = parameterRule
 
     def parse(self, f):
         '''

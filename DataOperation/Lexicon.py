@@ -33,7 +33,7 @@ class Lexicon(object):
         :return: return a list of all words of the lexicon. The position of the word in the list is the idx of this word
             in the lexicon
         """
-        return self.__lexiconDict
+        return self.__lexicon
 
     def getLexiconDict(self):
         """

@@ -2,27 +2,40 @@
 # -*- coding: utf-8 -*-
 import numpy
 
-from Optimizer.Optimizer import Optimizer
 import theano.tensor as T
 import theano
 
+from Optimizers.Optimizer import Optimizer
 
 
 class Adagrad(Optimizer):
     '''Adagrad optimizer
     '''
-    def __init__(self, lr=0.01, epsilon=1e-6, *args, **kwargs):
-        super(Adagrad, self).__init__(**kwargs)
+
+    def __init__(self, lr=0.01, decay=1.0):
+        super(Adagrad, self).__init__()
         self.lr = T.scalar(name="lr")
         self.lrValue = lr
         self.__sumsSqDefGrads = []
         self.__sumsSqStructGrads = []
 
+        if decay == 0.0:
+            decay = 1
+
+        self.decay = decay
+
     def getInputTensors(self):
         return [self.lr]
 
-    def getInputValues(self, nmEpochDone):
-        return [self.lr]
+    def getInputValues(self):
+        '''
+        :param nmEpochDone:
+        :return: new value of learning rate.
+        '''
+        lrValue = self.lrValue
+        self.lrValue *= (1. / self.decay)
+
+        return [lrValue]
 
     def getUpdates(self, cost, layers):
         # Lists of variables that store the sum of the squared historical
@@ -93,6 +106,5 @@ class Adagrad(Optimizer):
             # Update of the parameter.
             newParam = param - self.lr * (grad / (fudgeFactor + T.sqrt(newSsg)))
             updates.append((param, newParam))
-
 
         return updates

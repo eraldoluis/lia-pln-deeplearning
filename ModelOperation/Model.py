@@ -140,6 +140,8 @@ class Model:
 
             logs = {}
 
+            self.log.info("Lr: %f" % lr[0])
+
             if devBatchGenerator:
                 for metricName, value in self.evaluate(devBatchGenerator, verbose=False).iteritems():
                     logs["val_" + metricName] = value

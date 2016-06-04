@@ -114,7 +114,7 @@ class Model:
             for cb in callbacks:
                 cb.onEpochBegin(epoch)
 
-            lr = self.__optimizer.getInputValues()
+            lr = self.__optimizer.getInputValues(epoch)
 
             for x, y in trainBatchGenerator:
                 for cb in callbacks:

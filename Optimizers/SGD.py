@@ -16,23 +16,18 @@ class SGD(Optimizer):
         nesterov: boolean. Whether to apply Nesterov momentum.
     '''
 
-    def __init__(self, lr=0.01, decay=1.0):
-        super(SGD,self).__init__()
+    def __init__(self, lr=0.01, decay=2.0):
+        super(SGD, self).__init__()
 
         self.lr = T.scalar(name="lr")
         self.lrValue = lr
-
-        if decay == 0.0:
-            decay = 1
-
         self.decay = decay
 
     def getInputTensors(self):
         return [self.lr]
 
-    def getInputValues(self):
-        lrValue = self.lrValue
-        self.lrValue *= (1. / self.decay)
+    def getInputValues(self, nrEpochsDone):
+        lrValue = self.lrValue * (1 / (1 + self.decay * nrEpochsDone))
 
         return [lrValue]
 

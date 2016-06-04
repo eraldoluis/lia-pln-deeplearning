@@ -27,13 +27,12 @@ class Adagrad(Optimizer):
     def getInputTensors(self):
         return [self.lr]
 
-    def getInputValues(self):
+    def getInputValues(self, nrEpochsDone):
         '''
-        :param nmEpochDone:
+        :param nrEpochsDone:
         :return: new value of learning rate.
         '''
-        lrValue = self.lrValue
-        self.lrValue *= (1. / self.decay)
+        lrValue = self.lrValue * (1 / (1 + self.decay * nrEpochsDone))
 
         return [lrValue]
 

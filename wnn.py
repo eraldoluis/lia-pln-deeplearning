@@ -250,7 +250,7 @@ def mainWnn(**kwargs):
     if kwargs["decay"].lower() == "normal":
         decay = 0.0
     elif kwargs["decay"].lower() == "divide_epoch":
-        decay = 2.0
+        decay = 1.0
 
     if kwargs["adagrad"]:
         opt = Adagrad(lr=lr, decay=decay)

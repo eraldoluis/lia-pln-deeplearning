@@ -27,7 +27,7 @@ import theano.tensor as T
 import time
 from keras.models import Model
 
-from DataOperation.Embedding import EmbeddingFactory
+from DataOperation.Embedding import EmbeddingFactory, RandomUnknownStrategy
 from DataOperation.InputGenerator.BatchIterator import AsyncBatchIterator, SyncBatchIterator
 from DataOperation.InputGenerator.WindowGenerator import WindowGenerator
 from DataOperation.TokenDatasetReader import TokenReader
@@ -122,7 +122,7 @@ def main(**kwargs):
         filters.append(getattr(module_, className)())
 
     log.info("Reading W2v File")
-    embedding = EmbeddingFactory().createFromW2V(kwargs["word_embedding"])
+    embedding = EmbeddingFactory().createFromW2V(kwargs["word_embedding"],RandomUnknownStrategy())
 
     datasetReader = TokenReader(kwargs["train"])
     inputGenerator = WindowGenerator(wordWindowSize, embedding, filters,

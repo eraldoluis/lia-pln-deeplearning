@@ -55,7 +55,7 @@ class ChosenUnknownStrategy(UnknownGenerateStrategy):
 
     def generateUnkown(self, embedding):
         if embedding.exist(self.__unknownName):
-            return embedding.get(self.__unknownName)
+            return embedding.getEmbedding(self.__unknownName)
 
         return self.__randomUnknownStrategy.generateUnkown(embedding)
 
@@ -72,11 +72,7 @@ class EmbeddingFactory(object):
     def __init__(self):
         self.__log = logging.getLogger(__name__)
 
-    def createFromLexiconAndMatrix(self, lexicon, matrix):
-        pass
-
-
-    def createFromW2V(self, w2vFile):
+    def createFromW2V(self, w2vFile, unknownGenerateStrategy):
         '''
         Create a embedding from word2vec output
         '''
@@ -86,7 +82,7 @@ class EmbeddingFactory(object):
         nmWords, embeddingSizeStr = fVec.readline().strip().split(" ")
         embeddingSize = int(embeddingSizeStr)
 
-        embedding = Embedding(embeddingSize, RandomUnknownStrategy())
+        embedding = Embedding(embeddingSize, unknownGenerateStrategy)
 
         for line in fVec:
             splitLine = line.rstrip().split(u' ')

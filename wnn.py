@@ -9,7 +9,7 @@ import sys
 import h5py
 import time
 
-from DataOperation.Embedding import EmbeddingFactory
+from DataOperation.Embedding import EmbeddingFactory, RandomUnknownStrategy, ChosenUnknownStrategy
 from DataOperation.InputGenerator.LabelGenerator import LabelGenerator
 from DataOperation.InputGenerator.WindowGenerator import WindowGenerator
 from DataOperation.InputGenerator.BatchIterator import SyncBatchIterator
@@ -119,9 +119,12 @@ class WNNModelWritter(ModelWriter):
 
         lbFile.close()
 
-        # Saving weights
         h5File = h5py.File(self.__savePath + ".model", "w")
 
+        # Saving unknown index
+        h5File.attrs['unknown'] = lexicon.getLexicon(lexicon.getUnknownIndex())
+
+        # Saving weights
         linear1 = h5File.create_group("hidden")
         W1, b1 = self.__linear1.getParameters()
         linear1.create_dataset("W", data=W1.get_value())
@@ -167,8 +170,11 @@ def mainWnn(**kwargs):
     loadPath = kwargs["load_model"]
 
     if loadPath:
+        h5File = h5py.File(loadPath + ".model", "r")
+
+        # Loading Embedding
         log.info("Loading Model")
-        embedding = EmbeddingFactory().createFromW2V(loadPath + ".wv")
+        embedding = EmbeddingFactory().createFromW2V(loadPath + ".wv", ChosenUnknownStrategy(h5File.attrs["unknown"]))
         labelLexicon = Lexicon()
 
         with codecs.open(loadPath + ".labels", "r", encoding="utf-8") as lbFile:
@@ -178,9 +184,6 @@ def mainWnn(**kwargs):
             labelLexicon.stopAdd()
 
         # Loading model
-        h5File = h5py.File(loadPath + ".model", "r")
-
-        # Loading Embedding
         W1 = np.asarray(h5File["hidden"]["W"])
         b1 = np.asarray(h5File["hidden"]["b"])
         W2 = np.asarray(h5File["softmax"]["W"])
@@ -193,7 +196,7 @@ def mainWnn(**kwargs):
 
         if kwargs["word_embedding"]:
             log.info("Reading W2v File")
-            embedding = EmbeddingFactory().createFromW2V(kwargs["word_embedding"])
+            embedding = EmbeddingFactory().createFromW2V(kwargs["word_embedding"], RandomUnknownStrategy())
         else:
             embedding = EmbeddingFactory().createRandomEmbedding(kwargs["word_emb_size"])
 

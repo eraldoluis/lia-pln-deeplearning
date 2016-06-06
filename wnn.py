@@ -19,7 +19,7 @@ from ModelOperation.Model import Model
 from ModelOperation.Objective import NegativeLogLikelihood
 from ModelOperation.Prediction import ArgmaxPrediction
 from ModelOperation.SaveModelCallback import ModelWriter, SaveModelCallback
-from NNet.ActivationLayer import ActivationLayer, softmax, tanh
+from NNet.ActivationLayer import ActivationLayer, softmax, tanh, hard_sigmoid, sigmoid
 from NNet.FlattenLayer import FlattenLayer
 from NNet.LinearLayer import LinearLayer
 from NNet.EmbeddingLayer import EmbeddingLayer
@@ -60,13 +60,16 @@ WNN_PARAMETERS = {
     "seed": {"desc": ""},
     "adagrad": {"desc": "Activate AdaGrad updates.", "default": True},
     "decay": {"default": "DIVIDE_EPOCH",
-              "desc": "Set the learning rate update strategy. NORMAL and DIVIDE_EPOCH are the options available"}
-
+              "desc": "Set the learning rate update strategy. NORMAL and DIVIDE_EPOCH are the options available"},
+    "load_hidden_layer": {"desc": "the file which contains weights and bias of pre-trainned hidden layer"},
+    "hidden_activation_function": {"default": "tanh",
+                                   "desc": "the activation function of the hidden layer. The possible values are: tanh and sigmoid"},
 }
 
 
 class WNNModelWritter(ModelWriter):
-    def __init__(self, savePath, embeddingLayer, linearLayer1, linearLayer2, embedding, lexiconLabel):
+    def __init__(self, savePath, embeddingLayer, linearLayer1, linearLayer2, embedding, lexiconLabel,
+                 hiddenActFunction):
         '''
         :param savePath: path where the model will be saved
 
@@ -82,6 +85,7 @@ class WNNModelWritter(ModelWriter):
         self.__embedding = embedding
         self.__logging = logging.getLogger(__name__)
         self.__labelLexicon = lexiconLabel
+        self.__hiddenActFunction = hiddenActFunction
 
     def save(self):
 
@@ -123,6 +127,7 @@ class WNNModelWritter(ModelWriter):
 
         # Saving unknown index
         h5File.attrs['unknown'] = lexicon.getLexicon(lexicon.getUnknownIndex())
+        h5File.attrs['hiddenActFunction'] = self.__hiddenActFunction
 
         # Saving weights
         linear1 = h5File.create_group("hidden")
@@ -188,11 +193,15 @@ def mainWnn(**kwargs):
         b1 = np.asarray(h5File["hidden"]["b"])
         W2 = np.asarray(h5File["softmax"]["W"])
         b2 = np.asarray(h5File["softmax"]["b"])
+        hiddenActFunctionName = h5File.attrs['hiddenActFunction']
+        hiddenActFunction = method_name(hiddenActFunctionName)
     else:
         W1 = None
         b1 = None
         W2 = None
         b2 = None
+        hiddenActFunctionName = kwargs["hidden_activation_function"]
+        hiddenActFunction = method_name(hiddenActFunctionName)
 
         if kwargs["word_embedding"]:
             log.info("Reading W2v File")
@@ -202,6 +211,14 @@ def mainWnn(**kwargs):
 
         # Get the inputs and output
         labelLexicon = Lexicon()
+
+        if kwargs["load_hidden_layer"]:
+            # Loading Hidden Layer
+            log.info("Loading Hidden Layer")
+            h5File = h5py.File(kwargs["load_hidden_layer"], "r")
+
+            W1 = np.asarray(h5File["encoder"]["W"])
+            b1 = np.asarray(h5File["encoder"]["b"])
 
     wordWindowSize = kwargs["word_window_size"]
     hiddenLayerSize = kwargs["hidden_size"]
@@ -242,7 +259,7 @@ def mainWnn(**kwargs):
         flatten = FlattenLayer(embeddingLayer)
 
         linear1 = LinearLayer(flatten, wordWindowSize * embedding.getEmbeddingSize(), hiddenLayerSize, W=W1, b=b1)
-        act1 = ActivationLayer(linear1, tanh)
+        act1 = ActivationLayer(linear1, hiddenActFunction)
 
         linear2 = LinearLayer(act1, hiddenLayerSize, labelLexicon.getLen(), W=W2, b=b2)
         act2 = ActivationLayer(linear2, softmax)
@@ -265,7 +282,7 @@ def mainWnn(**kwargs):
     embeddingSize = embedding.getEmbeddingSize()
     log.info("Number of dictionary and embedding size: %d and %d" % (dictionarySize, embeddingSize))
 
-    #Compiling
+    # Compiling
     wnnModel.compile(opt, NegativeLogLikelihood(), ArgmaxPrediction(1), ["acc"])
 
     if trainReader:
@@ -273,7 +290,8 @@ def mainWnn(**kwargs):
 
         if kwargs["save_model"]:
             savePath = kwargs["save_model"]
-            modelWriter = WNNModelWritter(savePath, embeddingLayer, linear1, linear2, embedding, labelLexicon)
+            modelWriter = WNNModelWritter(savePath, embeddingLayer, linear1, linear2, embedding, labelLexicon,
+                                          hiddenActFunctionName)
             callback.append(SaveModelCallback(modelWriter, "val_acc", True))
 
         log.info("Training")
@@ -286,6 +304,15 @@ def mainWnn(**kwargs):
 
         log.info("Testing")
         wnnModel.evaluate(testReader, True)
+
+
+def method_name(hiddenActFunction):
+    if hiddenActFunction == "tanh":
+        return tanh
+    elif hiddenActFunction == "sigmoid":
+        return sigmoid
+    else:
+        raise Exception("'hidden_activation_function' value don't valid.")
 
 
 if __name__ == '__main__':

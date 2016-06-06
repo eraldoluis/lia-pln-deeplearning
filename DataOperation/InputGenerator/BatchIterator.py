@@ -7,7 +7,6 @@ import threading
 
 from datetime import time
 
-
 import numpy
 import time
 
@@ -39,7 +38,8 @@ class BatchAssembler:
         self.__inputGenerators = inputGenerators
         self.__outputGenerator = outputGenerator
         self.__batchSize = batchSize
-
+        self.__printed = False
+        self.__log = logging.getLogger(__name__)
 
     def getGeneratorObject(self):
         '''
@@ -47,6 +47,8 @@ class BatchAssembler:
         '''
         inputs = [[] for inputGenerator in self.__inputGenerators]
         outputs = []
+        generatedOutputs = None
+        nmExamples = 0
 
         for attributes, label in self.__reader.read():
             generatedInputs = []
@@ -59,6 +61,8 @@ class BatchAssembler:
             # This happens with autoencoder.
             if self.__outputGenerator:
                 generatedOutputs = self.__outputGenerator.generate(label)
+
+            nmExamples += len(generatedInputs[0])
 
             if self.__batchSize > 0:
                 for idx in range(len(generatedInputs[0])):
@@ -84,6 +88,10 @@ class BatchAssembler:
 
         if len(inputs[0]):
             yield self.formatToNumpy(inputs, outputs)
+
+        if not self.__printed:
+            self.__log.info("Number of examples: %d" % nmExamples)
+
 
     def formatToNumpy(self, inputs, outputs):
         for idx, input in enumerate(inputs):
@@ -127,8 +135,8 @@ class SyncBatchIterator(object):
             self.__batchIdxs.append(idx)
             idx += 1
 
-        self.__log.info("Number of batches: %d"  % len(self.__batchIdxs))
-        self.__log.info("BatchSize: %d" %  batchSize)
+        self.__log.info("Number of batches: %d" % len(self.__batchIdxs))
+        self.__log.info("BatchSize: %d" % batchSize)
 
         if self.__shuffle:
             random.shuffle(self.__batchIdxs)
@@ -200,7 +208,6 @@ class AsyncBatchIterator(object):
 
         if b is None:
             raise StopIteration()
-
 
         return b
 

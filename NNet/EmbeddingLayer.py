@@ -2,7 +2,6 @@ import numpy
 
 import theano
 import theano.tensor as T
-from keras.layers.embeddings import Embedding
 
 from NNet.Layer import Layer
 

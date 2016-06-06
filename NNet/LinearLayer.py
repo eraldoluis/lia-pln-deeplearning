@@ -1,9 +1,6 @@
 import theano.tensor as T
 import numpy
 import theano
-from keras.engine.topology import Layer
-from keras.layers.core import Dense
-from keras.layers.embeddings import Embedding
 from theano.tensor.sharedvar import TensorSharedVariable
 
 from NNet.Layer import Layer

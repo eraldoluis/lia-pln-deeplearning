@@ -2,7 +2,6 @@
 # -*- coding: utf-8 -*-
 import numpy
 
-from keras import initializations
 
 
 def generateRandomNumberUniformly(low, high, n_in, n_out):

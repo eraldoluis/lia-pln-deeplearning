@@ -21,11 +21,7 @@ import logging.config
 import logging
 
 import h5py
-import keras
-import theano
 import theano.tensor as T
-import time
-from keras.models import Model
 
 from DataOperation.Embedding import EmbeddingFactory, RandomUnknownStrategy
 from DataOperation.InputGenerator.BatchIterator import AsyncBatchIterator, SyncBatchIterator

@@ -260,6 +260,12 @@ def mainWnn(**kwargs):
     else:
         opt = SGD(lr=lr, decay=decay)
 
+    # Printing embedding information
+    dictionarySize = embedding.getNumberOfEmbeddings()
+    embeddingSize = embedding.getEmbeddingSize()
+    log.info("Number of dictionary and embedding size: %d and %d" % (dictionarySize, embeddingSize))
+
+    #Compiling
     wnnModel.compile(opt, NegativeLogLikelihood(), ArgmaxPrediction(1), ["acc"])
 
     if trainReader:

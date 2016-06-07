@@ -33,8 +33,10 @@ class ReaderLexiconAndWordVec:
             if len(line_split) < 2:
                 continue 
             
-            lexicon.put(line_split[0].lower());
-            wordVector.putWordVecStr(line_split[1])
+            idx = lexicon.getLexiconIndex(line_split[0].lower())
+            if lexicon.isUnknownIndex(idx):
+                lexicon.put(line_split[0].lower());
+                wordVector.putWordVecStr(line_split[1])
             
             
         f.close()

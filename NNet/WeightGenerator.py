@@ -3,7 +3,6 @@
 import numpy
 
 
-
 def generateRandomNumberUniformly(low, high, n_in, n_out):
     if n_out == 0.0:
         return numpy.random.uniform(low, high, n_in)
@@ -12,8 +11,7 @@ def generateRandomNumberUniformly(low, high, n_in, n_out):
 
 
 class WeightGenerator(object):
-
-    def generateWeight(self,shape):
+    def generateWeight(self, shape):
         '''
         :type shape: tuple
         :param shape: a tuple like numpy
@@ -21,6 +19,15 @@ class WeightGenerator(object):
         :return: matrix with the weights
         '''
         raise NotImplementedError()
+
+
+class ZeroWeightGenerator(WeightGenerator):
+    def generateWeight(self, shape):
+        """
+        :param shape:
+        :return:
+        """
+        return numpy.zeros(shape)
 
 
 class GlorotUniform(WeightGenerator):
@@ -34,7 +41,7 @@ class GlorotUniform(WeightGenerator):
         :return:
         """
         high = numpy.sqrt(6. / (shape[0] + shape[1]))
-        return generateRandomNumberUniformly(-high, high, shape[0],shape[1])
+        return generateRandomNumberUniformly(-high, high, shape[0], shape[1])
 
 
 class SigmoidGenerator(WeightGenerator):
@@ -45,4 +52,3 @@ class SigmoidGenerator(WeightGenerator):
 
         high = numpy.sqrt(6. / (shape[0] + shape[1]))
         return 4 * generateRandomNumberUniformly(-high, high, shape[0], shape[1])
-

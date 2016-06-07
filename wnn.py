@@ -27,6 +27,7 @@ import theano.tensor as T
 import logging.config
 from time import time
 
+from NNet.WeightGenerator import ZeroWeightGenerator
 from Optimizers.Adagrad import Adagrad
 from Optimizers.SGD import SGD
 from Parameters.JsonArgParser import JsonArgParser
@@ -261,7 +262,8 @@ def mainWnn(**kwargs):
         linear1 = LinearLayer(flatten, wordWindowSize * embedding.getEmbeddingSize(), hiddenLayerSize, W=W1, b=b1)
         act1 = ActivationLayer(linear1, hiddenActFunction)
 
-        linear2 = LinearLayer(act1, hiddenLayerSize, labelLexicon.getLen(), W=W2, b=b2)
+        linear2 = LinearLayer(act1, hiddenLayerSize, labelLexicon.getLen(), W=W2, b=b2,
+                              weightInitialization=ZeroWeightGenerator())
         act2 = ActivationLayer(linear2, softmax)
 
     y = T.lvector("y")

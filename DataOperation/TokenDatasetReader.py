@@ -70,12 +70,12 @@ class TokenLabelReader(DatasetReader):
         nmTokens = 0
 
         for line in f:
-            tknLabelSets = line.strip().rsplit(self.__sep,1)
+            tknLabelSets = line.strip().split(self.__sep)
             tkns = []
             labels = []
 
             for tknLabelSet in tknLabelSets:
-                tkn, label = tknLabelSet.split(self.__labelTknSep)
+                tkn, label = tknLabelSet.rsplit(self.__labelTknSep,1)
 
                 if not len(tkn):
                     raise Exception("It was found an empty token")

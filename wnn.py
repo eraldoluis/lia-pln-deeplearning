@@ -4,6 +4,7 @@ import codecs
 import importlib
 import logging
 import os
+import random
 import sys
 
 import h5py
@@ -149,6 +150,10 @@ class WNNModelWritter(ModelWriter):
 def mainWnn(**kwargs):
     log = logging.getLogger(__name__)
     log.info(kwargs)
+
+    if kwargs["seed"] != None:
+        random.seed(kwargs["seed"])
+        np.random.seed(kwargs["seed"])
 
     lr = kwargs["lr"]
     wordWindowSize = kwargs["word_window_size"]
@@ -302,7 +307,7 @@ def mainWnn(**kwargs):
     if kwargs["test"]:
         log.info("Reading test examples")
         testDatasetReader = TokenLabelReader(kwargs["test"], kwargs["token_label_separator"])
-        testReader = SyncBatchIterator(testDatasetReader, [inputGenerator], outputGenerator, batchSize)
+        testReader = SyncBatchIterator(testDatasetReader, [inputGenerator], outputGenerator, batchSize,shuffle=False)
 
         log.info("Testing")
         wnnModel.evaluate(testReader, True)

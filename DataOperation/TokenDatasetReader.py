@@ -70,7 +70,7 @@ class TokenLabelReader(DatasetReader):
         nmTokens = 0
 
         for line in f:
-            tknLabelSets = line.strip().split(self.__sep)
+            tknLabelSets = line.strip().rsplit(self.__sep,1)
             tkns = []
             labels = []
 

@@ -45,7 +45,7 @@ class SGD(Optimizer):
         # Compute gradient of the cost function w.r.t. each parameter.
         grads = self.defaultGradParam(cost, defaultGradParams)
 
-        updates = [(param, param - self.lr * grad)
+        updates += [(param, param - self.lr * grad)
                    for param, grad in zip(defaultGradParams, grads)]
 
         return updates

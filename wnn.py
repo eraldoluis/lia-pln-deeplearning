@@ -66,6 +66,7 @@ WNN_PARAMETERS = {
     "load_hidden_layer": {"desc": "the file which contains weights and bias of pre-trainned hidden layer"},
     "hidden_activation_function": {"default": "tanh",
                                    "desc": "the activation function of the hidden layer. The possible values are: tanh and sigmoid"},
+    "shuffle": {"default": True, "desc": "able or disable the shuffle of training examples."},
 }
 
 
@@ -160,6 +161,7 @@ def mainWnn(**kwargs):
     startSymbol = kwargs["start_symbol"]
     endSymbol = kwargs["end_symbol"]
     numEpochs = kwargs["num_epochs"]
+    shuffle = kwargs["shuffle"]
 
     if kwargs["alg"] == "window_stn":
         isSentenceModel = True
@@ -236,7 +238,8 @@ def mainWnn(**kwargs):
         log.info("Reading training examples")
 
         trainDatasetReader = TokenLabelReader(kwargs["train"], kwargs["token_label_separator"])
-        trainReader = SyncBatchIterator(trainDatasetReader, [inputGenerator], outputGenerator, batchSize)
+        trainReader = SyncBatchIterator(trainDatasetReader, [inputGenerator], outputGenerator, batchSize,
+                                        shuffle=shuffle)
         embedding.stopAdd()
         labelLexicon.stopAdd()
 
@@ -248,7 +251,7 @@ def mainWnn(**kwargs):
         if dev:
             log.info("Reading development examples")
             devDatasetReader = TokenLabelReader(kwargs["dev"], kwargs["token_label_separator"])
-            devReader = SyncBatchIterator(devDatasetReader, [inputGenerator], outputGenerator, batchSize)
+            devReader = SyncBatchIterator(devDatasetReader, [inputGenerator], outputGenerator, batchSize,shuffle=False)
             # log.info("Using %d examples from development data set" % (len(devExamples[0])))
         else:
             devReader = None
@@ -307,7 +310,7 @@ def mainWnn(**kwargs):
     if kwargs["test"]:
         log.info("Reading test examples")
         testDatasetReader = TokenLabelReader(kwargs["test"], kwargs["token_label_separator"])
-        testReader = SyncBatchIterator(testDatasetReader, [inputGenerator], outputGenerator, batchSize,shuffle=False)
+        testReader = SyncBatchIterator(testDatasetReader, [inputGenerator], outputGenerator, batchSize, shuffle=False)
 
         log.info("Testing")
         wnnModel.evaluate(testReader, True)

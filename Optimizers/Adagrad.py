@@ -29,7 +29,7 @@ class Adagrad(Optimizer):
 
     def getInputValues(self, nrEpochsDone):
         '''
-        :param nrEpochsDone:
+        :param nmEpochDone:
         :return: new value of learning rate.
         '''
         lrValue = self.lrValue * (1 / (1 + self.decay * nrEpochsDone))
@@ -97,7 +97,7 @@ class Adagrad(Optimizer):
 
         # For numerical stability.
         fudgeFactor = 1e-10
-        updates = []
+
         for param, grad, ssg in zip(defaultGradParams, grads, self.__sumsSqDefGrads):
             # Update of the sum of squared gradient.
             newSsg = ssg + grad * grad

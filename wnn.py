@@ -8,7 +8,6 @@ import os
 import random
 import sys
 import time
-from cherrypy.lib import encoding
 
 from DataOperation.Embedding import EmbeddingFactory, RandomUnknownStrategy, ChosenUnknownStrategy
 from DataOperation.InputGenerator.LabelGenerator import LabelGenerator

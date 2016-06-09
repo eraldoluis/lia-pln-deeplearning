@@ -2,13 +2,13 @@
 # -*- coding: utf-8 -*-
 import codecs
 import importlib
+import json
 import logging
 import os
 import random
 import sys
-
-import h5py
 import time
+from cherrypy.lib import encoding
 
 from DataOperation.Embedding import EmbeddingFactory, RandomUnknownStrategy, ChosenUnknownStrategy
 from DataOperation.InputGenerator.LabelGenerator import LabelGenerator
@@ -117,35 +117,29 @@ class WNNModelWritter(ModelWriter):
         wbFile.close()
 
         # Savings labels
-        lbFile = codecs.open(self.__savePath + ".labels", "w", encoding="utf-8")
-        listLabels = self.__labelLexicon.getLexiconList()
+        param = {
+            "labels" : self.__labelLexicon.getLexiconList(),
+            "hiddenActFunction": self.__hiddenActFunction,
+            "unknown": lexicon.getLexicon(lexicon.getUnknownIndex())
+        }
 
-        for label in listLabels:
-            lbFile.write(label)
-            lbFile.write("\n")
+        with codecs.open(self.__savePath + ".param", "w", encoding="utf-8") as paramsFile:
+            json.dump(param,paramsFile,encoding="utf-8")
 
-        lbFile.close()
+        weights = {}
 
-        h5File = h5py.File(self.__savePath + ".model", "w")
-
-        # Saving unknown index
-        h5File.attrs['unknown'] = lexicon.getLexicon(lexicon.getUnknownIndex())
-        h5File.attrs['hiddenActFunction'] = self.__hiddenActFunction
-
-        # Saving weights
-        linear1 = h5File.create_group("hidden")
         W1, b1 = self.__linear1.getParameters()
-        linear1.create_dataset("W", data=W1.get_value())
-        linear1.create_dataset("b", data=b1.get_value())
+        weights["W_Hidden"] = W1.get_value()
+        weights["b_Hidden"] = b1.get_value()
 
-        linear2 = h5File.create_group("softmax")
         W2, b2 = self.__linear2.getParameters()
-        linear2.create_dataset("W", data=W2.get_value())
-        linear2.create_dataset("b", data=b2.get_value())
+
+        weights["W_Softmax"] = W2.get_value()
+        weights["b_Softmax"] = b2.get_value()
+
+        np.save(self.__savePath, weights)
 
         self.__logging.info("Model Saved in %d", int(time()) - begin)
-
-        h5File.close()
 
 
 def mainWnn(**kwargs):
@@ -183,26 +177,29 @@ def mainWnn(**kwargs):
     loadPath = kwargs["load_model"]
 
     if loadPath:
-        h5File = h5py.File(loadPath + ".model", "r")
+        with codecs.open(loadPath + ".param", "r", encoding="utf-8") as paramsFile:
+            param = json.load(paramsFile, encoding = "utf-8")
+
+        hiddenActFunctionName = param['hiddenActFunction']
+        hiddenActFunction = method_name(hiddenActFunctionName)
 
         # Loading Embedding
         log.info("Loading Model")
-        embedding = EmbeddingFactory().createFromW2V(loadPath + ".wv", ChosenUnknownStrategy(h5File.attrs["unknown"]))
+        embedding = EmbeddingFactory().createFromW2V(loadPath + ".wv", ChosenUnknownStrategy(param["unknown"]))
         labelLexicon = Lexicon()
 
-        with codecs.open(loadPath + ".labels", "r", encoding="utf-8") as lbFile:
-            for l in lbFile:
-                labelLexicon.put(l.strip())
+        for l in param["labels"]:
+            labelLexicon.put(l)
 
-            labelLexicon.stopAdd()
+        labelLexicon.stopAdd()
 
         # Loading model
-        W1 = np.asarray(h5File["hidden"]["W"])
-        b1 = np.asarray(h5File["hidden"]["b"])
-        W2 = np.asarray(h5File["softmax"]["W"])
-        b2 = np.asarray(h5File["softmax"]["b"])
-        hiddenActFunctionName = h5File.attrs['hiddenActFunction']
-        hiddenActFunction = method_name(hiddenActFunctionName)
+        weights = np.load(loadPath + ".npy").item(0)
+
+        W1 = weights["W_Hidden"]
+        b1 = weights["b_Hidden"]
+        W2 = weights["W_Softmax"]
+        b2 = weights["b_Softmax"]
     else:
         W1 = None
         b1 = None
@@ -223,10 +220,11 @@ def mainWnn(**kwargs):
         if kwargs["load_hidden_layer"]:
             # Loading Hidden Layer
             log.info("Loading Hidden Layer")
-            h5File = h5py.File(kwargs["load_hidden_layer"], "r")
 
-            W1 = np.asarray(h5File["encoder"]["W"])
-            b1 = np.asarray(h5File["encoder"]["b"])
+            mdaWeights = np.load(kwargs["load_hidden_layer"]).item(0)
+
+            W1 = mdaWeights["encoder"]["W"]
+            b1 = mdaWeights["encoder"]["b"]
 
     wordWindowSize = kwargs["word_window_size"]
     hiddenLayerSize = kwargs["hidden_size"]

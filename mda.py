@@ -20,7 +20,7 @@ import sys
 import logging.config
 import logging
 
-import h5py
+import numpy
 import theano.tensor as T
 
 from DataOperation.Embedding import EmbeddingFactory, RandomUnknownStrategy
@@ -77,19 +77,18 @@ class MDAModelWritter(ModelWriter):
         self.__logging = logging.getLogger(__name__)
 
     def save(self):
-        h5File = h5py.File(self.__savePath, "w")
+        weights = {}
 
-        encoder1 = h5File.create_group("encoder")
         W1, b1 = self.__encodeLayer.getParameters()
-        encoder1.create_dataset("W", data=W1.get_value())
-        encoder1.create_dataset("b", data=b1.get_value())
+        weights["W_Encoder"] = W1.get_value()
+        weights["b_Encoder"] = b1.get_value()
 
-        decoder = h5File.create_group("decoder")
         b2 = self.__decodeLayer.getParameters()[0]
-        # decoder.create_dataset("W", data=W2.get_value())
-        decoder.create_dataset("b", data=b2.get_value())
 
-        h5File.close()
+        weights["b_Decoder"] = b2.get_value()
+
+        numpy.save(self.__savePath, weights)
+
         self.__logging.info("Model Saved")
 
 

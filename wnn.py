@@ -222,8 +222,8 @@ def mainWnn(**kwargs):
 
             mdaWeights = np.load(kwargs["load_hidden_layer"]).item(0)
 
-            W1 = mdaWeights["encoder"]["W"]
-            b1 = mdaWeights["encoder"]["b"]
+            W1 = mdaWeights["W_Encoder"]
+            b1 = mdaWeights["b_Encoder"]
 
     wordWindowSize = kwargs["word_window_size"]
     hiddenLayerSize = kwargs["hidden_size"]

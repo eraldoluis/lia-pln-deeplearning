@@ -117,7 +117,7 @@ def main(**kwargs):
         filters.append(getattr(module_, className)())
 
     log.info("Reading W2v File")
-    embedding = EmbeddingFactory().createFromW2V(kwargs["word_embedding"],RandomUnknownStrategy())
+    embedding = EmbeddingFactory().createFromW2V(kwargs["word_embedding"], RandomUnknownStrategy())
 
     datasetReader = TokenReader(kwargs["train"])
     inputGenerator = WindowGenerator(wordWindowSize, embedding, filters,
@@ -151,7 +151,7 @@ def main(**kwargs):
     # Creates the model
     mdaModel = Model(input, x, act2)
 
-    sgd = SGD(lr)
+    sgd = SGD(lr, decay=0.0)
     encoderW = linear1.getParameters()[0]
     encoderOutput = act1.getOutput()
     loss = MDALoss(MeanSquaredError(), True, noiseRate, encoderW, encoderOutput, x)

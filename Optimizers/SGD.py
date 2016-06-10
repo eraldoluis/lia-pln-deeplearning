@@ -16,7 +16,7 @@ class SGD(Optimizer):
         nesterov: boolean. Whether to apply Nesterov momentum.
     '''
 
-    def __init__(self, lr=0.01, decay=2.0):
+    def __init__(self, lr=0.01, decay=0.0):
         super(SGD, self).__init__()
 
         self.lr = T.scalar(name="lr")

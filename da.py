@@ -1,39 +1,23 @@
-#!/usr/bin/env python
-# -*- coding: utf-8 -*-
-
-"""
-
- The code was adapted from the original denoising auto-encoders (dA) tutorial
- in Theano.
-
- Contact Minmin Chen at chenmm24@gmail.com  if you have any questions.
-
- References :
-   - M. Chen, K. Weinberger, F. Sha, Y. Bengio: Marginalized Denoising Auto-encoders
-   for Nonlinear Representations, ICML 2014.
-
-"""
 import importlib
+import logging
 import os
+
 import sys
 
-import logging.config
-import logging
-
 import numpy
-import theano.tensor as T
+from theano import tensor as T
 
 from DataOperation.Embedding import EmbeddingFactory, RandomUnknownStrategy
-from DataOperation.InputGenerator.BatchIterator import AsyncBatchIterator, SyncBatchIterator
+from DataOperation.InputGenerator.BatchIterator import SyncBatchIterator, AsyncBatchIterator
 from DataOperation.InputGenerator.WindowGenerator import WindowGenerator
 from DataOperation.TokenDatasetReader import TokenReader
 from ModelOperation import Model, SaveModelCallback
-from ModelOperation.MDALoss import MDALoss
 from ModelOperation.Model import Model
 from ModelOperation.Objective import MeanSquaredError
-from ModelOperation.SaveModelCallback import ModelWriter, SaveModelCallback
-from NNet import EmbeddingLayer, FlattenLayer, LinearLayer, ActivationLayer
-from NNet.ActivationLayer import ActivationLayer, tanh, softmax, sigmoid
+from ModelOperation.SaveModelCallback import ModelWriter
+from NNet import EmbeddingLayer, FlattenLayer, DropoutLayer, LinearLayer, ActivationLayer
+from NNet.ActivationLayer import sigmoid, ActivationLayer, tanh
+from NNet.DropoutLayer import DropoutLayer
 from NNet.EmbeddingLayer import EmbeddingLayer
 from NNet.FlattenLayer import FlattenLayer
 from NNet.LinearLayer import LinearLayer
@@ -42,8 +26,9 @@ from NNet.WeightGenerator import SigmoidGlorot
 from Optimizers import SGD
 from Optimizers.SGD import SGD
 from Parameters.JsonArgParser import JsonArgParser
+import logging.config
 
-MDA_PARAMETERS = {
+DA_PARAMETERS = {
     "train": {"desc": "Training File Path", "required": True},
     "num_epochs": {"required": True, "desc": "Number of epochs: how many iterations over the training set."},
     "lr": {"desc": "learning rate value", "required": True},
@@ -64,7 +49,7 @@ MDA_PARAMETERS = {
 }
 
 
-class MDAModelWritter(ModelWriter):
+class DAModelWritter(ModelWriter):
     def __init__(self, savePath, encodeLayer, decodeLayer):
         '''
         :param savePath: path where the model will be saved
@@ -107,6 +92,7 @@ def main(**kwargs):
     noiseRate = kwargs["noise_rate"]
     saveModel = kwargs["save_model"]
     sync = kwargs["sync"]
+    seed = None
 
     filters = []
 
@@ -139,11 +125,11 @@ def main(**kwargs):
     embeddingLayer = EmbeddingLayer(input, embedding.getEmbeddingMatrix(), trainable=False)
     flatten = FlattenLayer(embeddingLayer)
 
-    # Input of the hidden layer
-    x = flatten.getOutput()
+    # Noise  Layer
+    dropoutOutput = DropoutLayer(flatten, noiseRate, seed)
 
     # Encoder
-    linear1 = LinearLayer(flatten, wordWindowSize * embedding.getEmbeddingSize(), encoderSize,
+    linear1 = LinearLayer(dropoutOutput, wordWindowSize * embedding.getEmbeddingSize(), encoderSize,
                           weightInitialization=SigmoidGlorot())
     act1 = ActivationLayer(linear1, sigmoid)
 
@@ -151,13 +137,14 @@ def main(**kwargs):
     linear2 = TiedLayer(act1, linear1.getParameters()[0], wordWindowSize * embedding.getEmbeddingSize())
     act2 = ActivationLayer(linear2, sigmoid)
 
+    # Input of the hidden layer
+    x = flatten.getOutput()
+
     # Creates the model
     mdaModel = Model(input, x, act2)
 
     sgd = SGD(lr, decay=0.0)
-    encoderW = linear1.getParameters()[0]
-    encoderOutput = act1.getOutput()
-    loss = MDALoss(MeanSquaredError(), True, noiseRate, encoderW, encoderOutput, x)
+    loss = MeanSquaredError()
 
     log.info("Compiling the model")
     mdaModel.compile(sgd, loss)
@@ -165,7 +152,7 @@ def main(**kwargs):
     cbs = []
 
     if saveModel:
-        writter = MDAModelWritter(saveModel, linear1, linear2)
+        writter = DAModelWritter(saveModel, linear1, linear2)
         cbs.append(SaveModelCallback(writter, "loss", False))
     log.info("Traning model")
     mdaModel.train(trainBatchGenerator, numEpochs, callbacks=cbs)
@@ -177,5 +164,5 @@ if __name__ == '__main__':
 
     logging.config.fileConfig(os.path.join(path, 'logging.conf'))
 
-    parameters = JsonArgParser(MDA_PARAMETERS).parse(sys.argv[1])
+    parameters = JsonArgParser(DA_PARAMETERS).parse(sys.argv[1])
     main(**parameters)

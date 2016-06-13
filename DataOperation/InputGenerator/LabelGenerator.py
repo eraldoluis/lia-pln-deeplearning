@@ -25,6 +25,4 @@ class LabelGenerator(FeatureGenerator):
 
         y = [ self.__labelLexicon.put(label) for label in labels]
 
-
-
         return y

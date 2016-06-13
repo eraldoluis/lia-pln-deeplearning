@@ -15,7 +15,7 @@ class TokenReader(DatasetReader):
     Read the tokens from a labeled dataset.
     """
 
-    def __init__(self, filePath, sep=' '):
+    def __init__(self, filePath, sep=None):
         """
         :type filePath: String
         :param filePath: dataset path

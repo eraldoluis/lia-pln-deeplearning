@@ -6,6 +6,9 @@ Classes and functions that operate on distributed representations
 '''
 
 import logging
+
+import sys
+
 from NNet.Util import FeatureVectorsGenerator
 import codecs
 from DataOperation.Lexicon import Lexicon
@@ -211,6 +214,56 @@ class Embedding(object):
         '''
         return self.__lexicon
 
+    def minMaxNormalization(self):
+        '''
+        Normalize all the embedding to a range [-1,1].
+        zi= (xi−mean(x)) / (max(x)−min(x))
+        :return:None
+        '''
+        min = sys.maxint
+        max = -sys.maxint
+
+        for l in self.__vectors:
+            for x in l:
+                if x < min:
+                    min = x
+
+                if x > max:
+                    max = x
+
+        for l in self.__vectors:
+            for j, x in enumerate(l):
+                l[j] = (x - min) / (max - min)
+
+
+
+    def minMaxWithMeanNormalization(self):
+        '''
+        Normalize all the embedding to a range [-1,1].
+        zi= (xi−mean(x)) / (max(x)−min(x))
+        :return:None
+        '''
+        min = sys.maxint
+        max = -sys.maxint
+        sum = .0
+        total = .0
+
+        for l in self.__vectors:
+            for x in l:
+                if x < min:
+                    min = x
+
+                if x > max:
+                    max = x
+
+                sum += x
+                total += 1
+
+        mean = sum / total
+
+        for l in self.__vectors:
+            for j, x in enumerate(l):
+                l[j] = (x - mean) / (max - min)
 
 class RandomEmbedding(Embedding):
     '''

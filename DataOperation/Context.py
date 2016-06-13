@@ -21,6 +21,9 @@ class Window:
 
         self.__windowSize = windowSize
 
+        if self.__windowSize % 2 == 0:
+            raise Exception("The window size is odd.")
+
     def buildWindows(self, objs, startPadding, endPadding=None):
         '''
         Receives a list of objects and creates the windows of this list.

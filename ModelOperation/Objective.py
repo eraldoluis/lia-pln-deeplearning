@@ -15,6 +15,12 @@ class MeanSquaredError(Objective):
     def calculateError(self, output, ypred, ytrue):
         return T.mean(T.sum(T.square(ypred - ytrue),axis=1))
 
+
+class MeanSquaredError(Objective):
+    def calculateError(self, output, ypred, ytrue):
+        return T.mean(T.square(ypred - ytrue))
+
+
 class NegativeLogLikelihood(Objective):
     def calculateError(self, output, ypred, ytrue):
         return -T.mean(T.log(output)[T.arange(ytrue.shape[0]), ytrue])

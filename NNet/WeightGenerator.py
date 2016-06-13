@@ -30,6 +30,22 @@ class ZeroWeightGenerator(WeightGenerator):
         return numpy.zeros(shape)
 
 
+class SigmoidGlorot(WeightGenerator):
+    # results presented in [Xavier10] suggest that you
+    # should use 4 times larger initial weights for sigmoid
+    # compared to tanh
+
+    def __init__(self):
+        self.__glorotUniform = GlorotUniform()
+
+    def generateWeight(self, shape):
+        """
+        :param shape:
+        :return:
+        """
+        return self.__glorotUniform.generateWeight(shape) * 4
+
+
 class GlorotUniform(WeightGenerator):
     """
     This initialization can be use with tanh.

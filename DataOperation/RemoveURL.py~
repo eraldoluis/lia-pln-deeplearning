@@ -1,0 +1,13 @@
+#!/usr/bin/env python
+# -*- coding: utf-8 -*-
+
+import re
+
+class RemoveURL:
+    
+    def filter(self,token):
+        if re.search('http://[a-zA-Z]+', token) or re.search('https://[a-zA-Z]+', token) or re.search('HTTP://[a-zA-Z]+', token) or re.search('HTTPS://[a-zA-Z]+', token):
+            return u'<url>'
+        return token        
+        
+    

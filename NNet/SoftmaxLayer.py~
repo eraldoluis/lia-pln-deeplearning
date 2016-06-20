@@ -3,7 +3,7 @@ import theano
 
 from NNet.Layer import Layer
 import theano.tensor as T
-from NNet.Util import WeightTanhGenerator, WeightEqualZeroGenerator
+
 
 class SoftmaxLayer(Layer):
     """Multi-class Logistic Regression Class
@@ -14,8 +14,7 @@ class SoftmaxLayer(Layer):
     determine a class membership probability.
     """
 
-    def __init__(self, _input, lenIn, lenOut, weightTanhGenerator=WeightTanhGenerator()):
-    #def __init__(self, _input, lenIn, lenOut, weightTanhGenerator=None):
+    def __init__(self, _input, lenIn, lenOut):
         """ Initialize the parameters of the logistic regression
 
         :type _input: theano.tensor.TensorType
@@ -35,43 +34,24 @@ class SoftmaxLayer(Layer):
         # initialize with 0 the weights W as a matrix of shape (lenIn, lenOut)
         Layer.__init__(self, _input)
         
-        if weightTanhGenerator == None:
-            self.W = theano.shared(
-                value=numpy.zeros(
-                    (lenIn, lenOut),
-                    dtype=theano.config.floatX
-                ),
-                name='W_softmax',
-                borrow=True
-            )
-            # initialize the baises b as a vector of lenOut 0s
-            self.b = theano.shared(
-                value=numpy.zeros(
-                    (lenOut,),
-                    dtype=theano.config.floatX
-                ),
-                name='b_softmax',
-                borrow=True
-            )
-        else:
-            self.W = theano.shared(
-                value=numpy.asarray(
-                weightTanhGenerator.generateWeight(lenIn, lenOut),
+        self.W = theano.shared(
+            value=numpy.zeros(
+                (lenIn, lenOut),
                 dtype=theano.config.floatX
-                ),
-                name='W_softmax',
-                borrow=True
-            )
-            # initialize the baises b as a vector of lenOut 0s
-            self.b = theano.shared(
-                value=numpy.asarray(
-                WeightEqualZeroGenerator().generateWeight(lenOut),
+            ),
+            name='W_softmax',
+            borrow=True
+        )
+        # initialize the baises b as a vector of lenOut 0s
+        self.b = theano.shared(
+            value=numpy.zeros(
+                (lenOut,),
                 dtype=theano.config.floatX
-                ),
-                name='b_softmax',
-                borrow=True
-            )
-             
+            ),
+            name='b_softmax',
+            borrow=True
+        )
+
         #
         # Symbolic expression for computing the matrix of
         #     class-membership probabilities, where:
@@ -107,4 +87,3 @@ class SoftmaxLayer(Layer):
     
     def getUpdates(self, cost, learningRate, sumSqGrads=None):
         return []
-

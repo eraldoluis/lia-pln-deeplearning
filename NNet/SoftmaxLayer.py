@@ -14,8 +14,8 @@ class SoftmaxLayer(Layer):
     determine a class membership probability.
     """
 
-    def __init__(self, _input, lenIn, lenOut, weightTanhGenerator=WeightTanhGenerator()):
-    #def __init__(self, _input, lenIn, lenOut, weightTanhGenerator=None):
+    #def __init__(self, _input, lenIn, lenOut, weightTanhGenerator=WeightTanhGenerator()):
+    def __init__(self, _input, lenIn, lenOut, weightTanhGenerator=None):
         """ Initialize the parameters of the logistic regression
 
         :type _input: theano.tensor.TensorType

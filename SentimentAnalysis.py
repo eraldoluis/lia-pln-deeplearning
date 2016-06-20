@@ -49,7 +49,7 @@ def readVocabAndWord(args):
 
                 
 def run(args):
-    args.wordMode='normal'
+    
     filters = []
     a = 0
     args.filters.append('DataOperation.TransformLowerCaseFilter')
@@ -126,7 +126,7 @@ def run(args):
         
         if args.vocab is not None or args.wordVectors is not None:
             lexicon, wordVector = readVocabAndWord(args)
-            args.wordMode = 'vocab'
+            args.wordVecsInit = 'vocab'
             
             if lexicon.isUnknownIndex(lexicon.getLexiconIndex(WindowModelBasic.startSymbolStr)):
                 print "O vocabulário não possui o símbolo de começo '<s>'"
@@ -192,7 +192,7 @@ def run(args):
             lexiconIndex = lexicon.put(unknownNameDefault)
             lexicon.setUnknownIndex(lexiconIndex)
 #            wordVector.append(unknownWordVector.tolist())
-            if args.wordMode == 'vocab':
+            if args.wordVecsInit == 'vocab':
                 for wv in wordVector:
                     unknownWordVector = numpy.mean(numpy.asarray(wv.getWordVectors()[wv.getLength() - mean_size:]), 0)
                     wv.append(unknownWordVector.tolist())
@@ -709,5 +709,3 @@ if __name__ == '__main__':
         
     logging.config.fileConfig(os.path.join(path,'logging.conf'))
     main()
-
-

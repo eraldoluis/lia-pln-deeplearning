@@ -49,7 +49,7 @@ def readVocabAndWord(args):
 
                 
 def run(args):
-    
+    args.wordMode='normal'
     filters = []
     a = 0
     args.filters.append('DataOperation.TransformLowerCaseFilter')

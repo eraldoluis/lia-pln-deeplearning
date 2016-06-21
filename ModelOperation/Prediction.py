@@ -7,15 +7,19 @@ from theano import printing
 
 
 class Prediction(object):
-
-    def predict(self,output):
+    def predict(self, output):
         not NotImplementedError()
 
 
-class ArgmaxPrediction(Prediction):
+class CoLearningWnnPrediction(Prediction):
+    def predict(self, output):
+        output = T.stack(output)
+        return T.argmax(output, 2)[T.argmax(T.max(output, 2), 0),T.arange(output.shape[1])]
 
-    def __init__(self,axis):
+
+class ArgmaxPrediction(Prediction):
+    def __init__(self, axis):
         self.__axis = axis
 
-    def predict(self,output):
-        return T.argmax(output,self.__axis)
+    def predict(self, output):
+        return T.argmax(output, self.__axis)

@@ -237,7 +237,7 @@ class Embedding(object):
 
 
 
-    def minMaxWithMeanNormalization(self):
+    def meanNormalization(self):
         '''
         Normalize all the embedding to a range [-1,1].
         zi= (xi−mean(x)) / (max(x)−min(x))

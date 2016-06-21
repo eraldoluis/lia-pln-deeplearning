@@ -25,16 +25,25 @@ class TokenReader(DatasetReader):
         """
         self.__filePath = filePath
         self.__sep = sep
+        self.__log = logging.getLogger(__name__)
+        self.__printedNumberTokensRead = False
 
     def read(self):
         """
         Returns a tuple  of tokens in a row
         """
         f = codecs.open(self.__filePath, "r", "utf-8")
+        nmTokens = 0
 
         for line in f:
             tokens = line.strip().split(self.__sep)
-            yield (tokens, tokens)
+            noneLabels = [None for t in tokens]
+            yield (tokens, noneLabels)
+
+            nmTokens += len(tokens)
+
+        if not self.__printedNumberTokensRead:
+            self.__log.info("Number of tokens read: %d" % nmTokens)
 
 
 class TokenLabelReader(DatasetReader):
@@ -42,7 +51,7 @@ class TokenLabelReader(DatasetReader):
     Reads the tokens and label from a labeled data set.
     """
 
-    def __init__(self, filePath, labelTknSep, sep=' '):
+    def __init__(self, filePath, labelTknSep, sep=None):
         """
         :type filePath: String
         :param filePath: dataset path

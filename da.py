@@ -11,10 +11,9 @@ from DataOperation.Embedding import EmbeddingFactory, RandomUnknownStrategy
 from DataOperation.InputGenerator.BatchIterator import SyncBatchIterator, AsyncBatchIterator
 from DataOperation.InputGenerator.WindowGenerator import WindowGenerator
 from DataOperation.TokenDatasetReader import TokenReader
-from ModelOperation import Model, SaveModelCallback
 from ModelOperation.Model import Model
 from ModelOperation.Objective import MeanSquaredError
-from ModelOperation.SaveModelCallback import ModelWriter
+from ModelOperation.SaveModelCallback import ModelWriter, SaveModelCallback
 from NNet import EmbeddingLayer, FlattenLayer, DropoutLayer, LinearLayer, ActivationLayer
 from NNet.ActivationLayer import sigmoid, ActivationLayer, tanh
 from NNet.DropoutLayer import DropoutLayer
@@ -22,7 +21,7 @@ from NNet.EmbeddingLayer import EmbeddingLayer
 from NNet.FlattenLayer import FlattenLayer
 from NNet.LinearLayer import LinearLayer
 from NNet.TiedLayer import TiedLayer
-from NNet.WeightGenerator import SigmoidGlorot
+from NNet.WeightGenerator import SigmoidGlorot, GlorotUniform
 from Optimizers import SGD
 from Optimizers.SGD import SGD
 from Parameters.JsonArgParser import JsonArgParser
@@ -105,7 +104,7 @@ def main(**kwargs):
 
     log.info("Reading W2v File")
     embedding = EmbeddingFactory().createFromW2V(kwargs["word_embedding"], RandomUnknownStrategy())
-    embedding.minMaxNormalization()
+    embedding.meanNormalization()
 
     datasetReader = TokenReader(kwargs["train"])
     inputGenerator = WindowGenerator(wordWindowSize, embedding, filters,
@@ -130,24 +129,25 @@ def main(**kwargs):
 
     # Encoder
     linear1 = LinearLayer(dropoutOutput, wordWindowSize * embedding.getEmbeddingSize(), encoderSize,
-                          weightInitialization=SigmoidGlorot())
-    act1 = ActivationLayer(linear1, sigmoid)
+                          weightInitialization=GlorotUniform())
+    act1 = ActivationLayer(linear1, tanh)
 
     # Decoder
     linear2 = TiedLayer(act1, linear1.getParameters()[0], wordWindowSize * embedding.getEmbeddingSize())
-    act2 = ActivationLayer(linear2, sigmoid)
+    act2 = ActivationLayer(linear2, tanh)
 
     # Input of the hidden layer
     x = flatten.getOutput()
 
     # Creates the model
-    mdaModel = Model(input, x, act2)
+    mdaModel = Model(input, x, True)
 
     sgd = SGD(lr, decay=0.0)
-    loss = MeanSquaredError()
+    prediction = act2
+    loss = MeanSquaredError().calculateError(act2, prediction, x)
 
     log.info("Compiling the model")
-    mdaModel.compile(sgd, loss)
+    mdaModel.compile(act2.getLayerSet(),sgd, prediction, loss)
 
     cbs = []
 

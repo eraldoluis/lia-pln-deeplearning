@@ -10,30 +10,28 @@ from ModelOperation.Callback import BaseLogger
 
 
 class Model:
-    def __init__(self, x, y, outputLayer):
+    def __init__(self, x, y, yExist=False):
         '''
         :param x: list of tensors that represent the inputs.
 
         :param y: tensor that represents the correct output.
 
-        :type outputLayer: NNet.Layer.Layer
-        :param outputLayer: the output
-        '''
+        :param yExist: This parameter is true when the learner produce your own correct output
+                                        or use the input as the correct output, like DA.
 
-        self.__outputLayer = outputLayer
-        self.__output = outputLayer.getOutput()
+        :param outputLayer: a list of outputs
+        '''
         self.__theanoFunction = None
         self.log = logging.getLogger(__name__)
         self.__calculateAcc = False
         self.__metrics = ["loss"]
         self.__y = y
+        self.__isY_ProducedByNN = yExist
 
         if not isinstance(x, (set, list)):
             self.__x = [x]
         else:
             self.__x = x
-
-        self.__isY_ProducedByNN = False
 
         self.__loss = None
         self.__inputs = None
@@ -44,25 +42,25 @@ class Model:
         self.__predictionFunction = None
         self.__optimizer = None
 
-    def compile(self, optimizer, loss, prediction=None, metrics=[]):
+    def compile(self, allLayers, optimizer, predictionFunction, lossFunction, metrics=[]):
         '''
+        :type allLayers: [ NNet.Layer.Layer]
+        :param allLayers: all model layers
+
         :type optimizer: Optimizer.Optimizer
         :param optimizer:
 
-        :type loss: ModelOperation.Objective.Objective
-        :param loss:
+        :type predictionFunction: T.var.TensorVariable
+        :param predictionFunction: It's the function which will responsible to predict labels
 
-        :type prediction: ModelOperation.Prediction.Prediction
-        :param prediction:
+        :type lossFunction: T.var.TensorVariable
+        :param lossFunction: It's the function which will calculate the loss
+
 
         :param metrics: the names of the metrics to be measured. Nowadays, this classe just accepted "loss" and "acc"(accuracy)
         '''
         self.__optimizer = optimizer
-
-        if prediction:
-            self.__prediction = prediction.predict(self.__output)
-        else:
-            self.__prediction = self.__output
+        self.__prediction = predictionFunction
 
         self.__metrics += metrics
 
@@ -72,17 +70,15 @@ class Model:
                 self.__calculateAcc = True
                 _outputFunc.append(T.mean(T.eq(self.__prediction, self.__y)))
             elif m == "loss":
-                self.__loss = loss.calculateError(self.__output, self.__prediction, self.__y)
+                self.__loss = lossFunction
                 _outputFunc.append(self.__loss)
 
         # Removes not trainable layers from update and see if the output of the
         trainableLayers = []
 
-        for l in self.__outputLayer.getLayerSet():
+        for l in allLayers:
             if l.isTrainable():
                 trainableLayers.append(l)
-            if l.getOutput() == self.__y:
-                self.__isY_ProducedByNN = True
 
         # Create the inputs of which theano function
         inputsOutputs = []

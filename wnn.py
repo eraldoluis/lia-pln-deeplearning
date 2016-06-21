@@ -4,35 +4,34 @@ import codecs
 import importlib
 import json
 import logging
+import logging.config
 import os
 import random
 import sys
 import time
+from time import time
+
+import numpy as np
+import theano.tensor as T
 
 from DataOperation.Embedding import EmbeddingFactory, RandomUnknownStrategy, ChosenUnknownStrategy
+from DataOperation.InputGenerator.BatchIterator import SyncBatchIterator
 from DataOperation.InputGenerator.LabelGenerator import LabelGenerator
 from DataOperation.InputGenerator.WindowGenerator import WindowGenerator
-from DataOperation.InputGenerator.BatchIterator import SyncBatchIterator
 from DataOperation.Lexicon import Lexicon
 from DataOperation.TokenDatasetReader import TokenLabelReader
 from ModelOperation.Model import Model
 from ModelOperation.Objective import NegativeLogLikelihood
 from ModelOperation.Prediction import ArgmaxPrediction
 from ModelOperation.SaveModelCallback import ModelWriter, SaveModelCallback
-from NNet.ActivationLayer import ActivationLayer, softmax, tanh, hard_sigmoid, sigmoid
+from NNet.ActivationLayer import ActivationLayer, softmax, tanh, sigmoid
+from NNet.EmbeddingLayer import EmbeddingLayer
 from NNet.FlattenLayer import FlattenLayer
 from NNet.LinearLayer import LinearLayer
-from NNet.EmbeddingLayer import EmbeddingLayer
-import theano.tensor as T
-import logging.config
-from time import time
-
-from NNet.WeightGenerator import ZeroWeightGenerator
+from NNet.WeightGenerator import ZeroWeightGenerator, GlorotUniform, SigmoidGlorot
 from Optimizers.Adagrad import Adagrad
 from Optimizers.SGD import SGD
 from Parameters.JsonArgParser import JsonArgParser
-
-import numpy as np
 
 WNN_PARAMETERS = {
     "token_label_separator": {"required": True,
@@ -66,6 +65,8 @@ WNN_PARAMETERS = {
     "hidden_activation_function": {"default": "tanh",
                                    "desc": "the activation function of the hidden layer. The possible values are: tanh and sigmoid"},
     "shuffle": {"default": True, "desc": "able or disable the shuffle of training examples."},
+    "normalization": {"desc": "Choose the normalize method to be applied on  word embeddings. "
+                              "The possible values are: max_min, mean_normalization or none"},
 }
 
 
@@ -117,13 +118,13 @@ class WNNModelWritter(ModelWriter):
 
         # Savings labels
         param = {
-            "labels" : self.__labelLexicon.getLexiconList(),
+            "labels": self.__labelLexicon.getLexiconList(),
             "hiddenActFunction": self.__hiddenActFunction,
             "unknown": lexicon.getLexicon(lexicon.getUnknownIndex())
         }
 
         with codecs.open(self.__savePath + ".param", "w", encoding="utf-8") as paramsFile:
-            json.dump(param,paramsFile,encoding="utf-8")
+            json.dump(param, paramsFile, encoding="utf-8")
 
         weights = {}
 
@@ -150,11 +151,13 @@ def mainWnn(**kwargs):
         np.random.seed(kwargs["seed"])
 
     lr = kwargs["lr"]
-    wordWindowSize = kwargs["word_window_size"]
     startSymbol = kwargs["start_symbol"]
     endSymbol = kwargs["end_symbol"]
     numEpochs = kwargs["num_epochs"]
     shuffle = kwargs["shuffle"]
+    normalizeMethod = kwargs["normalization"].lower() if kwargs["normalization"] is not None else None
+    wordWindowSize = kwargs["word_window_size"]
+    hiddenLayerSize = kwargs["hidden_size"]
 
     if kwargs["alg"] == "window_stn":
         isSentenceModel = True
@@ -177,7 +180,7 @@ def mainWnn(**kwargs):
 
     if loadPath:
         with codecs.open(loadPath + ".param", "r", encoding="utf-8") as paramsFile:
-            param = json.load(paramsFile, encoding = "utf-8")
+            param = json.load(paramsFile, encoding="utf-8")
 
         hiddenActFunctionName = param['hiddenActFunction']
         hiddenActFunction = method_name(hiddenActFunctionName)
@@ -199,6 +202,8 @@ def mainWnn(**kwargs):
         b1 = weights["b_Hidden"]
         W2 = weights["W_Softmax"]
         b2 = weights["b_Softmax"]
+
+        hiddenLayerSize = b1.shape[0]
     else:
         W1 = None
         b1 = None
@@ -225,10 +230,9 @@ def mainWnn(**kwargs):
             W1 = mdaWeights["W_Encoder"]
             b1 = mdaWeights["b_Encoder"]
 
-    wordWindowSize = kwargs["word_window_size"]
-    hiddenLayerSize = kwargs["hidden_size"]
-    inputGenerator = WindowGenerator(wordWindowSize, embedding, filters,
-                                     startSymbol, endSymbol)
+            hiddenLayerSize = b1.shape[0]
+
+    inputGenerator = WindowGenerator(wordWindowSize, embedding, filters, startSymbol, endSymbol)
     outputGenerator = LabelGenerator(labelLexicon)
 
     if kwargs["train"]:
@@ -240,21 +244,30 @@ def mainWnn(**kwargs):
         embedding.stopAdd()
         labelLexicon.stopAdd()
 
-        # log.info("Using %d examples from train data set" % (len(trainExamples[0])))
-
         # Get dev inputs and output
         dev = kwargs["dev"]
 
         if dev:
             log.info("Reading development examples")
             devDatasetReader = TokenLabelReader(kwargs["dev"], kwargs["token_label_separator"])
-            devReader = SyncBatchIterator(devDatasetReader, [inputGenerator], outputGenerator, batchSize,shuffle=False)
-            # log.info("Using %d examples from development data set" % (len(devExamples[0])))
+            devReader = SyncBatchIterator(devDatasetReader, [inputGenerator], outputGenerator, batchSize, shuffle=False)
         else:
             devReader = None
     else:
         trainReader = None
         devReader = None
+
+    weightInit = SigmoidGlorot() if hiddenActFunction == sigmoid else GlorotUniform()
+
+    if normalizeMethod == "min_max":
+        log.info("Normalization: min max")
+        embedding.minMaxNormalization()
+    elif normalizeMethod == "mean_normalization":
+        log.info("Normalization: mean normalization")
+        embedding.meanNormalization()
+
+    if normalizeMethod is not None and loadPath is not None:
+        log.warn("The word embedding of model was normalized. This can change the result of test.")
 
     if isSentenceModel:
         raise NotImplementedError("ModelOperation of sentence window was't implemented yet.")
@@ -264,15 +277,18 @@ def mainWnn(**kwargs):
         embeddingLayer = EmbeddingLayer(input, embedding.getEmbeddingMatrix())
         flatten = FlattenLayer(embeddingLayer)
 
-        linear1 = LinearLayer(flatten, wordWindowSize * embedding.getEmbeddingSize(), hiddenLayerSize, W=W1, b=b1)
+        linear1 = LinearLayer(flatten, wordWindowSize * embedding.getEmbeddingSize(), hiddenLayerSize, W=W1, b=b1,
+                              weightInitialization=weightInit)
         act1 = ActivationLayer(linear1, hiddenActFunction)
 
         linear2 = LinearLayer(act1, hiddenLayerSize, labelLexicon.getLen(), W=W2, b=b2,
                               weightInitialization=ZeroWeightGenerator())
         act2 = ActivationLayer(linear2, softmax)
+        prediction = ArgmaxPrediction(1).predict(act2.getOutput())
+
 
     y = T.lvector("y")
-    wnnModel = Model([input], y, act2)
+    wnnModel = Model([input], y)
 
     if kwargs["decay"].lower() == "normal":
         decay = 0.0
@@ -290,8 +306,10 @@ def mainWnn(**kwargs):
     log.info("Number of dictionary and embedding size: %d and %d" % (dictionarySize, embeddingSize))
 
     # Compiling
-    wnnModel.compile(opt, NegativeLogLikelihood(), ArgmaxPrediction(1), ["acc"])
+    loss = NegativeLogLikelihood().calculateError(act2.getOutput(), prediction, y)
+    wnnModel.compile(act2.getLayerSet(), opt, prediction, loss, ["acc"])
 
+    # Training
     if trainReader:
         callback = []
 
@@ -304,6 +322,7 @@ def mainWnn(**kwargs):
         log.info("Training")
         wnnModel.train(trainReader, numEpochs, devReader, callbacks=callback)
 
+    # Testing
     if kwargs["test"]:
         log.info("Reading test examples")
         testDatasetReader = TokenLabelReader(kwargs["test"], kwargs["token_label_separator"])

@@ -107,3 +107,4 @@ class SoftmaxLayer(Layer):
     
     def getUpdates(self, cost, learningRate, sumSqGrads=None):
         return []
+

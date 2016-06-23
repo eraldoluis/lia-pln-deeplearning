@@ -717,4 +717,3 @@ if __name__ == '__main__':
         
     logging.config.fileConfig(os.path.join(path,'logging.conf'))
     main()
-

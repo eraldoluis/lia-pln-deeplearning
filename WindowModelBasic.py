@@ -295,7 +295,7 @@ class WindowModelBasic:
                          }
             
             if debug_mode:
-                outputs += [self.concatenateEmbeddings]
+                outputs += [self.concatenateEmbeddings, self.hiddenLayer.getOutput()]
                 
                 if self.separateSentence:
                     outputs += [self.sentenceSoftmax.getPrediction()]

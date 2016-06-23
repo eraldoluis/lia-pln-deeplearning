@@ -46,7 +46,7 @@ class WindowModelBySentence(WindowModelBasic):
                                   batchSize, c, charModel,
                                   learningRateUpdStrategy, randomizeInput,
                                   wordVecsUpdStrategy, NeuralNetworkChoiceEnum.withoutHiddenLayer(choice),
-                                  networkAct, norm_coef, structGrad, adaGrad, task, senLayerWithAct)
+                                  networkAct, norm_coef, structGrad, adaGrad, task, senLayerWithAct,True)
     
         self.setTestValues = True
         self.structPrediction = structPrediction

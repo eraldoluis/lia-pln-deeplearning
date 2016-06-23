@@ -25,7 +25,7 @@ class WindowModelByWord(WindowModelBasic):
                                   batchSize, c, charModel,
                                   learningRateUpdStrategy, randomizeInput,
                                   wordVecsUpdStrategy, False, networkAct,
-                                  norm_coef, structGrad, adaGrad, task)
+                                  norm_coef, structGrad, adaGrad, task, False)
         
         self.setTestValues = True
         

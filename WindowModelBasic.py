@@ -38,7 +38,7 @@ class WindowModelBasic:
                  learningRateUpdStrategy=LearningRateUpdNormalStrategy(),
                  randomizeInput=False, wordVecsUpdStrategy='normal',
                  withoutHiddenLayer=False, networkAct='tanh', norm_coef=1.0,
-                 structGrad=True, adaGrad=False, task='postag', senLayerWithAct=False):
+                 structGrad=True, adaGrad=False, task='postag', senLayerWithAct=False, separateSentence=False):
         # Logging object.
         self.__log = logging.getLogger(__name__)
 
@@ -89,6 +89,7 @@ class WindowModelBasic:
         
         self.task = task
         self.senLayerWithAct = senLayerWithAct
+        self.separateSentence = separateSentence
         
         self.initWithBasicLayers(withoutHiddenLayer)
         

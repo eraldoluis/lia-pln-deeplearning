@@ -35,7 +35,6 @@ class TokenLabelReader:
         numCharsOfLexiconRaw = charVars[3]
         
         
-        
         for f in filters[:-1]:
             rawWord = f.filter(rawWord)
         

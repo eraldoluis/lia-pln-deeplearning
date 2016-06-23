@@ -349,7 +349,7 @@ def run(args):
             model.addListener(evalListener)
         
         print 'Training...'
-        model.train(trainData[0], trainData[1], trainData[2])
+        model.train(trainData[0], trainData[1], trainData[2], args.debug_image_folder, args.model_description)
         
         if args.saveModel is not None:
             print 'Saving Model...'
@@ -577,6 +577,15 @@ def main():
     
     parser.add_argument('--structPrediction', dest='structPrediction', action='store_true', default=False, 
                        help='Not usage of structured prediction for sentence model')
+    
+    parser.add_argument('--debug_image_folder', dest='debug_image_folder', action='store', default='debug_image/',
+                       help='Debug images folder path')
+    
+    parser.add_argument('--model_description', dest='model_description', action='store', default=' ',
+                       help='Model description string')
+    
+    parser.add_argument('--debug_mode', dest='debug_mode', action='store_true', default=False,
+                       help='Turn de debug mode on')
     
     #parser.add_argument('--saveSolution', dest='saveSolution', action='store',
     #                  help='The file path where the prediction will be saved')

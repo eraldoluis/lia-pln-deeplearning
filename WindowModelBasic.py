@@ -1,6 +1,6 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
-
+import matplotlib.pyplot as plt
 import numpy as np
 import theano
 import theano.compile
@@ -210,7 +210,7 @@ class WindowModelBasic:
     def confBatchSize(self, inputData):
         raise NotImplementedError();
     
-    def train(self, inputData, correctData, indexesOfRawWord):
+    def train(self, inputData, correctData, indexesOfRawWord, folder=None, model_description=None, debug_mode=False):
         # TODO: test
 #         n = 1000
 #         inputData = inputData[:n]
@@ -271,7 +271,13 @@ class WindowModelBasic:
         # Character-level training data.
         
         if self.task == 'postag':
+            
+            outputs = [self.cost]
+            
             if self.charModel:
+                if debug_mode:
+                    outputs += [self.charModel.hiddenLayer.getOutput(),self.charModel.getOutput()]
+                
                 charInput = theano.shared(self.charModel.getAllWordCharWindowIndexes(indexesOfRawWord), borrow=True)
                 givens = {
                           self.windowIdxs: windowIdxs[ index : index + batchIndex ],
@@ -284,16 +290,27 @@ class WindowModelBasic:
                           self.y: y[ index : index + batchIndex ]
                          }
             
+            if debug_mode:
+                outputs += [self.concatenateEmbeddings]
+                
+                if self.separateSentence:
+                    outputs += [self.sentenceSoftmax.getPrediction()]
+                else:
+                    outputs += [self.softmax.getPrediction()]
             # Train function.
             train = theano.function(inputs=[index, batchIndex, self.lr],
-                                    outputs=self.cost,
+                                    outputs=outputs,
                                     updates=self.updates,
                                     givens=givens)
             
             
         elif self.task == 'sentiment_analysis':
             
+            outputs = [self.cost]
+            
             if self.charModel:
+                if debug_mode:
+                    outputs += [self.charModel.hiddenLayer.getOutput(),self.charModel.getOutput()]
                 
                 charInput = theano.shared(self.charModel.getAllWordCharWindowIndexes(indexesOfRawWord), borrow=True)
                 givens = {
@@ -306,10 +323,13 @@ class WindowModelBasic:
                           self.windowIdxs: windowIdxs[ index : index + batchIndex ],
                           self.y: y[ senIndex : senIndex + 1]
                          }
+            if debug_mode:
+                outputs += [self.concatenateEmbeddings, self.sentenceLayer.getOutput(), self.sentenceFeature,
+                            self.hiddenLayer.getOutput(), self.sentenceSoftmax.getPrediction()]      
             
             # Train function.
             train = theano.function(inputs=[senIndex, index, batchIndex, self.lr],
-                                    outputs=self.cost,
+                                    outputs=outputs,
                                     updates=self.updates,
                                     givens=givens)
             
@@ -317,7 +337,7 @@ class WindowModelBasic:
                
         # Indexes of all training (mini) batches.
         idxList = range(numBatches)
-                
+        
         for epoch in range(1, self.numEpochs + 1):
             print 'Training epoch ' + str(epoch) + '...'
             
@@ -330,13 +350,52 @@ class WindowModelBasic:
             
             t1 = time.time()
             
+            if (epoch-1)%5 == 0: 
+                
+                charhidden_value = []
+                charmodel_value = []
+                wordmodel_value = []
+                senthidden_value = []
+                sentmodel_value = []
+                hidden_value = []
+                softmax_value = []
             # Train each mini-batch.
             for idx in idxList:
                 if self.task == 'postag':
-                    train( self.beginBlock[idx], batchesSize[idx], lr)
+                    saida = train( self.beginBlock[idx], batchesSize[idx], lr)
                     
                 else:
-                    train( idx, self.beginBlock[idx], batchesSize[idx], lr)
+                    saida = train( idx, self.beginBlock[idx], batchesSize[idx], lr)
+                
+                if debug_mode:
+                    
+                    if self.charModel:
+                        
+                        charhidden_value = np.append(charhidden_value, saida[1].flatten())
+                        charmodel_value = np.append(charmodel_value, saida[2].flatten())
+                        wordmodel_value = np.append(wordmodel_value, saida[3].flatten())
+                        if self.task == 'sentiment_analysis':
+                            senthidden_value = np.append(senthidden_value, saida[4].flatten())
+                            sentmodel_value = np.append(sentmodel_value, saida[5].flatten())
+                            hidden_value = np.append(hidden_value, saida[6].flatten())
+                            softmax_value = np.append(softmax_value, saida[7].flatten())
+                        else:
+                            hidden_value = np.append(hidden_value, saida[4].flatten())
+                            softmax_value = np.append(softmax_value, saida[5].flatten())
+                        
+                    else:
+                        wordmodel_value = np.append(wordmodel_value, saida[1].flatten())
+                        if self.task == 'sentiment_analysis':
+                            senthidden_value = np.append(senthidden_value, saida[2].flatten())
+                            sentmodel_value = np.append(sentmodel_value, saida[3].flatten())
+                            hidden_value = np.append(hidden_value, saida[4].flatten())
+                            softmax_value = np.append(softmax_value, saida[5].flatten())
+                        else:
+                            hidden_value = np.append(hidden_value, saida[2].flatten())
+                            softmax_value = np.append(softmax_value, saida[3].flatten())
+                            
+                    
+                    
                     
                 # train(windowIdxs[idx * self.batchSize : (idx + 1) * self.batchSize], idx, lr)    
             
@@ -345,10 +404,69 @@ class WindowModelBasic:
             # Evaluate the model when necessary
             for l in self.listeners:
                 l.afterEpoch(epoch)
+            
+            if debug_mode:
+                if (epoch)%5 == 0: 
+                    
+                    if self.charModel:
+                        charhidden_value = np.array(charhidden_value).flatten()
+                        charmodel_value = np.array(charmodel_value).flatten()
+                    wordmodel_value = np.array(wordmodel_value).flatten()
+                    if self.task == 'sentiment_analysis':
+                        senthidden_value = np.array(senthidden_value).flatten()
+                        sentmodel_value = np.array(sentmodel_value).flatten()
+                    hidden_value = np.array(hidden_value).flatten()
+                    softmax_value = np.array(softmax_value).flatten()
+                    
+                    
+                    if self.charModel:                
+                        self.saveHist(charhidden_value, 20, 'Char Hidden value', 'num', 
+                                      model_description + ' - char hidden- until '+str(epoch), [-1, 1, 0, 1200000], 
+                                      folder+'charhidden_'+str(epoch/5)+'.png');
+                        self.saveHist(charmodel_value, 20, 'Char Conv value', 'num', 
+                                      model_description + ' - char conv- until '+str(epoch), [-1, 1, 0, 1200000], 
+                                      folder+'charconv_'+str(epoch/5)+'.png');
+    
+                    self.saveHist(wordmodel_value, 20, 'word embeddings value', 'num', 
+                                  model_description + ' - word embedd- until '+str(epoch), [-10, 10, 0, 1000000], 
+                                  folder+'word_'+str(epoch/5)+'.png');
+                                  
+                    if self.task == 'sentiment_analysis':
+                        self.saveHist(senthidden_value, 20, 'sentence hidden value', 'num', 
+                                      model_description + ' - sent hidden- until '+str(epoch), [-10, 10, 0, 2000000], 
+                                      folder+'senthidden_'+str(epoch/5)+'.png');#1-->2
+                        self.saveHist(sentmodel_value, 20, 'sentence Conv value', 'num', 
+                                      model_description + ' - sent conv- until '+str(epoch), [-10, 10, 0, 100000], 
+                                      folder+'sentconv_'+str(epoch/5)+'.png');
+                    
+                    self.saveHist(hidden_value, 20, 'hidden value', 'num', 
+                                  model_description + ' - hidden act - until '+str(epoch), [-1, 1, 0, 200000], 
+                                  folder+'hidden_'+str(epoch/5)+'.png');#20-->12 
+                    self.saveHist(softmax_value, 20, 'soft prediction', 'num', 
+                                  model_description + ' - softmax prediction- until '+str(epoch), [0, 5, 0, 2000], 
+                                  folder+'soft_'+str(epoch/5)+'.png');
+            
+                
+
     
     def predict(self, inputData):
         raise NotImplementedError();
 
     def isAdaGrad(self):
         return self.__adaGrad
+    
+    def saveHist(self, values, bin, xlabel, ylabel, title, axis, filename):
+        plt.figure()
+        n, bins, patches = plt.hist(values, bins=bin)
+        #l = plt.plot(bins, 'r--', linewidth=1)
+        
+        plt.xlabel(xlabel)
+        plt.ylabel(ylabel)
+        plt.title(title)
+        plt.axis(axis)
+        plt.grid(True)
+        
+        plt.savefig(filename)
+
+        
     

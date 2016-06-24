@@ -1,6 +1,5 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
-
 import argparse
 import time
 import logging.config
@@ -24,6 +23,7 @@ from NNet.Util import LearningRateUpdDivideByEpochStrategy, \
 from Evaluate.EvaluatePercPredictsCorrectNotInWordSet import EvaluatePercPredictsCorrectNotInWordSet
 import random
 import os
+from DebugPlot import DebugPlot.saveHist
 
 def readVocabAndWord(args):
     # Este if só foi criado para permitir que DLIDPostag possa reusar o run do postag
@@ -104,8 +104,8 @@ def run(args):
     else:
         print 'Loading dictionary...'
         
-        WindowModelBasic.setStartSymbol(args.startSymbol)
-        WindowModelBasic.setEndSymbol(args.endSymbol)
+        WindowModelBasic.setStartSymbol(unicode(args.startSymbol, "utf-8"))
+        WindowModelBasic.setEndSymbol(unicode(args.endSymbol, "utf-8"))
         
         lexiconRaw = Lexicon()
         charcon = Lexicon()
@@ -239,6 +239,14 @@ def run(args):
             
             numClasses = lexiconOfLabel.getLen()
             
+            print "The dataset contains: " + str(lexicon.getLen()) + " vocabularies "
+            #print lexicon.getLexiconDict()
+            if args.withCharwnn:
+                print '\t\t' + str(charVars[0].getLen()) + " different characters"
+                #for k in charVars[0].getLexiconDict().iterkeys():
+                #    print k,
+        
+            
             if args.withCharwnn:
                 if args.charVecsInit == 'randomAll':
                     charVars[1].startAllRandom()
@@ -342,30 +350,32 @@ def run(args):
             print 'Loading test data...'
             unknownDataTestCharIdxs = []
             
-            testData = datasetReader.readTestData(args.test, lexicon, lexiconOfLabel, lexiconRaw, separeSentence, False, args.withCharwnn, charVars, False, filters, unknownDataTest, unknownDataTestCharIdxs)
+            testData = datasetReader.readTestData(args.test, lexicon, lexiconOfLabel, lexiconRaw,
+                                                  separeSentence, False, args.withCharwnn, charVars, False,
+                                                  filters, unknownDataTest, unknownDataTestCharIdxs)
             
-            evalListener = EvaluateEveryNumEpoch(args.numepochs, args.numPerEpoch, EvaluateAccuracy(), model, testData[0], testData[1], testData[2], unknownDataTestCharIdxs)
+            if model.charModel is not None and len(model.charModel.AllCharWindowIndexes) != lexiconRaw.getLen():
+                model.charModel.updateAllCharIndexes(unknownDataTestCharIdxs)
+            
+            varsToSave= [lexicon, lexiconOfLabel, lexiconRaw, model, charVars]
+            evalListener = EvaluateEveryNumEpoch(args.numepochs, args.numPerEpoch, EvaluateAccuracy(), model,
+                                                 testData[0], testData[1], testData[2], unknownDataTestCharIdxs,
+                                                 varsToSave, args.saveModel)
             
             model.addListener(evalListener)
+        if args.crossvalidation:
+	  debug_data = [[],[],[],[],[],[],[],[]]
+	else:
+	  debug_data = None
         
         print 'Training...'
-        model.train(trainData[0], trainData[1], trainData[2], args.debug_image_folder, args.model_description)
+        model.train(trainData[0], trainData[1], trainData[2], args.debug_mode, debug_data, args.debug_period, args.model_description, args.debug_image_folder)
         
-        if args.saveModel is not None:
-            print 'Saving Model...'
-            f = open(args.saveModel, "wb")
-            
-            # When the test data is loaded by the script, but no one predict is done, 
-            #   so it's necessary to update all char indexes, because the lexiconRaw is going to have data,
-            #    that is not in AllCharWindowIndexes.
-            if len(charModel.AllCharWindowIndexes) != lexiconRaw.getLen():
-                charModel.updateAllCharIndexes(unknownDataTestCharIdxs)
-            
-            pickle.dump([lexicon, lexiconOfLabel, lexiconRaw, model, charVars], f, pickle.HIGHEST_PROTOCOL)
-            
-            f.close()
-            print 'Model save with sucess in ' + args.saveModel
-    
+        acc_hist = []
+        for l in model.listeners:
+            acc_hist = l.acc
+
+
     t1 = time.time()
     
     print "Train time: %s seconds" % (str(t1 - t0))
@@ -373,7 +383,16 @@ def run(args):
     
     if testData is None:
         unknownDataTestCharIdxs = []
-        testData = datasetReader.readTestData(args.test, lexicon, lexiconOfLabel, lexiconRaw, separeSentence, False, args.withCharwnn, charVars, False, filters, unknownDataTest, unknownDataTestCharIdxs)
+        testData = datasetReader.readTestData(args.test, lexicon, lexiconOfLabel, lexiconRaw,
+                                              separeSentence, False, args.withCharwnn, charVars, False,
+                                              filters, unknownDataTest, unknownDataTestCharIdxs)
+        
+        # When the test data is loaded by the script, but no one predict is done, 
+        #   so it's necessary to update all char indexes, because the lexiconRaw is going to have data,
+        #    that is not in AllCharWindowIndexes.
+        if model.charModel is not None and len(model.charModel.AllCharWindowIndexes) != lexiconRaw.getLen():
+            model.charModel.updateAllCharIndexes(unknownDataTestCharIdxs)
+        
     
     print 'Testing...'
     
@@ -392,7 +411,27 @@ def run(args):
     
     
     evalue = EvaluateAccuracy()
-    evalue.evaluateWithPrint(predicts, testData[1])
+    acc = evalue.evaluateWithPrint(predicts, testData[1])
+    acc_hist.append(acc)
+    
+    if args.saveModel is not None:
+            
+        bestAcc = 0.0
+        if len(model.listeners) != 0:
+            for l in model.listeners:
+                if l.bestAccuracy > bestAcc:
+                    bestAcc = l.bestAccuracy  
+        
+        if acc > bestAcc:
+            print 'Saving Model...'
+            f = open(args.saveModel, "w")
+            
+            pickle.dump([lexicon, lexiconOfLabel, lexiconRaw, model, charVars], f, pickle.HIGHEST_PROTOCOL)
+            
+            f.close()
+            print 'Model save with sucess in ' + args.saveModel
+
+    
 
     if args.testOOSV:
         oosv = EvaluatePercPredictsCorrectNotInWordSet(lexicon, lexiconFindInTrain, 'OOSV')
@@ -406,6 +445,74 @@ def run(args):
     
     print "Test  time: %s seconds" % (str(t2 - t1))
     print "Total time: %s seconds" % (str(t2 - t0))
+    
+    return acc_hist, debug_data
+    
+def cross(args):
+    
+    labels, lines = ReaderLexiconAndWordVec().simpleRead(args.train)
+        
+    (dirname, filename) = os.path.split(args.train)    
+    newdirname = dirname+'/'+filename+'_x_'+str(args.kfold)+'_folds/' 
+    if os.path.exists(newdirname):
+        print "\nThe cross validation train e test files of "+ str(args.kfold) + " folds have already been generated"
+        print "\t\t" + 'for the file ' + args.train
+        
+    else:
+        GenerateFolds().readData(newdirname, args.kfold, labels, lines)
+            
+    acc_hist = []
+     
+    debug_values = [[],[],[],[],[],[],[],[]]
+    debug_config = [[],[],[],[],[],[],[],[]]
+    
+    for i in range(args.kfold):
+        fileTrain = newdirname + 'train_'+ str(i+1) + '.txt'
+        fileTest =  newdirname + 'test_'+ str(i+1) + '.txt'
+                 
+        
+        args.train = fileTrain
+        args.test = fileTest
+        
+        print "\n----------------------------------------------------------------------------------"
+        print "Running the " + str(i+1)+ " validation of "+ str(args.kfold)+ " folds"   
+        print "----------------------------------------------------------------------------------\n"
+        
+        
+        acc, debug_data = run(args) 
+        acc_hist.append(acc)
+        
+        
+        if args.debug_mode:
+        
+            if i == 0:
+                for k in range(len(debug_data)):
+                    if len(debug_data[k])>0:
+                        for val in debug_data[k]:
+                            debug_config[k].append(val[1:])
+                            debug_values[k].append(val[0])
+                            
+            
+            else:            
+                for k in range(len(debug_data)):
+                    if len(debug_data[k])>0:
+                        for l in range(len(debug_data[k])):
+                            aux = debug_data[k][l]
+                            debug_values[k][l] = numpy.append(debug_values[k][l], aux[0].flatten())                      
+            
+    acc_hist = numpy.array(acc_hist)
+    
+    mean = numpy.mean(acc_hist, axis=0)
+    
+    print "\nThe average accuracy per epoch\n"
+    
+    i = 1
+    for m in mean:
+        print "Epoch "+ str(i) + ": " + str(m)
+        i += 1
+    print '\n'
+    
+    return debug_values, debug_config
 
 def main():
     
@@ -577,6 +684,12 @@ def main():
     
     parser.add_argument('--structPrediction', dest='structPrediction', action='store_true', default=False, 
                        help='Not usage of structured prediction for sentence model')
+                       
+    parser.add_argument('--crossvalidation', dest='crossvalidation', action='store_true', default=False,
+                       help='Activate cross validation')
+
+    parser.add_argument('--kfold', dest='kfold', action='store', type=int,
+                       help='The number of folds of the cross validation', default=2)
     
     parser.add_argument('--debug_image_folder', dest='debug_image_folder', action='store', default='debug_image/',
                        help='Debug images folder path')
@@ -587,6 +700,8 @@ def main():
     parser.add_argument('--debug_mode', dest='debug_mode', action='store_true', default=False,
                        help='Turn de debug mode on')
     
+    parser.add_argument('--debug_period', dest='debug_period', action='store', type=int,
+                       help='The number of iterations to generate debug images', default=5)
     #parser.add_argument('--saveSolution', dest='saveSolution', action='store',
     #                  help='The file path where the prediction will be saved')
     
@@ -616,8 +731,23 @@ def main():
         random.seed(args.seed)
         numpy.random.seed(args.seed)
 
-    run(args)
-
+    acc, values = run(args)
+        
+    if args.crossvalidation:
+        values, conf = cross(args)
+        #print values.shape
+        if args.debug_mode:
+            for val, con in zip (values, conf):
+                if len(val) > 0:
+                    for v, c in zip (val, con):
+                        saveHist(v.flatten(), c[0], c[1], c[2], args.model_description + c[3], 
+                                 args.debug_image_folder+c[4]);
+            
+        
+    else:
+        run(args)
+        
+        
 if __name__ == '__main__':
     full_path = os.path.realpath(__file__)
     path, filename = os.path.split(full_path)

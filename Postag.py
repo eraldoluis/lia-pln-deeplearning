@@ -1,11 +1,5 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
-import matplotlib
-matplotlib.use('Agg')
-
-import matplotlib.pyplot as plt
-
-
 import argparse
 import time
 import logging.config
@@ -29,6 +23,7 @@ from NNet.Util import LearningRateUpdDivideByEpochStrategy, \
 from Evaluate.EvaluatePercPredictsCorrectNotInWordSet import EvaluatePercPredictsCorrectNotInWordSet
 import random
 import os
+from DebugPlot import DebugPlot.saveHist
 
 def readVocabAndWord(args):
     # Este if só foi criado para permitir que DLIDPostag possa reusar o run do postag
@@ -43,25 +38,6 @@ def readVocabAndWord(args):
         lexicon = Lexicon(args.vocab)
     
     return lexicon, wordVector
-
-def saveHist(values, bin, xlabel, ylabel, title, filename):
-        plt.figure()
-        
-        #l = plt.plot(bins, 'r--', linewidth=1)
-        
-        plt.xlabel(xlabel)
-        plt.ylabel(ylabel)
-        plt.title(title)
-        if numpy.amin(values)!= numpy.amax(values):
-            plt.xlim((numpy.amin(values), numpy.amax(values)))
-        else:
-            values = numpy.append(values,values[0]-1)
-            plt.xlim((numpy.amin(values), numpy.amax(values)))
-            
-        n, bins, patches = plt.hist(values)        
-        plt.grid(True)
-        
-        plt.savefig(filename)
 
 def run(args):
     
@@ -387,11 +363,13 @@ def run(args):
                                                  varsToSave, args.saveModel)
             
             model.addListener(evalListener)
-        
-        debug_data = [[],[],[],[],[],[],[],[]]
+        if args.crossvalidation:
+	  debug_data = [[],[],[],[],[],[],[],[]]
+	else:
+	  debug_data = None
         
         print 'Training...'
-        model.train(trainData[0], trainData[1], trainData[2], args.debug_mode, debug_data, args.debug_period)
+        model.train(trainData[0], trainData[1], trainData[2], args.debug_mode, debug_data, args.debug_period, args.model_description, args.debug_image_folder)
         
         acc_hist = []
         for l in model.listeners:
@@ -469,6 +447,72 @@ def run(args):
     print "Total time: %s seconds" % (str(t2 - t0))
     
     return acc_hist, debug_data
+    
+def cross(args):
+    
+    labels, lines = ReaderLexiconAndWordVec().simpleRead(args.train)
+        
+    (dirname, filename) = os.path.split(args.train)    
+    newdirname = dirname+'/'+filename+'_x_'+str(args.kfold)+'_folds/' 
+    if os.path.exists(newdirname):
+        print "\nThe cross validation train e test files of "+ str(args.kfold) + " folds have already been generated"
+        print "\t\t" + 'for the file ' + args.train
+        
+    else:
+        GenerateFolds().readData(newdirname, args.kfold, labels, lines)
+            
+    acc_hist = []
+     
+    debug_values = [[],[],[],[],[],[],[],[]]
+    debug_config = [[],[],[],[],[],[],[],[]]
+    
+    for i in range(args.kfold):
+        fileTrain = newdirname + 'train_'+ str(i+1) + '.txt'
+        fileTest =  newdirname + 'test_'+ str(i+1) + '.txt'
+                 
+        
+        args.train = fileTrain
+        args.test = fileTest
+        
+        print "\n----------------------------------------------------------------------------------"
+        print "Running the " + str(i+1)+ " validation of "+ str(args.kfold)+ " folds"   
+        print "----------------------------------------------------------------------------------\n"
+        
+        
+        acc, debug_data = run(args) 
+        acc_hist.append(acc)
+        
+        
+        if args.debug_mode:
+        
+            if i == 0:
+                for k in range(len(debug_data)):
+                    if len(debug_data[k])>0:
+                        for val in debug_data[k]:
+                            debug_config[k].append(val[1:])
+                            debug_values[k].append(val[0])
+                            
+            
+            else:            
+                for k in range(len(debug_data)):
+                    if len(debug_data[k])>0:
+                        for l in range(len(debug_data[k])):
+                            aux = debug_data[k][l]
+                            debug_values[k][l] = numpy.append(debug_values[k][l], aux[0].flatten())                      
+            
+    acc_hist = numpy.array(acc_hist)
+    
+    mean = numpy.mean(acc_hist, axis=0)
+    
+    print "\nThe average accuracy per epoch\n"
+    
+    i = 1
+    for m in mean:
+        print "Epoch "+ str(i) + ": " + str(m)
+        i += 1
+    print '\n'
+    
+    return debug_values, debug_config
 
 def main():
     
@@ -640,6 +684,12 @@ def main():
     
     parser.add_argument('--structPrediction', dest='structPrediction', action='store_true', default=False, 
                        help='Not usage of structured prediction for sentence model')
+                       
+    parser.add_argument('--crossvalidation', dest='crossvalidation', action='store_true', default=False,
+                       help='Activate cross validation')
+
+    parser.add_argument('--kfold', dest='kfold', action='store', type=int,
+                       help='The number of folds of the cross validation', default=2)
     
     parser.add_argument('--debug_image_folder', dest='debug_image_folder', action='store', default='debug_image/',
                        help='Debug images folder path')
@@ -683,13 +733,21 @@ def main():
 
     acc, values = run(args)
         
-    if args.debug_mode:
-        for val in values:
-            if len(val) > 0:
-                for v in val:
-                    saveHist(v[0], v[1], v[2], v[3], args.model_description + v[4], 
-                             args.debug_image_folder + v[5]);
-
+    if args.crossvalidation:
+        values, conf = cross(args)
+        #print values.shape
+        if args.debug_mode:
+            for val, con in zip (values, conf):
+                if len(val) > 0:
+                    for v, c in zip (val, con):
+                        saveHist(v.flatten(), c[0], c[1], c[2], args.model_description + c[3], 
+                                 args.debug_image_folder+c[4]);
+            
+        
+    else:
+        run(args)
+        
+        
 if __name__ == '__main__':
     full_path = os.path.realpath(__file__)
     path, filename = os.path.split(full_path)

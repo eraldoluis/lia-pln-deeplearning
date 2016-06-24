@@ -1,10 +1,5 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
-import matplotlib
-matplotlib.use('Agg')
-
-import matplotlib.pyplot as plt
-
 import argparse
 import time
 import logging.config
@@ -29,6 +24,7 @@ from NNet.Util import LearningRateUpdDivideByEpochStrategy, \
 from Evaluate.EvaluatePercPredictsCorrectNotInWordSet import EvaluatePercPredictsCorrectNotInWordSet
 import random
 import os
+from DebugPlot import DebugPlot.saveHist
 #import codecs
 #from nltk.chunk.util import accuracy
 #import theano
@@ -51,24 +47,6 @@ def readVocabAndWord(args):
     
     return lexicon, wordVector
 
-def saveHist(values, bin, xlabel, ylabel, title, filename):
-        plt.figure()
-        
-        #l = plt.plot(bins, 'r--', linewidth=1)
-        
-        plt.xlabel(xlabel)
-        plt.ylabel(ylabel)
-        plt.title(title)
-        if numpy.amin(values)!= numpy.amax(values):
-            plt.xlim((numpy.amin(values), numpy.amax(values)))
-        else:
-            values = numpy.append(values,values[0]-1)
-            plt.xlim((numpy.amin(values), numpy.amax(values)))
-            
-        n, bins, patches = plt.hist(values)        
-        plt.grid(True)
-        
-        plt.savefig(filename)
                 
 def run(args):
     
@@ -367,11 +345,13 @@ def run(args):
                                                  varsToSave, args.saveModel)
             
             model.addListener(evalListener)
-        
-        debug_data = [[],[],[],[],[],[],[],[]]
+        if args.crossvalidation:
+	  debug_data = [[],[],[],[],[],[],[],[]]
+	else:
+	  debug_data = None
         
         print 'Training...'
-        model.train(trainData[0], trainData[1], trainData[2], args.debug_mode, debug_data, args.debug_period)
+        model.train(trainData[0], trainData[1], trainData[2], args.debug_mode, debug_data, args.debug_period, args.model_description, args.debug_image_folder)
         
         acc_hist = []
         for l in model.listeners:
@@ -769,14 +749,8 @@ def main():
             
         
     else:
-        acc, values = run(args)
-        
-        if args.debug_mode:
-            for val in values:
-                if len(val) > 0:
-                    for v in val:
-                        saveHist(v[0], v[1], v[2], v[3], args.model_description + v[4], 
-                                 args.debug_image_folder + v[5]);
+        run(args)
+                        
             
         
 

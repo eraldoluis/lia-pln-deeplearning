@@ -1,5 +1,10 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
+import matplotlib
+matplotlib.use('Agg')
+
+import matplotlib.pyplot as plt
+
 
 import argparse
 import time
@@ -38,6 +43,25 @@ def readVocabAndWord(args):
         lexicon = Lexicon(args.vocab)
     
     return lexicon, wordVector
+
+def saveHist(values, bin, xlabel, ylabel, title, filename):
+        plt.figure()
+        
+        #l = plt.plot(bins, 'r--', linewidth=1)
+        
+        plt.xlabel(xlabel)
+        plt.ylabel(ylabel)
+        plt.title(title)
+        if numpy.amin(values)!= numpy.amax(values):
+            plt.xlim((numpy.amin(values), numpy.amax(values)))
+        else:
+            values = numpy.append(values,values[0]-1)
+            plt.xlim((numpy.amin(values), numpy.amax(values)))
+            
+        n, bins, patches = plt.hist(values)        
+        plt.grid(True)
+        
+        plt.savefig(filename)
 
 def run(args):
     
@@ -364,8 +388,10 @@ def run(args):
             
             model.addListener(evalListener)
         
+        debug_data = [[],[],[],[],[],[],[],[]]
+        
         print 'Training...'
-        model.train(trainData[0], trainData[1], trainData[2], args.debug_image_folder, args.model_description, args.debug_mode)
+        model.train(trainData[0], trainData[1], trainData[2], args.debug_mode, debug_data, args.debug_period)
         
         acc_hist = []
         for l in model.listeners:
@@ -441,6 +467,8 @@ def run(args):
     
     print "Test  time: %s seconds" % (str(t2 - t1))
     print "Total time: %s seconds" % (str(t2 - t0))
+    
+    return acc_hist, debug_data
 
 def main():
     
@@ -622,6 +650,8 @@ def main():
     parser.add_argument('--debug_mode', dest='debug_mode', action='store_true', default=False,
                        help='Turn de debug mode on')
     
+    parser.add_argument('--debug_period', dest='debug_period', action='store', type=int,
+                       help='The number of iterations to generate debug images', default=5)
     #parser.add_argument('--saveSolution', dest='saveSolution', action='store',
     #                  help='The file path where the prediction will be saved')
     
@@ -651,7 +681,14 @@ def main():
         random.seed(args.seed)
         numpy.random.seed(args.seed)
 
-    run(args)
+    acc, values = run(args)
+        
+    if args.debug_mode:
+        for val in values:
+            if len(val) > 0:
+                for v in val:
+                    saveHist(v[0], v[1], v[2], v[3], args.model_description + v[4], 
+                             args.debug_image_folder + v[5]);
 
 if __name__ == '__main__':
     full_path = os.path.realpath(__file__)
@@ -659,4 +696,3 @@ if __name__ == '__main__':
         
     logging.config.fileConfig(os.path.join(path,'logging.conf'))
     main()
-

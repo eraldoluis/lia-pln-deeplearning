@@ -1,5 +1,9 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
+import matplotlib
+matplotlib.use('Agg')
+
+import matplotlib.pyplot as plt
 
 import argparse
 import time
@@ -47,6 +51,24 @@ def readVocabAndWord(args):
     
     return lexicon, wordVector
 
+def saveHist(values, bin, xlabel, ylabel, title, filename):
+        plt.figure()
+        
+        #l = plt.plot(bins, 'r--', linewidth=1)
+        
+        plt.xlabel(xlabel)
+        plt.ylabel(ylabel)
+        plt.title(title)
+        if numpy.amin(values)!= numpy.amax(values):
+            plt.xlim((numpy.amin(values), numpy.amax(values)))
+        else:
+            values = numpy.append(values,values[0]-1)
+            plt.xlim((numpy.amin(values), numpy.amax(values)))
+            
+        n, bins, patches = plt.hist(values)        
+        plt.grid(True)
+        
+        plt.savefig(filename)
                 
 def run(args):
     
@@ -340,12 +362,16 @@ def run(args):
                 model.charModel.updateAllCharIndexes(unknownDataTestCharIdxs)
             
             varsToSave= [lexicon, lexiconOfLabel, lexiconRaw, model, charVars]
-            evalListener = EvaluateEveryNumEpoch(args.numepochs, args.numPerEpoch, EvaluateAccuracy(), model, testData[0], testData[1], testData[2], unknownDataTestCharIdxs, varsToSave, args.saveModel)
+            evalListener = EvaluateEveryNumEpoch(args.numepochs, args.numPerEpoch, EvaluateAccuracy(), model,
+                                                 testData[0], testData[1], testData[2], unknownDataTestCharIdxs,
+                                                 varsToSave, args.saveModel)
             
             model.addListener(evalListener)
         
+        debug_data = [[],[],[],[],[],[],[],[]]
+        
         print 'Training...'
-        model.train(trainData[0], trainData[1], trainData[2], args.debug_image_folder, args.model_description, args.debug_mode)
+        model.train(trainData[0], trainData[1], trainData[2], args.debug_mode, debug_data, args.debug_period)
         
         acc_hist = []
         for l in model.listeners:
@@ -425,7 +451,7 @@ def run(args):
     print "Test  time: %s seconds" % (str(t2 - t1))
     print "Total time: %s seconds" % (str(t2 - t0))
     
-    return acc_hist
+    return acc_hist, debug_data
     
 def cross(args):
     
@@ -442,6 +468,8 @@ def cross(args):
             
     acc_hist = []
      
+    debug_values = [[],[],[],[],[],[],[],[]]
+    debug_config = [[],[],[],[],[],[],[],[]]
     
     for i in range(args.kfold):
         fileTrain = newdirname + 'train_'+ str(i+1) + '.txt'
@@ -456,10 +484,27 @@ def cross(args):
         print "----------------------------------------------------------------------------------\n"
         
         
-        acc = run(args) 
+        acc, debug_data = run(args) 
         acc_hist.append(acc)
         
         
+        if args.debug_mode:
+        
+            if i == 0:
+                for k in range(len(debug_data)):
+                    if len(debug_data[k])>0:
+                        for val in debug_data[k]:
+                            debug_config[k].append(val[1:])
+                            debug_values[k].append(val[0])
+                            
+            
+            else:            
+                for k in range(len(debug_data)):
+                    if len(debug_data[k])>0:
+                        for l in range(len(debug_data[k])):
+                            aux = debug_data[k][l]
+                            debug_values[k][l] = numpy.append(debug_values[k][l], aux[0].flatten())                      
+            
     acc_hist = numpy.array(acc_hist)
     
     mean = numpy.mean(acc_hist, axis=0)
@@ -472,6 +517,9 @@ def cross(args):
         i += 1
     print '\n'
     
+    return debug_values, debug_config
+                
+
 
 def main():
     
@@ -677,6 +725,9 @@ def main():
     parser.add_argument('--debug_mode', dest='debug_mode', action='store_true', default=False,
                        help='Turn de debug mode on')
     
+    parser.add_argument('--debug_period', dest='debug_period', action='store', type=int,
+                       help='The number of iterations to generate debug images', default=5)
+    
     #parser.add_argument('--saveSolution', dest='saveSolution', action='store',
     #                  help='The file path where the prediction will be saved')
     
@@ -707,9 +758,27 @@ def main():
         numpy.random.seed(args.seed)
         
     if args.crossvalidation:
-        cross(args)
+        values, conf = cross(args)
+        #print values.shape
+        if args.debug_mode:
+            for val, con in zip (values, conf):
+                if len(val) > 0:
+                    for v, c in zip (val, con):
+                        saveHist(v.flatten(), c[0], c[1], c[2], args.model_description + c[3], 
+                                 args.debug_image_folder+c[4]);
+            
+        
     else:
-        run(args)
+        acc, values = run(args)
+        
+        if args.debug_mode:
+            for val in values:
+                if len(val) > 0:
+                    for v in val:
+                        saveHist(v[0], v[1], v[2], v[3], args.model_description + v[4], 
+                                 args.debug_image_folder + v[5]);
+            
+        
 
 if __name__ == '__main__':
     full_path = os.path.realpath(__file__)
@@ -717,3 +786,4 @@ if __name__ == '__main__':
         
     logging.config.fileConfig(os.path.join(path,'logging.conf'))
     main()
+

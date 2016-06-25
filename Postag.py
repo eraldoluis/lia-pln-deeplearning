@@ -23,7 +23,8 @@ from NNet.Util import LearningRateUpdDivideByEpochStrategy, \
 from Evaluate.EvaluatePercPredictsCorrectNotInWordSet import EvaluatePercPredictsCorrectNotInWordSet
 import random
 import os
-from DebugPlot import DebugPlot.saveHist
+from DataOperation.GenerateFolds import GenerateFolds
+from DebugPlot import DebugPlot
 
 def readVocabAndWord(args):
     # Este if só foi criado para permitir que DLIDPostag possa reusar o run do postag
@@ -363,11 +364,15 @@ def run(args):
                                                  varsToSave, args.saveModel)
             
             model.addListener(evalListener)
+            
         if args.crossvalidation:
-	  debug_data = [[],[],[],[],[],[],[],[]]
-	else:
-	  debug_data = None
-        
+            debug_data = [[],[],[],[],[],[],[],[]]
+        else:
+            debug_data = None
+            
+        if args.debug_mode and not os.path.isdir(args.debug_image_folder):
+            os.mkdir(args.debug_image_folder)
+            
         print 'Training...'
         model.train(trainData[0], trainData[1], trainData[2], args.debug_mode, debug_data, args.debug_period, args.model_description, args.debug_image_folder)
         
@@ -734,13 +739,14 @@ def main():
     acc, values = run(args)
         
     if args.crossvalidation:
+        deb = DebugPlot()
         values, conf = cross(args)
-        #print values.shape
+        
         if args.debug_mode:
             for val, con in zip (values, conf):
                 if len(val) > 0:
                     for v, c in zip (val, con):
-                        saveHist(v.flatten(), c[0], c[1], c[2], args.model_description + c[3], 
+                        deb.saveHist(v.flatten(), c[0], c[1], c[2], args.model_description + c[3], 
                                  args.debug_image_folder+c[4]);
             
         

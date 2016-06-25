@@ -10,7 +10,7 @@ from NNet.Util import LearningRateUpdNormalStrategy
 import time
 import random
 import logging
-from DebugPlot import DebugPlot.saveHist
+from DebugPlot import DebugPlot
 
 class WindowModelBasic:
     startSymbolStr = u'<s>'
@@ -211,7 +211,7 @@ class WindowModelBasic:
     def confBatchSize(self, inputData):
         raise NotImplementedError();
     
-    def train(self, inputData, correctData, indexesOfRawWord, debug_mode=False, debug_data=None, per=5, description, folder):
+    def train(self, inputData, correctData, indexesOfRawWord, debug_mode=False, debug_data=None, per=5, description=' ', folder=''):
         # TODO: test
 #         n = 1000
 #         inputData = inputData[:n]
@@ -219,7 +219,7 @@ class WindowModelBasic:
 #         indexesOfRawWord = indexesOfRawWord[:n]
         
         log = self.__log
-
+        deb = DebugPlot()
         # Matrix with training data.
         # windowIdxs = theano.shared(self.getAllWindowIndexes(inputData), borrow=True)
         log.info("Generating all training windows (training input)...")
@@ -409,80 +409,78 @@ class WindowModelBasic:
             
             if debug_mode:
                 if (epoch)%per == 0: 
-                
-		  if debug_data==None:
-		    
-		    if self.charModel:
-                        charembedd_value = np.array(charembedd_value).flatten()
-                        saveHist(charembedd_value, 20, 'Char Embedd value', 'num', description + ' - char embedd- until '+str(epoch), 
-                                 folder + 'charembedd_'+str(epoch/per)+'.png');                           
-                                                      
-                        charhidden_value = np.array(charhidden_value).flatten()
-                        saveHist(charhidden_value, 20, 'Char Hidden value', 'num', description + ' - char hidden- until '+str(epoch), 
-                                 folder + 'charhidden_'+str(epoch/per)+'.png');                           
-                
-                        charmodel_value = np.array(charmodel_value).flatten()
-                        saveHist(charmodel_value, 20, 'Char Conv value', 'num', description + ' - char conv- until '+str(epoch), 
-                                 folder + 'charconv_'+str(epoch/per)+'.png');                           
-                
-                    wordmodel_value = np.array(wordmodel_value).flatten()
-                    saveHist(wordmodel_value, 20, 'Word Embedd value', 'num', description + ' - word embedd- until '+str(epoch), 
-                                 folder + 'word_'+str(epoch/per)+'.png');                           
-                
-                    if self.task == 'sentiment_analysis':
-                        senthidden_value = np.array(senthidden_value).flatten()
-                        saveHist(senthidden_value, 20, 'Sent Hidden value', 'num', description + ' - sent hidden- until '+str(epoch), 
-                                 folder + 'senthidden_'+str(epoch/per)+'.png');                           
-                
-                        sentmodel_value = np.array(sentmodel_value).flatten()
-                        saveHist(sentmodel_value, 20, 'Sent Conv value', 'num', description + ' - sent conv- until '+str(epoch), 
-                                 folder + 'sentconv_'+str(epoch/per)+'.png');                           
-                
-                    hidden_value = np.array(hidden_value).flatten()
-                    saveHist(hidden_value, 20, 'Hidden value', 'num', description + ' - hidden- until '+str(epoch), 
-                                 folder + 'hidden_'+str(epoch/per)+'.png');                           
-                
-                    softmax_value = np.array(softmax_value).flatten()
-                    saveHist(softmax_value, 20, 'Softmax Prediction', 'num', description + ' - softmax pred- until '+str(epoch), 
-                                 folder + 'soft_'+str(epoch/per)+'.png');                           
-                
-		  
-		  
-		  else:
+            
+                    if debug_data==None:
+                        if self.charModel:
                     
-                    if self.charModel:
-                        charembedd_value = np.array(charembedd_value).flatten()
-                        debug_data[0].append([charembedd_value, 20, 'Char Embedd value', 'num',
-                                              ' - char embedd- until '+str(epoch), 'charembedd_'+str(epoch/per)+'.png'])
+                            charembedd_value = np.array(charembedd_value).flatten()
+                            deb.saveHist(charembedd_value, 20, 'Char Embedd value', 'num', description + 
+                                               ' - char embedd- until '+str(epoch), folder + 'charembedd_'+str(epoch/per)+'.png');                           
                                                       
-                        charhidden_value = np.array(charhidden_value).flatten()
-                        debug_data[1].append([charhidden_value, 20, 'Char Hidden value', 'num',
-                                              ' - char hidden- until '+str(epoch), 'charhidden_'+str(epoch/per)+'.png'])
+                            charhidden_value = np.array(charhidden_value).flatten()
+                            deb.saveHist(charhidden_value, 20, 'Char Hidden value', 'num', description + 
+                                               ' - char hidden- until '+str(epoch), folder + 'charhidden_'+str(epoch/per)+'.png');                           
                 
-                        charmodel_value = np.array(charmodel_value).flatten()
-                        debug_data[2].append([charmodel_value, 20, 'Char Conv value', 'num',
-                                              ' - char conv- until '+str(epoch), 'charconv_'+str(epoch/per)+'.png'])
+                            charmodel_value = np.array(charmodel_value).flatten()
+                            deb.saveHist(charmodel_value, 20, 'Char Conv value', 'num', description +
+                                               ' - char conv- until '+str(epoch),  folder + 'charconv_'+str(epoch/per)+'.png');                           
                 
-                    wordmodel_value = np.array(wordmodel_value).flatten()
-                    debug_data[3].append([wordmodel_value, 20, 'Word Embedd value', 'num',
+                        wordmodel_value = np.array(wordmodel_value).flatten()
+                        deb.saveHist(wordmodel_value, 20, 'Word Embedd value', 'num', description +
+                                           ' - word embedd- until '+str(epoch), folder + 'word_'+str(epoch/per)+'.png');                           
+                
+                        if self.task == 'sentiment_analysis':
+                            senthidden_value = np.array(senthidden_value).flatten()
+                            deb.saveHist(senthidden_value, 20, 'Sent Hidden value', 'num', description + ' - sent hidden- until '+str(epoch), 
+                                               folder + 'senthidden_'+str(epoch/per)+'.png');                           
+                
+                            sentmodel_value = np.array(sentmodel_value).flatten()
+                            deb.saveHist(sentmodel_value, 20, 'Sent Conv value', 'num', description + ' - sent conv- until '+str(epoch), 
+                                               folder + 'sentconv_'+str(epoch/per)+'.png');                           
+                
+                        hidden_value = np.array(hidden_value).flatten()
+                        deb.saveHist(hidden_value, 20, 'Hidden value', 'num', description + ' - hidden- until '+str(epoch), 
+                                           folder + 'hidden_'+str(epoch/per)+'.png');                           
+                
+                        softmax_value = np.array(softmax_value).flatten()
+                        deb.saveHist(softmax_value, 20, 'Softmax Prediction', 'num', description + ' - softmax pred- until '+str(epoch), 
+                                           folder + 'soft_'+str(epoch/per)+'.png');                           
+                
+                    else:
+                    
+                        if self.charModel:
+                            charembedd_value = np.array(charembedd_value).flatten()
+                            debug_data[0].append([charembedd_value, 20, 'Char Embedd value', 'num',
+                                                  ' - char embedd- until '+str(epoch), 'charembedd_'+str(epoch/per)+'.png'])
+                                              
+                            charhidden_value = np.array(charhidden_value).flatten()
+                            debug_data[1].append([charhidden_value, 20, 'Char Hidden value', 'num',
+                                                  ' - char hidden- until '+str(epoch), 'charhidden_'+str(epoch/per)+'.png'])
+                
+                            charmodel_value = np.array(charmodel_value).flatten()
+                            debug_data[2].append([charmodel_value, 20, 'Char Conv value', 'num',
+                                                  ' - char conv- until '+str(epoch), 'charconv_'+str(epoch/per)+'.png'])
+                
+                        wordmodel_value = np.array(wordmodel_value).flatten()
+                        debug_data[3].append([wordmodel_value, 20, 'Word Embedd value', 'num',
                                               ' - word embedd- until '+str(epoch), 'word_'+str(epoch/per)+'.png'])
                 
-                    if self.task == 'sentiment_analysis':
-                        senthidden_value = np.array(senthidden_value).flatten()
-                        debug_data[4].append([senthidden_value, 20, 'Sent Hidden value', 'num',
-                                              ' - sent hidden- until '+str(epoch), 'senthidden_'+str(epoch/per)+'.png'])
+                        if self.task == 'sentiment_analysis':
+                            senthidden_value = np.array(senthidden_value).flatten()
+                            debug_data[4].append([senthidden_value, 20, 'Sent Hidden value', 'num',
+                                                  ' - sent hidden- until '+str(epoch), 'senthidden_'+str(epoch/per)+'.png'])
                 
-                        sentmodel_value = np.array(sentmodel_value).flatten()
-                        debug_data[5].append([sentmodel_value, 20, 'Sent Conv value', 'num',
-                                              ' - sent conv- until '+str(epoch), 'sentconv_'+str(epoch/per)+'.png'])
+                            sentmodel_value = np.array(sentmodel_value).flatten()
+                            debug_data[5].append([sentmodel_value, 20, 'Sent Conv value', 'num',
+                                                  ' - sent conv- until '+str(epoch), 'sentconv_'+str(epoch/per)+'.png'])
                 
-                    hidden_value = np.array(hidden_value).flatten()
-                    debug_data[6].append([hidden_value, 20, 'Hidden value', 'num',
-                                              ' - hidden- until '+str(epoch), 'hidden_'+str(epoch/per)+'.png'])
+                        hidden_value = np.array(hidden_value).flatten()
+                        debug_data[6].append([hidden_value, 20, 'Hidden value', 'num',
+                                        ' - hidden- until '+str(epoch), 'hidden_'+str(epoch/per)+'.png'])
                 
-                    softmax_value = np.array(softmax_value).flatten()
-                    debug_data[7].append([softmax_value, 20, 'Softmax Pred', 'num',
-                                              ' - softmax pred- until '+str(epoch), 'soft_'+str(epoch/per)+'.png'])
+                        softmax_value = np.array(softmax_value).flatten()
+                        debug_data[7].append([softmax_value, 20, 'Softmax Pred', 'num',
+                                       ' - softmax pred- until '+str(epoch), 'soft_'+str(epoch/per)+'.png'])
                 
                     
                             

@@ -366,7 +366,7 @@ def run(args):
             model.addListener(evalListener)
             
         if args.crossvalidation:
-            debug_data = [[],[],[],[],[],[],[],[]]
+            debug_data = [[],[],[],[],[],[],[]]
         else:
             debug_data = None
             
@@ -468,8 +468,8 @@ def cross(args):
             
     acc_hist = []
      
-    debug_values = [[],[],[],[],[],[],[],[]]
-    debug_config = [[],[],[],[],[],[],[],[]]
+    debug_values = [[],[],[],[],[],[],[]]
+    debug_config = [[],[],[],[],[],[],[]]
     
     for i in range(args.kfold):
         fileTrain = newdirname + 'train_'+ str(i+1) + '.txt'

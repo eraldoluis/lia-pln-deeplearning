@@ -277,7 +277,7 @@ class WindowModelBasic:
             
             if self.charModel:
                 if debug_mode:
-                    outputs += [self.charModel.hidInput, self.charModel.hiddenLayer.getOutput(),self.charModel.getOutput()]
+                    outputs += [self.charModel.hiddenLayer.getOutput(),self.charModel.getOutput()]
                 
                 charInput = theano.shared(self.charModel.getAllWordCharWindowIndexes(indexesOfRawWord), borrow=True)
                 givens = {
@@ -311,7 +311,7 @@ class WindowModelBasic:
             
             if self.charModel:
                 if debug_mode:
-                    outputs += [self.charModel.hidInput, self.charModel.hiddenLayer.getOutput(), self.charModel.getOutput()]
+                    outputs += [ self.charModel.hiddenLayer.getOutput(), self.charModel.getOutput()]
                 
                 charInput = theano.shared(self.charModel.getAllWordCharWindowIndexes(indexesOfRawWord), borrow=True)
                 givens = {
@@ -353,7 +353,6 @@ class WindowModelBasic:
             
             if (epoch-1)%per == 0: 
                 
-                charembedd_value = []
                 charhidden_value = []
                 charmodel_value = []
                 wordmodel_value = []
@@ -372,18 +371,17 @@ class WindowModelBasic:
                 if debug_mode:
                     
                     if self.charModel:
-                        charembedd_value = np.append(charembedd_value, saida[1].flatten())
-                        charhidden_value = np.append(charhidden_value, saida[2].flatten())
-                        charmodel_value = np.append(charmodel_value, saida[3].flatten())
-                        wordmodel_value = np.append(wordmodel_value, saida[4].flatten())
+                        charhidden_value = np.append(charhidden_value, saida[1].flatten())
+                        charmodel_value = np.append(charmodel_value, saida[2].flatten())
+                        wordmodel_value = np.append(wordmodel_value, saida[3].flatten())
                         if self.task == 'sentiment_analysis':
-                            senthidden_value = np.append(senthidden_value, saida[5].flatten())
-                            sentmodel_value = np.append(sentmodel_value, saida[6].flatten())
-                            hidden_value = np.append(hidden_value, saida[7].flatten())
-                            softmax_value = np.append(softmax_value, saida[8].flatten())
+                            senthidden_value = np.append(senthidden_value, saida[4].flatten())
+                            sentmodel_value = np.append(sentmodel_value, saida[5].flatten())
+                            hidden_value = np.append(hidden_value, saida[6].flatten())
+                            softmax_value = np.append(softmax_value, saida[7].flatten())
                         else:
-                            hidden_value = np.append(hidden_value, saida[5].flatten())
-                            softmax_value = np.append(softmax_value, saida[6].flatten())
+                            hidden_value = np.append(hidden_value, saida[4].flatten())
+                            softmax_value = np.append(softmax_value, saida[5].flatten())
                         
                     else:
                         wordmodel_value = np.append(wordmodel_value, saida[1].flatten())
@@ -412,11 +410,7 @@ class WindowModelBasic:
             
                     if debug_data==None:
                         if self.charModel:
-                    
-                            charembedd_value = np.array(charembedd_value).flatten()
-                            deb.saveHist(charembedd_value, 20, 'Char Embedd value', 'num', description + 
-                                               ' - char embedd- until '+str(epoch), folder + 'charembedd_'+str(epoch/per)+'.png');                           
-                                                      
+                                                                                 
                             charhidden_value = np.array(charhidden_value).flatten()
                             deb.saveHist(charhidden_value, 20, 'Char Hidden value', 'num', description + 
                                                ' - char hidden- until '+str(epoch), folder + 'charhidden_'+str(epoch/per)+'.png');                           
@@ -449,37 +443,34 @@ class WindowModelBasic:
                     else:
                     
                         if self.charModel:
-                            charembedd_value = np.array(charembedd_value).flatten()
-                            debug_data[0].append([charembedd_value, 20, 'Char Embedd value', 'num',
-                                                  ' - char embedd- until '+str(epoch), 'charembedd_'+str(epoch/per)+'.png'])
                                               
                             charhidden_value = np.array(charhidden_value).flatten()
-                            debug_data[1].append([charhidden_value, 20, 'Char Hidden value', 'num',
+                            debug_data[0].append([charhidden_value, 20, 'Char Hidden value', 'num',
                                                   ' - char hidden- until '+str(epoch), 'charhidden_'+str(epoch/per)+'.png'])
                 
                             charmodel_value = np.array(charmodel_value).flatten()
-                            debug_data[2].append([charmodel_value, 20, 'Char Conv value', 'num',
+                            debug_data[1].append([charmodel_value, 20, 'Char Conv value', 'num',
                                                   ' - char conv- until '+str(epoch), 'charconv_'+str(epoch/per)+'.png'])
                 
                         wordmodel_value = np.array(wordmodel_value).flatten()
-                        debug_data[3].append([wordmodel_value, 20, 'Word Embedd value', 'num',
+                        debug_data[2].append([wordmodel_value, 20, 'Word Embedd value', 'num',
                                               ' - word embedd- until '+str(epoch), 'word_'+str(epoch/per)+'.png'])
                 
                         if self.task == 'sentiment_analysis':
                             senthidden_value = np.array(senthidden_value).flatten()
-                            debug_data[4].append([senthidden_value, 20, 'Sent Hidden value', 'num',
+                            debug_data[3].append([senthidden_value, 20, 'Sent Hidden value', 'num',
                                                   ' - sent hidden- until '+str(epoch), 'senthidden_'+str(epoch/per)+'.png'])
                 
                             sentmodel_value = np.array(sentmodel_value).flatten()
-                            debug_data[5].append([sentmodel_value, 20, 'Sent Conv value', 'num',
+                            debug_data[4].append([sentmodel_value, 20, 'Sent Conv value', 'num',
                                                   ' - sent conv- until '+str(epoch), 'sentconv_'+str(epoch/per)+'.png'])
                 
                         hidden_value = np.array(hidden_value).flatten()
-                        debug_data[6].append([hidden_value, 20, 'Hidden value', 'num',
+                        debug_data[5].append([hidden_value, 20, 'Hidden value', 'num',
                                         ' - hidden- until '+str(epoch), 'hidden_'+str(epoch/per)+'.png'])
                 
                         softmax_value = np.array(softmax_value).flatten()
-                        debug_data[7].append([softmax_value, 20, 'Softmax Pred', 'num',
+                        debug_data[6].append([softmax_value, 20, 'Softmax Pred', 'num',
                                        ' - softmax pred- until '+str(epoch), 'soft_'+str(epoch/per)+'.png'])
                 
                     

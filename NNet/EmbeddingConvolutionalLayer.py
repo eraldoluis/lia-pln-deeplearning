@@ -100,8 +100,8 @@ class EmbeddingConvolutionalLayer(Layer):
         
         # This is the bank of filters. It is an ordinary hidden layer.
         act = self.charAct if self.withAct else None
-        self.hidInput = self.__embedLayer.getOutput().reshape((numExs * szWrdWin * numMaxCh, szChWin * szChEmb))
-        self.hiddenLayer = HiddenLayer(self.hidInput, self.charWindowSize * self.charSize , self.convSize, activation=act)
+        hidInput = self.__embedLayer.getOutput().reshape((numExs * szWrdWin * numMaxCh, szChWin * szChEmb))
+        self.hiddenLayer = HiddenLayer(hidInput, self.charWindowSize * self.charSize , self.convSize, activation=act)
         
         # 3-D tensor with shape (numExs * szWrdWin, numMaxCh, numChFltrs).
         # This tensor is used to perform the max pooling along its 2nd dimension.

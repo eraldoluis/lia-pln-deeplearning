@@ -24,3 +24,6 @@ class DebugPlot:
         plt.hist(values, bins=b)
         plt.grid(True)
         plt.savefig(filename)
+        
+        plt.clf()
+        plt.close()

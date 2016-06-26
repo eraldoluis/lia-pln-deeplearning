@@ -48,7 +48,7 @@ def readVocabAndWord(args):
 
                 
 def run(args):
-    
+    args.wordMode = 'random'
     filters = []
     a = 0
     args.filters.append('DataOperation.TransformLowerCaseFilter')
@@ -125,7 +125,7 @@ def run(args):
         
         if args.vocab is not None or args.wordVectors is not None:
             lexicon, wordVector = readVocabAndWord(args)
-            args.wordVecsInit = 'vocab'
+            args.wordMode = 'vocab'
             
             if lexicon.isUnknownIndex(lexicon.getLexiconIndex(WindowModelBasic.startSymbolStr)):
                 print "O vocabulário não possui o símbolo de começo '<s>'"
@@ -191,7 +191,7 @@ def run(args):
             lexiconIndex = lexicon.put(unknownNameDefault)
             lexicon.setUnknownIndex(lexiconIndex)
 #            wordVector.append(unknownWordVector.tolist())
-            if args.wordVecsInit == 'vocab':
+            if args.wordMode == 'vocab':
                 for wv in wordVector:
                     unknownWordVector = numpy.mean(numpy.asarray(wv.getWordVectors()[wv.getLength() - mean_size:]), 0)
                     wv.append(unknownWordVector.tolist())
@@ -618,10 +618,10 @@ def main():
     vecsInitChoices = ["randomAll", "random", "zeros", "zscore", "minmax"]
     
     parser.add_argument('--charVecsInit', dest='charVecsInit', action='store', default=vecsInitChoices[0], choices=vecsInitChoices,
-                       help='Set the way to initialize the char vectors. RANDOM, RANDOMALL, ZEROS, Z_SCORE and MIN_MAX are the options available')
+                       help='Set the way to initialize the char vectors. RANDOM, RANDOMALL, ZEROS, ZSCORE and MINMAX are the options available')
     
     parser.add_argument('--wordVecsInit', dest='wordVecsInit', action='store', default=vecsInitChoices[0], choices=vecsInitChoices,
-                       help='Set the way to initialize the char vectors. RANDOM, RANDOMALL, ZEROS, Z_SCORE and MIN_MAX are the options available')
+                       help='Set the way to initialize the char vectors. RANDOM, RANDOMALL, ZEROS, ZSCORE and MINMAX are the options available')
     
     parser.add_argument('--charwnnwithact', dest='charwnnWithAct', action='store_true', default=False,
                        help='Set character convolutional layer with act')

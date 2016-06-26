@@ -90,14 +90,14 @@ def run(args):
         
         if args.testOOSV:
             lexiconFindInTrain = set()
-                        
+            unkownData = []
             datasetReader.readData(args.train, lexicon, lexiconOfLabel, 
                                    lexiconRaw, separateSentences=separeSentence, 
                                    withCharwnn=args.withCharwnn, 
                                    charVars=charVars, filters=filters, 
-                                   setWordsInDataSet=lexiconFindInTrain)
+                                   setWordsInDataSet=lexiconFindInTrain, unknownDataTestCharIdxs=unkownData)
             
-                       
+            model.charModel.updateAllCharIndexes(unkownData)
                 
         if args.testOOUV:
             if args.vocab is not None or args.wordVectors is not None:

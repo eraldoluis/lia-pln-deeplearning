@@ -64,7 +64,7 @@ def run(args):
 
     if args.loadModel:
         print 'Loading model from ' + args.loadModel + ' ...'
-        f = open(args.loadModel, "rb")
+        f = open(args.loadModel, "r")
         lexicon, lexiconOfLabel, lexiconRaw, model, charVars = pickle.load(f)
         f.close()
 
@@ -251,9 +251,9 @@ def run(args):
             if args.withCharwnn:
                 if args.charVecsInit == 'randomAll':
                     charVars[1].startAllRandom()
-                if args.charVecsUpdStrategy == 'min_max' or args.charVecsInit == 'min_max':
+                if args.charVecsUpdStrategy == 'minmax' or args.charVecsInit == 'minmax':
                     charVars[1].minMax(args.norm_coef)
-                elif args.charVecsUpdStrategy == 'z_score' or args.charVecsInit == 'z_score':
+                elif args.charVecsUpdStrategy == 'zscore' or args.charVecsInit == 'zscore':
                     charVars[1].zScore(args.norm_coef)
 
                 
@@ -272,9 +272,9 @@ def run(args):
             
             if args.wordVecsInit == 'randomAll':
                 wordVector.startAllRandom()
-            if args.wordVecsUpdStrategy == 'min_max' or args.wordVecsInit == 'min_max':
+            if args.wordVecsUpdStrategy == 'minmax' or args.wordVecsInit == 'minmax':
                 wordVector.minMax(args.norm_coef)
-            elif args.wordVecsUpdStrategy == 'z_score' or args.wordVecsInit == 'z_score':
+            elif args.wordVecsUpdStrategy == 'zscore' or args.wordVecsInit == 'zscore':
                 wordVector.zScore(args.norm_coef)
             
             model = WindowModelByWord(lexicon, wordVector, args.wordWindowSize,
@@ -314,9 +314,9 @@ def run(args):
             if args.withCharwnn:
                 if args.charVecsInit == 'randomAll':
                     charVars[1].startAllRandom()
-                if args.charVecsUpdStrategy == 'min_max' or args.charVecsInit == 'min_max':
+                if args.charVecsUpdStrategy == 'minmax' or args.charVecsInit == 'minmax':
                     charVars[1].minMax(args.norm_coef)
-                elif args.charVecsUpdStrategy == 'z_score' or args.charVecsInit == 'z_score':
+                elif args.charVecsUpdStrategy == 'zscore' or args.charVecsInit == 'zscore':
                     charVars[1].zScore(args.norm_coef)
                     
                     
@@ -627,7 +627,7 @@ def main():
     parser.add_argument('--filewithfeatures', dest='fileWithFeatures', action='store_true',
                        help='Set that the training e testing files have features')
     
-    vecsInitChoices = ["randomAll", "random", "zeros", "z_score", "min_max"]
+    vecsInitChoices = ["randomAll", "random", "zeros", "zscore", "minmax"]
     
     parser.add_argument('--charVecsInit', dest='charVecsInit', action='store', default=vecsInitChoices[1], choices=vecsInitChoices,
                        help='Set the way to initialize the char vectors. RANDOM, RANDOMALL, ZEROS, Z_SCORE and MIN_MAX are the options available')
@@ -654,7 +654,7 @@ def main():
                        help='The number of the least used words in the train for unknown word' 
                        + 'Number between 0 and 1 for percentage, number > 1 for literal number to make the mean and negative for mean_all')
     
-    vecsUpStrategyChoices = ["normal", "min_max", "z_score"]
+    vecsUpStrategyChoices = ["normal", "minmax", "zscore"]
 
     parser.add_argument('--wordvecsupdstrategy', dest='wordVecsUpdStrategy', action='store', default=vecsUpStrategyChoices[0], choices=vecsUpStrategyChoices,
                        help='Set the word vectors update strategy. NORMAL, MIN_MAX and Z_SCORE are the options available')
@@ -735,8 +735,6 @@ def main():
     if args.seed != None:
         random.seed(args.seed)
         numpy.random.seed(args.seed)
-
-    acc, values = run(args)
         
     if args.crossvalidation:
         deb = DebugPlot()

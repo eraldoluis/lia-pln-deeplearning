@@ -16,7 +16,7 @@ class WindowModelByWord(WindowModelBasic):
                  numClasses, numEpochs, batchSize=1, c=0.0, charModel=None,
                  learningRateUpdStrategy=LearningRateUpdNormalStrategy(),
                  wordVecsUpdStrategy='normal', networkAct='tanh', norm_coef=1.0,
-                 structGrad=True, adaGrad=False,randomizeInput = True,embeddingNotUpdate = [], task='postag'):
+                 structGrad=True, adaGrad=False, randomizeInput=True, embeddingNotUpdate=[], task='postag'):
         #
         # Base class constructor.
         #
@@ -47,7 +47,7 @@ class WindowModelByWord(WindowModelBasic):
         
         # List of layers.
         layers = self.embeddings + [self.hiddenLayer, self.softmax]
-        idxToUpdateLayer = filter(lambda k: k not in embeddingNotUpdate , range(0,len(layers)))
+        idxToUpdateLayer = filter(lambda k: k not in embeddingNotUpdate , range(0, len(layers)))
         layersToUpdate = [layers[idx] for idx in idxToUpdateLayer]
         
         

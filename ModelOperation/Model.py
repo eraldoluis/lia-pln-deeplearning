@@ -1,174 +1,295 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
-import logging
-
 import itertools
-import theano.tensor as T
-import theano
+import logging
+import time
 
-from ModelOperation.Callback import BaseLogger
+import theano
+import theano.tensor as T
+
+
+def resetAllMetrics(metrics):
+    for metric in metrics:
+        metric.reset()
+
+
+class Metric(object):
+    def __init__(self, modelUnitName, metricName):
+        self.modelUnitName = modelUnitName
+        self.metricName = metricName
+        self.value = 0.0
+        self.seen = 0
+
+    def update(self, value, batchSize):
+        self.value += value * batchSize
+        self.seen += batchSize
+
+    def reset(self):
+        self.value = 0.0
+        self.seen = 0.0
+
+    def calculate(self):
+        return self.value / self.seen
+
+
+class StopWatch(object):
+    def __init__(self):
+        self.__start = None
+
+    def start(self):
+        self.__start = int(time.time())
+
+    def lap(self):
+        return int(time.time()) - self.__start
+
+
+class ModelUnit:
+    def __init__(self, name, x, y, loss, allLayers, prediction=None, yWillBeReceived=True):
+        '''
+            :param x: list of tensors that represent the inputs.
+
+            :param y: tensor that represents the correct output.
+
+            :param yExist: This parameter is true when the learner produce your own correct output
+                                            or use the input as the correct output, like DA.
+
+        '''
+        self.name = name
+        self.x = x
+        self.y = y
+        self.loss = loss
+        self.prediction = prediction
+        self.allLayers = allLayers
+        self.yWillBeReceived = yWillBeReceived
 
 
 class Model:
-    def __init__(self, x, y, yExist=False):
-        '''
-        :param x: list of tensors that represent the inputs.
-
-        :param y: tensor that represents the correct output.
-
-        :param yExist: This parameter is true when the learner produce your own correct output
-                                        or use the input as the correct output, like DA.
-
-        :param outputLayer: a list of outputs
-        '''
-        self.__theanoFunction = None
+    def __init__(self):
         self.log = logging.getLogger(__name__)
-        self.__calculateAcc = False
-        self.__metrics = ["loss"]
-        self.__y = y
-        self.__isY_ProducedByNN = yExist
 
-        if not isinstance(x, (set, list)):
-            self.__x = [x]
-        else:
-            self.__x = x
+        self.__optimizer = None
 
-        self.__loss = None
-        self.__inputs = None
-        self.__prediction = None
-        self.__layers = None
         self.__trainFunction = None
         self.__evaluateFunction = None
         self.__predictionFunction = None
-        self.__optimizer = None
 
-    def compile(self, allLayers, optimizer, predictionFunction, lossFunction, metrics=[]):
-        '''
-        :type allLayers: [ NNet.Layer.Layer]
-        :param allLayers: all model layers
+        self.__modelUnitsToTraining = []
+        self.__modelUnitEvaluate = None
 
-        :type optimizer: Optimizer.Optimizer
-        :param optimizer:
+        self.__trainingMetrics = []
+        self.__evaluateMetrics = []
 
-        :type predictionFunction: T.var.TensorVariable
-        :param predictionFunction: It's the function which will responsible to predict labels
+    def addTrainingModelUnit(self, modelUnit, metrics=[]):
+        self.__modelUnitsToTraining.append((modelUnit, metrics))
 
-        :type lossFunction: T.var.TensorVariable
-        :param lossFunction: It's the function which will calculate the loss
+    def setEvaluatedModelUnit(self, modelUnit, metrics=[]):
+        self.__modelUnitEvaluate = (modelUnit, metrics)
 
+    def compile(self, optimizer):
+        losses = []
+        _trainingOutputFunc = []  # Functions that will be calculated by theano
+        funInputsTrain = []  # Inputs of the training function
+        allLayers = []
 
-        :param metrics: the names of the metrics to be measured. Nowadays, this classe just accepted "loss" and "acc"(accuracy)
-        '''
-        self.__optimizer = optimizer
-        self.__prediction = predictionFunction
+        for modelUnit, metrics in self.__modelUnitsToTraining:
+            # Adding loss to an array
+            losses.append(modelUnit.loss)
 
-        self.__metrics += metrics
+            # Adding all layers to a same set
+            allLayers += modelUnit.allLayers
+            funInputsTrain += modelUnit.x
 
-        _outputFunc = []
-        for m in self.__metrics:
-            if m == "acc":
-                self.__calculateAcc = True
-                _outputFunc.append(T.mean(T.eq(self.__prediction, self.__y)))
-            elif m == "loss":
-                self.__loss = lossFunction
-                _outputFunc.append(self.__loss)
+            if modelUnit.yWillBeReceived:
+                funInputsTrain.append(modelUnit.y)
 
-        # Removes not trainable layers from update and see if the output of the
+            for metricName in metrics:
+                self.__trainingMetrics.append(Metric(modelUnit.name, metricName))
+
+                if metricName == "acc":
+                    _trainingOutputFunc.append(T.mean(T.eq(modelUnit.prediction, modelUnit.y)))
+                elif metricName == "loss":
+                    _trainingOutputFunc.append(modelUnit.loss)
+
+        funInputsEvaluate = []  # Inputs of the evaluation function
+        _testOutputFunc = []  # Functions that will be calculated by theano
+
+        if self.__modelUnitEvaluate is not None:
+            modelUnit, metrics = self.__modelUnitEvaluate
+
+            funInputsEvaluate += modelUnit.x
+
+            funInputsPrediction = modelUnit.x
+            _prediction = modelUnit.prediction
+
+            if modelUnit.yWillBeReceived:
+                funInputsEvaluate.append(modelUnit.y)
+
+            for metricName in metrics:
+                self.__evaluateMetrics.append(Metric(modelUnit.name, metricName))
+
+                if metricName == "acc":
+                    _testOutputFunc.append(T.mean(T.eq(modelUnit.prediction, modelUnit.y)))
+                elif metricName == "loss":
+                    _testOutputFunc.append(modelUnit.loss)
+
+        if len(losses) > 1:
+            # Creates a main loss that is equal to all Sum losses
+            mainLoss = T.sum(T.stack(losses), 0)
+            # self.__outputFunctionName.append(0, "main")
+            _trainingOutputFunc.append(mainLoss)
+        else:
+            mainLoss = losses[0]
+
+        # Removes not trainable layers from update
         trainableLayers = []
 
         for l in allLayers:
             if l.isTrainable():
                 trainableLayers.append(l)
 
-        # Create the inputs of which theano function
-        inputsOutputs = []
-        inputsOutputs += self.__x
-
-        if not self.__isY_ProducedByNN:
-            inputsOutputs += [self.__y]
-
-        funInputs = inputsOutputs + optimizer.getInputTensors()
-
         # Create the theano functions
-        self.__trainFunction = theano.function(inputs=funInputs, outputs=_outputFunc,
-                                               updates=optimizer.getUpdates(self.__loss, trainableLayers))
-        self.__evaluateFunction = theano.function(inputs=inputsOutputs, outputs=_outputFunc)
-        self.__predictionFunction = theano.function(inputs=self.__x, outputs=self.__prediction)
+        self.__optimizer = optimizer
+        funInputsTrain += optimizer.getInputTensors()
+
+        self.__trainFunction = theano.function(inputs=funInputsTrain, outputs=_trainingOutputFunc,
+                                               updates=optimizer.getUpdates(mainLoss, trainableLayers))
+
+        if self.__modelUnitEvaluate is not None:
+            self.__evaluateFunction = theano.function(inputs=funInputsEvaluate, outputs=_testOutputFunc)
+            self.__predictionFunction = theano.function(inputs=funInputsPrediction, outputs=_prediction)
 
     def prediction(self):
         pass
 
-    def train(self, trainBatchGenerator, numEpochs, devBatchGenerator=None, callbacks=[]):
+    def train(self, trainBatchGenerators, numEpochs, devBatchGenerator=None, callbacks=[]):
+        stopWatch = StopWatch()
+
         for cb in callbacks:
             cb.onTrainBegin({})
-
-        # We insert the BaseLogger in front of the list,
-        #   because in this way every Callback can get the metric values like 'loss'.
-        callbacks.insert(0, BaseLogger(self.__metrics))
 
         for epoch in range(numEpochs):
             for cb in callbacks:
                 cb.onEpochBegin(epoch)
 
             lr = self.__optimizer.getInputValues(epoch)
+            resetAllMetrics(self.__trainingMetrics)
 
-            for x, y in trainBatchGenerator:
-                for cb in callbacks:
-                    cb.onBatchBegin([x, y], {"batchSize": len(x[0])})
+            stopWatch.start()
 
-                logs = {"batchSize": len(x[0])}
+            for _inputs in itertools.izip_longest(*trainBatchGenerators):
                 inputs = []
-                inputs += x
+                batchSizes = {}
 
-                if not self.__isY_ProducedByNN:
-                    # Theano function receives 'y' as an input
-                    inputs += [y]
+                for modelUnitPlusMetrics, in_ in itertools.izip(self.__modelUnitsToTraining, _inputs):
+                    modelUnit = modelUnitPlusMetrics[0]
+
+                    if in_ is None:
+                        raise Exception(
+                            "The epoch from a model unit finished, but the others units have more examples to train.")
+
+                    x, y = in_
+                    inputs += x
+
+                    batchSize = len(x[0])
+                    batchSizes[modelUnit.name] = batchSize
+
+                    if modelUnit.yWillBeReceived:
+                        # Theano function receives 'y' as an input
+                        inputs += [y]
+
+                for cb in callbacks:
+                    cb.onBatchBegin(_inputs, {})
 
                 inputs += lr
 
                 outputs = self.__trainFunction(*inputs)
 
-                for m, _output in itertools.izip(self.__metrics, outputs):
-                    logs[m] = _output
+                for m, _output in itertools.izip(self.__trainingMetrics, outputs):
+                    m.update(_output, batchSizes[m.modelUnitName])
 
                 for cb in callbacks:
-                    cb.onBatchEnd([x, y], logs)
+                    cb.onBatchEnd(inputs, {})
+
+            trainingDuration = stopWatch.lap()
 
             logs = {}
+            results = []
 
             self.log.info("Lr: %f" % lr[0])
 
+            for metric in self.__trainingMetrics:
+                key = metric.modelUnitName + "_" + metric.metricName
+                value = metric.calculate()
+                logs[key] = value
+                results.append((key, value))
+
             if devBatchGenerator:
+                evaluationStopWatch = StopWatch()
+                evaluationStopWatch.start()
+
                 for metricName, value in self.evaluate(devBatchGenerator, verbose=False).iteritems():
-                    logs["val_" + metricName] = value
+                    key = "eval_" + metricName
+                    logs[key] = value
+                    results.append((key,value))
+
+                evalDuration = evaluationStopWatch.lap()
+
+            # Print information
+            info = "epoch %d" % epoch
+            info += " [train: %ds]" % trainingDuration
+
+            if devBatchGenerator:
+                info += " [test: %ds]" % evalDuration
+
+            for k, v in results:
+                info += ' - %s:' % k
+                info += ' %.6f' % v
+
+            self.log.info(info)
 
             for cb in callbacks:
                 cb.onEpochEnd(epoch, logs)
 
         for cb in callbacks:
-            cb.onTrainEnd(_output)
+            cb.onTrainEnd()
 
     def evaluate(self, testBatchInterator, verbose=True):
-        base = BaseLogger(self.__metrics, verbose)
+        stopWatch = StopWatch()
+        stopWatch.start()
+
+        resetAllMetrics(self.__evaluateMetrics)
 
         for x, y in testBatchInterator:
-            logs = {"batchSize": len(x[0])}
+            batchSize = len(x[0])
 
             inputs = []
             inputs += x
 
-            if not self.__isY_ProducedByNN:
+            if self.__modelUnitEvaluate[0].yWillBeReceived:
                 # Theano function receives 'y' as an input
                 inputs += [y]
+
             outputs = self.__evaluateFunction(*inputs)
 
-            for m, _output in itertools.izip(self.__metrics, outputs):
-                logs[m] = _output
+            for m, _output in itertools.izip(self.__evaluateMetrics, outputs):
+                m.update(_output, batchSize)
 
-            base.onBatchEnd([x, y], logs)
+        duration = stopWatch.lap()
 
         logs = {}
 
-        base.onEpochEnd(0, logs)
+        for metric in self.__evaluateMetrics:
+            logs[metric.metricName] = metric.calculate()
+
+        if verbose:
+            info = ""
+            # Print information
+            info += " [test: %ds]" % duration
+
+            for k, v in logs.iteritems():
+                info += ' - %s:' % k
+                info += ' %.6f' % v
+
+            self.log.info(info)
 
         return logs

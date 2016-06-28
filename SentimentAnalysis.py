@@ -70,6 +70,7 @@ def run(args):
     charVars = [None, None, {}, []]
 
     if args.loadModel:
+        acc_hist = None
         print 'Loading model from ' + args.loadModel + ' ...'
         f = open(args.loadModel, "r")
         lexicon, lexiconOfLabel, lexiconRaw, model, charVars = pickle.load(f)
@@ -400,7 +401,9 @@ def run(args):
     
     evalue = EvaluateAccuracy()
     acc = evalue.evaluateWithPrint(predicts, testData[1])
-    acc_hist.append(acc)
+    
+    if acc_hist is not None:
+        acc_hist.append(acc)
     
     if args.saveModel is not None:
             

@@ -97,7 +97,7 @@ def run(args):
                                    charVars=charVars, filters=filters, 
                                    setWordsInDataSet=lexiconFindInTrain, unknownDataTestCharIdxs=unkownData)
             
-            model.charModel.updateAllCharIndexes(unkownData)
+            
                 
         if args.testOOUV:
             if args.vocab is not None or args.wordVectors is not None:
@@ -620,7 +620,7 @@ def main():
     parser.add_argument('--charVecsInit', dest='charVecsInit', action='store', default=vecsInitChoices[0], choices=vecsInitChoices,
                        help='Set the way to initialize the char vectors. RANDOM, RANDOMALL, ZEROS, ZSCORE and MINMAX are the options available')
     
-    parser.add_argument('--wordVecsInit', dest='wordVecsInit', action='store', default=vecsInitChoices[0], choices=vecsInitChoices,
+    parser.add_argument('--wordVecsInit', dest='wordVecsInit', action='store', default=vecsInitChoices[1], choices=vecsInitChoices,
                        help='Set the way to initialize the char vectors. RANDOM, RANDOMALL, ZEROS, ZSCORE and MINMAX are the options available')
     
     parser.add_argument('--charwnnwithact', dest='charwnnWithAct', action='store_true', default=False,

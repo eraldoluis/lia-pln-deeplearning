@@ -23,6 +23,14 @@ class LabelGenerator(FeatureGenerator):
         :return: li
         '''
 
-        y = [ self.__labelLexicon.put(label) for label in labels]
+        y = []
+
+        for label in labels:
+            i = self.__labelLexicon.put(label)
+
+            if i == -1:
+                raise Exception("Label doesn't exist: %s" % label)
+
+            y.append(i)
 
         return y

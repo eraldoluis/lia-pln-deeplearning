@@ -18,9 +18,9 @@ from DataOperation.Embedding import EmbeddingFactory, RandomUnknownStrategy, Cho
 from DataOperation.InputGenerator.BatchIterator import SyncBatchIterator
 from DataOperation.InputGenerator.LabelGenerator import LabelGenerator
 from DataOperation.InputGenerator.WindowGenerator import WindowGenerator
-from DataOperation.Lexicon import Lexicon
+from DataOperation.Lexicon import Lexicon, createLexiconUsingFile
 from DataOperation.TokenDatasetReader import TokenLabelReader
-from ModelOperation.Model import Model
+from ModelOperation.Model import Model, ModelUnit
 from ModelOperation.Objective import NegativeLogLikelihood
 from ModelOperation.Prediction import ArgmaxPrediction
 from ModelOperation.SaveModelCallback import ModelWriter, SaveModelCallback
@@ -67,6 +67,8 @@ WNN_PARAMETERS = {
     "shuffle": {"default": True, "desc": "able or disable the shuffle of training examples."},
     "normalization": {"desc": "Choose the normalize method to be applied on  word embeddings. "
                               "The possible values are: max_min, mean_normalization or none"},
+    "label_file": {"desc": ""},
+    "lambda": {"desc": ""}
 }
 
 
@@ -159,6 +161,7 @@ def mainWnn(**kwargs):
     wordWindowSize = kwargs["word_window_size"]
     hiddenLayerSize = kwargs["hidden_size"]
 
+
     if kwargs["alg"] == "window_stn":
         isSentenceModel = True
     elif kwargs["alg"] == "window_word":
@@ -219,7 +222,10 @@ def mainWnn(**kwargs):
             embedding = EmbeddingFactory().createRandomEmbedding(kwargs["word_emb_size"])
 
         # Get the inputs and output
-        labelLexicon = Lexicon()
+        if kwargs["label_file"]:
+            labelLexicon = createLexiconUsingFile(kwargs["label_file"])
+        else:
+            labelLexicon = Lexicon()
 
         if kwargs["load_hidden_layer"]:
             # Loading Hidden Layer
@@ -288,7 +294,6 @@ def mainWnn(**kwargs):
 
 
     y = T.lvector("y")
-    wnnModel = Model([input], y)
 
     if kwargs["decay"].lower() == "normal":
         decay = 0.0
@@ -296,8 +301,10 @@ def mainWnn(**kwargs):
         decay = 1.0
 
     if kwargs["adagrad"]:
+        log.info("Using Adagrad")
         opt = Adagrad(lr=lr, decay=decay)
     else:
+        log.info("Using SGD")
         opt = SGD(lr=lr, decay=decay)
 
     # Printing embedding information
@@ -307,7 +314,20 @@ def mainWnn(**kwargs):
 
     # Compiling
     loss = NegativeLogLikelihood().calculateError(act2.getOutput(), prediction, y)
-    wnnModel.compile(act2.getLayerSet(), opt, prediction, loss, ["acc"])
+
+    if kwargs["lambda"]:
+        _lambda = kwargs["lambda"]
+        log.info("Using L2 with lambda= %.2f" , _lambda)
+        loss += _lambda * ( T.sum(T.square(linear1.getParameters()[0])))
+
+    wnnModel = Model()
+
+    modelUnit = ModelUnit("wnn", [input], y, loss, act2.getLayerSet(), prediction=prediction)
+
+    wnnModel.addTrainingModelUnit(modelUnit,["loss","acc"])
+    wnnModel.setEvaluatedModelUnit(modelUnit,["loss","acc"])
+
+    wnnModel.compile(optimizer=opt)
 
     # Training
     if trainReader:
@@ -320,7 +340,7 @@ def mainWnn(**kwargs):
             callback.append(SaveModelCallback(modelWriter, "val_acc", True))
 
         log.info("Training")
-        wnnModel.train(trainReader, numEpochs, devReader, callbacks=callback)
+        wnnModel.train([trainReader], numEpochs, devReader, callbacks=callback)
 
     # Testing
     if kwargs["test"]:

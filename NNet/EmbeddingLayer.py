@@ -2,6 +2,7 @@ import numpy
 
 import theano
 import theano.tensor as T
+from theano.tensor.sharedvar import TensorSharedVariable
 
 from NNet.Layer import Layer
 
@@ -64,10 +65,13 @@ class EmbeddingLayer(Layer):
         """
         super(EmbeddingLayer, self).__init__(_input, trainable)
 
-        if isinstance(embedding, list):
-            embedding = numpy.asarray(embedding, dtype=theano.config.floatX)
+        if not isinstance(embedding, TensorSharedVariable):
+            if isinstance(embedding, list):
+                embedding = numpy.asarray(embedding, dtype=theano.config.floatX)
 
-        self.__embedding = theano.shared(value=embedding, name='embedding', borrow=True)
+            self.__embedding = theano.shared(value=embedding, name='embedding', borrow=True)
+        else:
+            self.__embedding = embedding
 
         # Whether to use structured gradients or not.
         self.__structGrad = structGrad

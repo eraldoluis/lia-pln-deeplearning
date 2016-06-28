@@ -71,6 +71,7 @@ def run(args):
 
     if args.loadModel:
         acc_hist = None
+        debug_data = None
         print 'Loading model from ' + args.loadModel + ' ...'
         f = open(args.loadModel, "r")
         lexicon, lexiconOfLabel, lexiconRaw, model, charVars = pickle.load(f)

@@ -5,6 +5,16 @@
 '''
 import codecs
 
+def createLexiconUsingFile(lexiconFilePath):
+    lexicon = Lexicon()
+
+    for l in codecs.open(lexiconFilePath, "r", encoding="utf-8"):
+        lexicon.put(l.strip())
+
+    lexicon.stopAdd()
+
+    return lexicon
+
 
 class Lexicon(object):
     """

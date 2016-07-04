@@ -14,7 +14,8 @@ class Prediction(object):
 class CoLearningWnnPrediction(Prediction):
     def predict(self, output):
         output = T.stack(output)
-        return T.argmax(output, 2)[T.argmax(T.max(output, 2), 0),T.arange(output.shape[1])]
+        # return T.argmax(output, 2)[T.argmax(T.max(output, 2), 0),T.arange(output.shape[1])]
+        return T.argmax(T.mean(output, 0), 1)
 
 
 class ArgmaxPrediction(Prediction):

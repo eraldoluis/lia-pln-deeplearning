@@ -44,7 +44,7 @@ class StopWatch(object):
 
 
 class ModelUnit:
-    def __init__(self, name, x, y, loss, allLayers, prediction=None, yWillBeReceived=True):
+    def __init__(self, name, x, y, loss, prediction=None, yWillBeReceived=True):
         '''
             :param x: list of tensors that represent the inputs.
 
@@ -59,7 +59,6 @@ class ModelUnit:
         self.y = y
         self.loss = loss
         self.prediction = prediction
-        self.allLayers = allLayers
         self.yWillBeReceived = yWillBeReceived
 
 
@@ -67,7 +66,7 @@ class Model:
     def __init__(self):
         self.log = logging.getLogger(__name__)
 
-        self.__optimizer = None
+        self.__optimizers = None
 
         self.__trainFunction = None
         self.__evaluateFunction = None
@@ -85,7 +84,7 @@ class Model:
     def setEvaluatedModelUnit(self, modelUnit, metrics=[]):
         self.__modelUnitEvaluate = (modelUnit, metrics)
 
-    def compile(self, optimizer):
+    def compile(self, optimizersAndLayers):
         losses = []
         _trainingOutputFunc = []  # Functions that will be calculated by theano
         funInputsTrain = []  # Inputs of the training function
@@ -96,7 +95,6 @@ class Model:
             losses.append(modelUnit.loss)
 
             # Adding all layers to a same set
-            allLayers += modelUnit.allLayers
             funInputsTrain += modelUnit.x
 
             if modelUnit.yWillBeReceived:
@@ -141,18 +139,24 @@ class Model:
             mainLoss = losses[0]
 
         # Removes not trainable layers from update
-        trainableLayers = []
+        updates = []
+        self.__optimizers = []
 
-        for l in allLayers:
-            if l.isTrainable():
-                trainableLayers.append(l)
+        for optimizer, layers in optimizersAndLayers:
+            trainableLayers = []
+
+            for l in layers:
+                if l.isTrainable():
+                    trainableLayers.append(l)
+
+            updates += optimizer.getUpdates(mainLoss, trainableLayers)
+            funInputsTrain += optimizer.getInputTensors()
+
+            self.__optimizers.append(optimizer)
 
         # Create the theano functions
-        self.__optimizer = optimizer
-        funInputsTrain += optimizer.getInputTensors()
-
         self.__trainFunction = theano.function(inputs=funInputsTrain, outputs=_trainingOutputFunc,
-                                               updates=optimizer.getUpdates(mainLoss, trainableLayers))
+                                               updates=updates)
 
         if self.__modelUnitEvaluate is not None:
             self.__evaluateFunction = theano.function(inputs=funInputsEvaluate, outputs=_testOutputFunc)
@@ -171,7 +175,11 @@ class Model:
             for cb in callbacks:
                 cb.onEpochBegin(epoch)
 
-            lr = self.__optimizer.getInputValues(epoch)
+            lr = []
+
+            for optimizer in self.__optimizers:
+                lr += optimizer.getInputValues(epoch)
+
             resetAllMetrics(self.__trainingMetrics)
 
             stopWatch.start()
@@ -198,7 +206,7 @@ class Model:
                         inputs += [y]
 
                 for cb in callbacks:
-                    cb.onBatchBegin(_inputs, {})
+                    cb.onBatchBegin(inputs, {})
 
                 inputs += lr
 
@@ -215,7 +223,7 @@ class Model:
             logs = {}
             results = []
 
-            self.log.info("Lr: %f" % lr[0])
+            self.log.info("Lr: %s" % str(lr))
 
             for metric in self.__trainingMetrics:
                 key = metric.modelUnitName + "_" + metric.metricName
@@ -230,7 +238,7 @@ class Model:
                 for metricName, value in self.evaluate(devBatchGenerator, verbose=False).iteritems():
                     key = "eval_" + metricName
                     logs[key] = value
-                    results.append((key,value))
+                    results.append((key, value))
 
                 evalDuration = evaluationStopWatch.lap()
 

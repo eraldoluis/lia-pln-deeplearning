@@ -101,20 +101,20 @@ class WNNModelWritter(ModelWriter):
         listWords = lexicon.getLexiconList()
         wordEmbeddings = self.__embeddingLayer.getParameters()[0].get_value()
 
-        wbFile.write(unicode(len(listWords)))
-        wbFile.write(" ")
-        wbFile.write(unicode(self.__embedding.getEmbeddingSize()))
-        wbFile.write("\n")
-
-        for a in xrange(len(listWords)):
-            wbFile.write(listWords[a])
-            wbFile.write(' ')
-
-            for i in wordEmbeddings[a]:
-                wbFile.write(unicode(i))
-                wbFile.write(' ')
-
-            wbFile.write('\n')
+        # wbFile.write(unicode(len(listWords)))
+        # wbFile.write(" ")
+        # wbFile.write(unicode(self.__embedding.getEmbeddingSize()))
+        # wbFile.write("\n")
+        #
+        # for a in xrange(len(listWords)):
+        #     wbFile.write(listWords[a])
+        #     wbFile.write(' ')
+        #
+        #     for i in wordEmbeddings[a]:
+        #         wbFile.write(unicode(i))
+        #         wbFile.write(' ')
+        #
+        #     wbFile.write('\n')
 
         wbFile.close()
 
@@ -160,7 +160,6 @@ def mainWnn(**kwargs):
     normalizeMethod = kwargs["normalization"].lower() if kwargs["normalization"] is not None else None
     wordWindowSize = kwargs["word_window_size"]
     hiddenLayerSize = kwargs["hidden_size"]
-
 
     if kwargs["alg"] == "window_stn":
         isSentenceModel = True
@@ -256,7 +255,7 @@ def mainWnn(**kwargs):
         if dev:
             log.info("Reading development examples")
             devDatasetReader = TokenLabelReader(kwargs["dev"], kwargs["token_label_separator"])
-            devReader = SyncBatchIterator(devDatasetReader, [inputGenerator], outputGenerator, batchSize, shuffle=False)
+            devReader = SyncBatchIterator(devDatasetReader, [inputGenerator], outputGenerator, sys.maxint, shuffle=False)
         else:
             devReader = None
     else:
@@ -280,7 +279,7 @@ def mainWnn(**kwargs):
     else:
         input = T.lmatrix("window_words")
 
-        embeddingLayer = EmbeddingLayer(input, embedding.getEmbeddingMatrix())
+        embeddingLayer = EmbeddingLayer(input, embedding.getEmbeddingMatrix(), trainable=False)
         flatten = FlattenLayer(embeddingLayer)
 
         linear1 = LinearLayer(flatten, wordWindowSize * embedding.getEmbeddingSize(), hiddenLayerSize, W=W1, b=b1,
@@ -291,7 +290,6 @@ def mainWnn(**kwargs):
                               weightInitialization=ZeroWeightGenerator())
         act2 = ActivationLayer(linear2, softmax)
         prediction = ArgmaxPrediction(1).predict(act2.getOutput())
-
 
     y = T.lvector("y")
 
@@ -317,17 +315,17 @@ def mainWnn(**kwargs):
 
     if kwargs["lambda"]:
         _lambda = kwargs["lambda"]
-        log.info("Using L2 with lambda= %.2f" , _lambda)
-        loss += _lambda * ( T.sum(T.square(linear1.getParameters()[0])))
+        log.info("Using L2 with lambda= %.2f", _lambda)
+        loss += _lambda * (T.sum(T.square(linear1.getParameters()[0])))
 
     wnnModel = Model()
 
-    modelUnit = ModelUnit("wnn", [input], y, loss, act2.getLayerSet(), prediction=prediction)
+    modelUnit = ModelUnit("wnn", [input], y, loss, prediction=prediction)
 
-    wnnModel.addTrainingModelUnit(modelUnit,["loss","acc"])
-    wnnModel.setEvaluatedModelUnit(modelUnit,["loss","acc"])
+    wnnModel.addTrainingModelUnit(modelUnit, ["loss", "acc"])
+    wnnModel.setEvaluatedModelUnit(modelUnit, ["loss", "acc"])
 
-    wnnModel.compile(optimizer=opt)
+    wnnModel.compile([(opt, act2.getLayerSet())])
 
     # Training
     if trainReader:
@@ -337,7 +335,7 @@ def mainWnn(**kwargs):
             savePath = kwargs["save_model"]
             modelWriter = WNNModelWritter(savePath, embeddingLayer, linear1, linear2, embedding, labelLexicon,
                                           hiddenActFunctionName)
-            callback.append(SaveModelCallback(modelWriter, "val_acc", True))
+            callback.append(SaveModelCallback(modelWriter, "eval_acc", True))
 
         log.info("Training")
         wnnModel.train([trainReader], numEpochs, devReader, callbacks=callback)

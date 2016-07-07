@@ -7,7 +7,7 @@ Contains a set of classes that read  attributes and/or label of tokens from a da
 import codecs
 import logging
 
-from DataOperation.DatasetReader import DatasetReader
+from data.DatasetReader import DatasetReader
 
 
 class TokenReader(DatasetReader):

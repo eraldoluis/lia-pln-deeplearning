@@ -1,5 +1,5 @@
-from DataOperation import Context
-from DataOperation.InputGenerator.FeatureGenerator import FeatureGenerator
+from data import Context
+from data.InputGenerator.FeatureGenerator import FeatureGenerator
 
 
 class WindowGenerator(FeatureGenerator):
@@ -14,10 +14,10 @@ class WindowGenerator(FeatureGenerator):
         :type windowSize: int
         :param windowSize: the size of window
 
-        :type embedding: DataOperation.Embedding.Embedding
+        :type embedding: data.Embedding.Embedding
         :param embedding:
 
-        :type filters: list[DataOperation.Filters.Filter]
+        :type filters: list[data.Filters.Filter]
         :param filters:
 
         :param startPadding: Object that will be place when the initial limit of a list is exceeded
@@ -66,7 +66,7 @@ class WindowGenerator(FeatureGenerator):
         :param endPadding: Object that will be place when the end limit a list is exceeded.
             If this parameter is None, so the endPadding has the same value of startPadding
 
-        :param embedding: DataOperation.Embedding.Embedding
+        :param embedding: data.Embedding.Embedding
 
         :return: the index of start and end padding in lexicon
         '''

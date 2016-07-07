@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
 
-from ModelOperation.Objective import MeanSquaredError, Objective
+from model.Objective import MeanSquaredError, Objective
 import theano.tensor as T
 
 
@@ -20,7 +20,7 @@ class MDALoss(Objective):
 
         :param noiserate: The drop-out noise rate.
 
-        :type encoderW: NNet.LinearLayer.LinearLayer
+        :type encoderW: nnet.LinearLayer.LinearLayer
         :param encoderW: weights of encoder
 
         :param input: theano variable

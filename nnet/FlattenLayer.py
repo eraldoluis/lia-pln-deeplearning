@@ -2,7 +2,7 @@
 # -*- coding: utf-8 -*-
 import theano.tensor as T
 
-from NNet.Layer import Layer
+from nnet.Layer import Layer
 
 
 class FlattenLayer(Layer):

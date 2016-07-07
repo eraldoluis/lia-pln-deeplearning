@@ -2,7 +2,7 @@
 # -*- coding: utf-8 -*-
 import theano.tensor as T
 
-from Optimizers.Optimizer import Optimizer
+from optim.Optimizer import Optimizer
 
 
 class SGD(Optimizer):

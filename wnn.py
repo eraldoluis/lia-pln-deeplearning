@@ -14,24 +14,24 @@ from time import time
 import numpy as np
 import theano.tensor as T
 
-from DataOperation.Embedding import EmbeddingFactory, RandomUnknownStrategy, ChosenUnknownStrategy
-from DataOperation.InputGenerator.BatchIterator import SyncBatchIterator
-from DataOperation.InputGenerator.LabelGenerator import LabelGenerator
-from DataOperation.InputGenerator.WindowGenerator import WindowGenerator
-from DataOperation.Lexicon import Lexicon, createLexiconUsingFile
-from DataOperation.TokenDatasetReader import TokenLabelReader
-from ModelOperation.Model import Model, ModelUnit
-from ModelOperation.Objective import NegativeLogLikelihood
-from ModelOperation.Prediction import ArgmaxPrediction
-from ModelOperation.SaveModelCallback import ModelWriter, SaveModelCallback
-from NNet.ActivationLayer import ActivationLayer, softmax, tanh, sigmoid
-from NNet.EmbeddingLayer import EmbeddingLayer
-from NNet.FlattenLayer import FlattenLayer
-from NNet.LinearLayer import LinearLayer
-from NNet.WeightGenerator import ZeroWeightGenerator, GlorotUniform, SigmoidGlorot
-from Optimizers.Adagrad import Adagrad
-from Optimizers.SGD import SGD
-from Parameters.JsonArgParser import JsonArgParser
+from data.Embedding import EmbeddingFactory, RandomUnknownStrategy, ChosenUnknownStrategy
+from data.InputGenerator.BatchIterator import SyncBatchIterator
+from data.InputGenerator.LabelGenerator import LabelGenerator
+from data.InputGenerator.WindowGenerator import WindowGenerator
+from data.Lexicon import Lexicon, createLexiconUsingFile
+from data.TokenDatasetReader import TokenLabelReader
+from model.Model import Model, ModelUnit
+from model.Objective import NegativeLogLikelihood
+from model.Prediction import ArgmaxPrediction
+from model.SaveModelCallback import ModelWriter, SaveModelCallback
+from nnet.ActivationLayer import ActivationLayer, softmax, tanh, sigmoid
+from nnet.EmbeddingLayer import EmbeddingLayer
+from nnet.FlattenLayer import FlattenLayer
+from nnet.LinearLayer import LinearLayer
+from nnet.WeightGenerator import ZeroWeightGenerator, GlorotUniform, SigmoidGlorot
+from optim.Adagrad import Adagrad
+from optim.SGD import SGD
+from param.JsonArgParser import JsonArgParser
 
 WNN_PARAMETERS = {
     "token_label_separator": {"required": True,
@@ -78,10 +78,10 @@ class WNNModelWritter(ModelWriter):
         '''
         :param savePath: path where the model will be saved
 
-        :type embeddingLayer: NNet.EmbeddingLayer.EmbeddingLayer
-        :type linearLayer1: NNet.LinearLayer.LinearLayer
-        :type linearLayer2: NNet.LinearLayer.LinearLayer
-        :type embedding: DataOperation.Embedding.Embedding
+        :type embeddingLayer: nnet.EmbeddingLayer.EmbeddingLayer
+        :type linearLayer1: nnet.LinearLayer.LinearLayer
+        :type linearLayer2: nnet.LinearLayer.LinearLayer
+        :type embedding: data.Embedding.Embedding
         '''
         self.__savePath = savePath
         self.__embeddingLayer = embeddingLayer
@@ -275,7 +275,7 @@ def mainWnn(**kwargs):
         log.warn("The word embedding of model was normalized. This can change the result of test.")
 
     if isSentenceModel:
-        raise NotImplementedError("ModelOperation of sentence window was't implemented yet.")
+        raise NotImplementedError("model of sentence window was't implemented yet.")
     else:
         input = T.lmatrix("window_words")
 

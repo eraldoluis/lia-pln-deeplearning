@@ -3,9 +3,9 @@
 
 import theano.tensor as T
 import theano
-from NNet.Util import WeightBottou88Generator, generateRandomNumberUniformly
+from nnet.Util import WeightBottou88Generator, generateRandomNumberUniformly
 from _collections import deque
-from NNet.Layer import Layer
+from nnet.Layer import Layer
 
 class SentenceSoftmaxLayer(Layer):
    

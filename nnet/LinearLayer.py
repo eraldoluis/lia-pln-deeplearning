@@ -3,8 +3,8 @@ import numpy
 import theano
 from theano.tensor.sharedvar import TensorSharedVariable
 
-from NNet.Layer import Layer
-from NNet.WeightGenerator import GlorotUniform
+from nnet.Layer import Layer
+from nnet.WeightGenerator import GlorotUniform
 
 
 class LinearLayer(Layer):
@@ -24,7 +24,7 @@ class LinearLayer(Layer):
         :type lenOut: int
         :param lenOut: number of hidden units
 
-        :type weightInitialization: NNet.WeightGenerator.WeightGenerator
+        :type weightInitialization: nnet.WeightGenerator.WeightGenerator
         """
         super(LinearLayer, self).__init__(_input)
 

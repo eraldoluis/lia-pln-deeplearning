@@ -4,10 +4,10 @@
 import numpy as np
 import theano
 import theano.tensor as T
-from NNet.LinearLayer import LinearLayer
-from NNet.EmbeddingLayer import EmbeddingLayer
-from NNet.Util import LearningRateUpdNormalStrategy
-from NNet.Layer import Layer
+from nnet.LinearLayer import LinearLayer
+from nnet.EmbeddingLayer import EmbeddingLayer
+from nnet.Util import LearningRateUpdNormalStrategy
+from nnet.Layer import Layer
 
 class EmbeddingConvolutionalLayer(Layer):
     """

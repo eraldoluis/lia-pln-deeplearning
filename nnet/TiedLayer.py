@@ -5,8 +5,8 @@ import theano
 import theano.tensor as T
 from theano.tensor.sharedvar import TensorSharedVariable
 
-from NNet import LinearLayer
-from NNet.Layer import Layer
+from nnet import LinearLayer
+from nnet.Layer import Layer
 
 
 class TiedLayer(Layer):

@@ -4,7 +4,7 @@ import theano
 import theano.tensor as T
 from theano.tensor.shared_randomstreams import RandomStreams
 
-from NNet.Layer import Layer
+from nnet.Layer import Layer
 
 
 class DropoutLayer(Layer):

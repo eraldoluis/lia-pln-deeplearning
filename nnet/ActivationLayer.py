@@ -2,7 +2,7 @@
 import theano.tensor as T
 
 # Activations functions
-from NNet.Layer import Layer
+from nnet.Layer import Layer
 
 
 def softmax(x):

@@ -4,7 +4,7 @@ import theano
 import theano.tensor as T
 from theano.tensor.sharedvar import TensorSharedVariable
 
-from NNet.Layer import Layer
+from nnet.Layer import Layer
 
 
 class EmbeddingLayer(Layer):

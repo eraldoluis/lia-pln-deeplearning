@@ -18,14 +18,14 @@ class BatchAssembler:
 
     def __init__(self, reader, inputGenerators, outputGenerator, batchSize):
         '''
-        :type reader: DataOperation.DatasetReader.DatasetReader
+        :type reader: data.DatasetReader.DatasetReader
         :param reader:
 
-        :type inputGenerators: list[DataOperation.InputGenerator.FeatureGenerator.FeatureGenerator]
+        :type inputGenerators: list[data.InputGenerator.FeatureGenerator.FeatureGenerator]
         :param inputGenerators: generate the input of the training
 
 
-        :type outputGenerator: list[DataOperation.InputGenerator.FeatureGenerator.FeatureGenerator]
+        :type outputGenerator: list[data.InputGenerator.FeatureGenerator.FeatureGenerator]
         :param outputGenerator: generate the output of the training
 
         :param batchSize: If this parameter has a negative or zero value,
@@ -106,14 +106,14 @@ class SyncBatchIterator(object):
 
     def __init__(self, reader, inputGenerators, outputGenerator, batchSize, shuffle=True):
         '''
-        :type reader: DataOperation.DatasetReader.DatasetReader
+        :type reader: data.DatasetReader.DatasetReader
         :param reader:
 
-        :type inputGenerators: list[DataOperation.InputGenerator.FeatureGenerator.FeatureGenerator]
+        :type inputGenerators: list[data.InputGenerator.FeatureGenerator.FeatureGenerator]
         :param inputGenerators: generate the input of the training
 
 
-        :type outputGenerator: list[DataOperation.InputGenerator.FeatureGenerator.FeatureGenerator]
+        :type outputGenerator: list[data.InputGenerator.FeatureGenerator.FeatureGenerator]
         :param outputGenerator: generate the output of the training
 
         :param batchSize: If this parameter has a negative or zero value,
@@ -167,14 +167,14 @@ class AsyncBatchIterator(object):
     def __init__(self, datasetReader, inputGenerators, outputGenerator, batchSize, shuffle=True, maxqSize=100,
                  waitTime=0.005):
         '''
-            :type reader: DataOperation.DatasetReader.DatasetReader
+            :type reader: data.DatasetReader.DatasetReader
             :param reader:
 
-            :type inputGenerators: list[DataOperation.InputGenerator.FeatureGenerator.FeatureGenerator]
+            :type inputGenerators: list[data.InputGenerator.FeatureGenerator.FeatureGenerator]
             :param inputGenerators: generate the input of the training
 
 
-            :type outputGenerator: list[DataOperation.InputGenerator.FeatureGenerator.FeatureGenerator]
+            :type outputGenerator: list[data.InputGenerator.FeatureGenerator.FeatureGenerator]
             :param outputGenerator: generate the output of the training
 
             :param batchSize: If this parameter has a negative or zero value,

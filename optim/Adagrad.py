@@ -5,7 +5,7 @@ import numpy
 import theano.tensor as T
 import theano
 
-from Optimizers.Optimizer import Optimizer
+from optim.Optimizer import Optimizer
 
 
 class Adagrad(Optimizer):

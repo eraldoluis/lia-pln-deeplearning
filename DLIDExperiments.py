@@ -16,12 +16,12 @@ from TransferRate.WordFeatureGenerator import Word2VecGenerate, \
     InterporlationGenerate, AverageGenerator, RandomWeightGenerator, \
     RandomUnknownStrategy, MeanLessShowedWordsUnknownStrategy, \
     ChosenUnknownStrategy
-from DataOperation.WordVector import WordVector
+from data.WordVector import WordVector
 from util.util import getFileNameInPath, removeExtension
 # from TransferRate import CRFSuite
 import Postag
 import importlib
-from DataOperation.Lexicon import Lexicon
+from data.Lexicon import Lexicon
 import multiprocessing
 import numpy
 
@@ -435,7 +435,7 @@ def doOneExperiment(mainExperimentDir, runNumber, args, w2vStrategy, intermediat
     
     word2VecGenerate = Word2VecGenerate(args.w2vPath, unknownGenerateStrategy, logger)
     
-    filtersArgs = ['DataOperation.TransformLowerCaseFilter', 'TransformLowerCaseFilter']
+    filtersArgs = ['data.TransformLowerCaseFilter', 'TransformLowerCaseFilter']
     
     filtersArgs += args.filters
     

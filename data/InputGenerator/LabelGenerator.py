@@ -1,4 +1,4 @@
-from DataOperation.InputGenerator.FeatureGenerator import FeatureGenerator
+from data.InputGenerator.FeatureGenerator import FeatureGenerator
 
 
 class LabelGenerator(FeatureGenerator):
@@ -8,7 +8,7 @@ class LabelGenerator(FeatureGenerator):
 
     def __init__(self,labelLexicon):
         '''
-        :type labelLexicon: DataOperation.Lexicon.Lexicon
+        :type labelLexicon: data.Lexicon.Lexicon
         :param labelLexicon:
         '''
         self.__labelLexicon = labelLexicon

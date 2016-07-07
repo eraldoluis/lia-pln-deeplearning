@@ -23,25 +23,25 @@ import logging
 import numpy
 import theano.tensor as T
 
-from DataOperation.Embedding import EmbeddingFactory, RandomUnknownStrategy
-from DataOperation.InputGenerator.BatchIterator import AsyncBatchIterator, SyncBatchIterator
-from DataOperation.InputGenerator.WindowGenerator import WindowGenerator
-from DataOperation.TokenDatasetReader import TokenReader
-from ModelOperation import Model, SaveModelCallback
-from ModelOperation.MDALoss import MDALoss
-from ModelOperation.Model import Model
-from ModelOperation.Objective import MeanSquaredError
-from ModelOperation.SaveModelCallback import ModelWriter, SaveModelCallback
-from NNet import EmbeddingLayer, FlattenLayer, LinearLayer, ActivationLayer
-from NNet.ActivationLayer import ActivationLayer, tanh, softmax, sigmoid
-from NNet.EmbeddingLayer import EmbeddingLayer
-from NNet.FlattenLayer import FlattenLayer
-from NNet.LinearLayer import LinearLayer
-from NNet.TiedLayer import TiedLayer
-from NNet.WeightGenerator import SigmoidGlorot
-from Optimizers import SGD
-from Optimizers.SGD import SGD
-from Parameters.JsonArgParser import JsonArgParser
+from data.Embedding import EmbeddingFactory, RandomUnknownStrategy
+from data.InputGenerator.BatchIterator import AsyncBatchIterator, SyncBatchIterator
+from data.InputGenerator.WindowGenerator import WindowGenerator
+from data.TokenDatasetReader import TokenReader
+from model import Model, SaveModelCallback
+from model.MDALoss import MDALoss
+from model.Model import Model
+from model.Objective import MeanSquaredError
+from model.SaveModelCallback import ModelWriter, SaveModelCallback
+from nnet import EmbeddingLayer, FlattenLayer, LinearLayer, ActivationLayer
+from nnet.ActivationLayer import ActivationLayer, tanh, softmax, sigmoid
+from nnet.EmbeddingLayer import EmbeddingLayer
+from nnet.FlattenLayer import FlattenLayer
+from nnet.LinearLayer import LinearLayer
+from nnet.TiedLayer import TiedLayer
+from nnet.WeightGenerator import SigmoidGlorot
+from optim import SGD
+from optim.SGD import SGD
+from param.JsonArgParser import JsonArgParser
 
 MDA_PARAMETERS = {
     "train": {"desc": "Training File Path", "required": True},
@@ -69,8 +69,8 @@ class MDAModelWritter(ModelWriter):
         '''
         :param savePath: path where the model will be saved
 
-        :type encodeLayer: NNet.LinearLayer.LinearLayer
-        :type decodeLayer: NNet.TiedLayer.TiedLayer
+        :type encodeLayer: nnet.LinearLayer.LinearLayer
+        :type decodeLayer: nnet.TiedLayer.TiedLayer
         '''
         self.__savePath = savePath
         self.__encodeLayer = encodeLayer

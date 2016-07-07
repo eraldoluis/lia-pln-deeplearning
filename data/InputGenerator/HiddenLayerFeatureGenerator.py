@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
-from DataOperation.InputGenerator.FeatureGenerator import FeatureGenerator
-from DataOperation.InputGenerator.WindowGenerator import WindowGenerator
+from data.InputGenerator.FeatureGenerator import FeatureGenerator
+from data.InputGenerator.WindowGenerator import WindowGenerator
 
 '''
 Contains classes that format the data to can be read by the supervised algorithms

@@ -5,21 +5,21 @@ import argparse
 import time
 import logging.config
 
-from DataOperation.TokenLabelReader import TokenLabelReader
-from DataOperation.WordVector import WordVector
+from data.TokenLabelReader import TokenLabelReader
+from data.WordVector import WordVector
 from Evaluate.EvaluateAccuracy import EvaluateAccuracy
 from WindowModelBySentence import WindowModelBySentence, NeuralNetworkChoiceEnum
-from NNet.EmbeddingConvolutionalLayer import EmbeddingConvolutionalLayer
+from nnet.EmbeddingConvolutionalLayer import EmbeddingConvolutionalLayer
 import cPickle as pickle
-from DataOperation.Lexicon import Lexicon
+from data.Lexicon import Lexicon
 from WindowModelByWord import WindowModelByWord
 import sys
 import numpy
 from WindowModelBasic import WindowModelBasic
 from Evaluate.EvaluateEveryNumEpoch import EvaluateEveryNumEpoch
-from DataOperation.ReaderLexiconAndWordVec import ReaderLexiconAndWordVec
+from data.ReaderLexiconAndWordVec import ReaderLexiconAndWordVec
 import importlib
-from NNet.Util import LearningRateUpdDivideByEpochStrategy, \
+from nnet.Util import LearningRateUpdDivideByEpochStrategy, \
     LearningRateUpdNormalStrategy
 from Evaluate.EvaluatePercPredictsCorrectNotInWordSet import EvaluatePercPredictsCorrectNotInWordSet
 import random
@@ -43,7 +43,7 @@ def run(args):
     
     filters = []
     a = 0
-    args.filters.append('DataOperation.TransformLowerCaseFilter')
+    args.filters.append('data.TransformLowerCaseFilter')
     args.filters.append('TransformLowerCaseFilter')
     while a < len(args.filters):
         print "Usando o filtro: " + args.filters[a] + " " + args.filters[a + 1]

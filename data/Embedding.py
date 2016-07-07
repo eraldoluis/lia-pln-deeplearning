@@ -9,9 +9,9 @@ import logging
 
 import sys
 
-from NNet.Util import FeatureVectorsGenerator
+from nnet.Util import FeatureVectorsGenerator
 import codecs
-from DataOperation.Lexicon import Lexicon
+from data.Lexicon import Lexicon
 
 
 ######################################################

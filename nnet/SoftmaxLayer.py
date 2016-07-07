@@ -1,7 +1,7 @@
 import numpy
 import theano
 
-from NNet.Layer import Layer
+from nnet.Layer import Layer
 import theano.tensor as T
 
 

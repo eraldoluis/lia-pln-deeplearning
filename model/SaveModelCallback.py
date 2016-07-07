@@ -1,11 +1,9 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
 import logging
-
 import sys
 
-from ModelOperation.Callback import Callback
-
+from model.Callback import Callback
 
 class ModelWriter:
     def save(self):

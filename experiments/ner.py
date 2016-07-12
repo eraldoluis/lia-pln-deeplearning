@@ -48,8 +48,6 @@ NER_PARAMETERS = {
     "dev": {"desc": "Development File Path"},
     "load_model": {"desc": "Path + basename that will be used to save the weights and embeddings to be loaded."},
 
-    "alg": {"default": "window_word",
-            "desc": "The type of algorithm to train and test. The posible inputs are: window_word or window_stn"},
     "hidden_size": {"default": 300, "desc": "The number of neurons in the hidden layer"},
     "word_window_size": {"default": 5, "desc": "The size of words for the wordsWindow"},
     "batch_size": {"default": 16},
@@ -161,13 +159,6 @@ def mainNer(**kwargs):
     wordWindowSize = kwargs["word_window_size"]
     hiddenLayerSize = kwargs["hidden_size"]
 
-    if kwargs["alg"] == "window_stn":
-        isSentenceModel = True
-    elif kwargs["alg"] == "window_word":
-        isSentenceModel = False
-    else:
-        raise Exception("The value of model_type isn't valid.")
-
     batchSize = -1 if isSentenceModel else kwargs["batch_size"]
     filters = []
 
@@ -230,10 +221,10 @@ def mainNer(**kwargs):
             # Loading Hidden Layer
             log.info("Loading Hidden Layer")
 
-            mdaWeights = np.load(kwargs["load_hidden_layer"]).item(0)
+            hl = np.load(kwargs["load_hidden_layer"]).item(0)
 
-            W1 = mdaWeights["W_Encoder"]
-            b1 = mdaWeights["b_Encoder"]
+            W1 = hl["W_Encoder"]
+            b1 = hl["b_Encoder"]
 
             hiddenLayerSize = b1.shape[0]
 
@@ -274,22 +265,19 @@ def mainNer(**kwargs):
     if normalizeMethod is not None and loadPath is not None:
         log.warn("The word embedding of model was normalized. This can change the result of test.")
 
-    if isSentenceModel:
-        raise NotImplementedError("model of sentence window was't implemented yet.")
-    else:
-        input = T.lmatrix("window_words")
+    input = T.lmatrix("sentence")
 
-        embeddingLayer = EmbeddingLayer(input, embedding.getEmbeddingMatrix(), trainable=False)
-        flatten = FlattenLayer(embeddingLayer)
+    embeddingLayer = EmbeddingLayer(input, embedding.getEmbeddingMatrix(), trainable=False)
+    flatten = FlattenLayer(embeddingLayer)
 
-        linear1 = LinearLayer(flatten, wordWindowSize * embedding.getEmbeddingSize(), hiddenLayerSize, W=W1, b=b1,
-                              weightInitialization=weightInit)
-        act1 = ActivationLayer(linear1, hiddenActFunction)
+    linear1 = LinearLayer(flatten, wordWindowSize * embedding.getEmbeddingSize(), hiddenLayerSize, W=W1, b=b1,
+                          weightInitialization=weightInit)
+    act1 = ActivationLayer(linear1, hiddenActFunction)
 
-        linear2 = LinearLayer(act1, hiddenLayerSize, labelLexicon.getLen(), W=W2, b=b2,
-                              weightInitialization=ZeroWeightGenerator())
-        act2 = ActivationLayer(linear2, softmax)
-        prediction = ArgmaxPrediction(1).predict(act2.getOutput())
+    linear2 = LinearLayer(act1, hiddenLayerSize, labelLexicon.getLen(), W=W2, b=b2,
+                          weightInitialization=ZeroWeightGenerator())
+    act2 = ActivationLayer(linear2, softmax)
+    prediction = ArgmaxPrediction(1).predict(act2.getOutput())
 
     y = T.lvector("y")
 

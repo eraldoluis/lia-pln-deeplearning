@@ -63,7 +63,7 @@ class ModelUnit:
 
 
 class Model:
-    def __init__(self):
+    def __init__(self, mode = None):
         self.log = logging.getLogger(__name__)
 
         self.__optimizers = None
@@ -77,6 +77,8 @@ class Model:
 
         self.__trainingMetrics = []
         self.__evaluateMetrics = []
+        
+        self.__mode = mode
 
     def addTrainingModelUnit(self, modelUnit, metrics=[]):
         self.__modelUnitsToTraining.append((modelUnit, metrics))
@@ -155,12 +157,18 @@ class Model:
             self.__optimizers.append(optimizer)
 
         # Create the theano functions
-        self.__trainFunction = theano.function(inputs=funInputsTrain, outputs=_trainingOutputFunc,
-                                               updates=updates)
+        self.__trainFunction = theano.function(inputs=funInputsTrain, 
+                                               outputs=_trainingOutputFunc,
+                                               updates=updates,
+                                               mode=self.__mode)
 
         if self.__modelUnitEvaluate is not None:
-            self.__evaluateFunction = theano.function(inputs=funInputsEvaluate, outputs=_testOutputFunc)
-            self.__predictionFunction = theano.function(inputs=funInputsPrediction, outputs=_prediction)
+            self.__evaluateFunction = theano.function(inputs=funInputsEvaluate, 
+                                                      outputs=_testOutputFunc, 
+                                                      mode=self.__mode)
+            self.__predictionFunction = theano.function(inputs=funInputsPrediction, 
+                                                        outputs=_prediction, 
+                                                        mode=self.__mode)
 
     def prediction(self):
         pass
@@ -196,7 +204,10 @@ class Model:
                             "The epoch from a model unit finished, but the others units have more examples to train.")
 
                     x, y = in_
-                    inputs += x
+                    # TODO: Irving, a mudança abaixo (inclusão dos colchetes) tem
+                    # a ver com a mudança que fiz na linha 100 do arquivo 
+                    # BatchIterator.py.
+                    inputs += [x]
 
                     batchSize = len(x[0])
                     batchSizes[modelUnit.name] = batchSize
@@ -271,7 +282,10 @@ class Model:
             batchSize = len(x[0])
 
             inputs = []
-            inputs += x
+            # TODO: Irving, a mudança abaixo (inclusão dos colchetes) tem
+            # a ver com a mudança que fiz na linha 100 do arquivo 
+            # BatchIterator.py.
+            inputs += [x]
 
             if self.__modelUnitEvaluate[0].yWillBeReceived:
                 # Theano function receives 'y' as an input

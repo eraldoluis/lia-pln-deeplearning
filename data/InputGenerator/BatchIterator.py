@@ -4,16 +4,13 @@ import Queue
 import logging
 import random
 import threading
-
-from datetime import time
-
 import numpy
 import time
 
 
 class BatchAssembler:
     '''
-    Create and returns the training batches.
+    Create and return training batches.
     '''
 
     def __init__(self, reader, inputGenerators, outputGenerator, batchSize):
@@ -43,7 +40,8 @@ class BatchAssembler:
 
     def getGeneratorObject(self):
         '''
-        :return: a generator from the yield expression. This generator will return the batches from the data set.
+        :return: a generator from the yield expression. This generator will 
+        return the batches from the data set.
         '''
         inputs = [[] for inputGenerator in self.__inputGenerators]
         outputs = []
@@ -76,7 +74,7 @@ class BatchAssembler:
                         outputs.append(generatedOutputs[idx])
 
                     if len(inputs[0]) == self.__batchSize:
-                        yield self.formatToNumpy(inputs, outputs)
+                        yield self.__formatToNumpy(inputs, outputs)
 
                         inputs = [[] for inputGenerator in self.__inputGenerators]
                         outputs = []
@@ -84,19 +82,22 @@ class BatchAssembler:
                 inputs = generatedInputs
                 outputs = generatedOutputs
 
-                yield self.formatToNumpy(inputs, outputs)
+                yield self.__formatToNumpy(inputs, outputs)
 
         if len(inputs[0]):
-            yield self.formatToNumpy(inputs, outputs)
+            yield self.__formatToNumpy(inputs, outputs)
 
         if not self.__printed:
             self.__log.info("Number of examples: %d" % nmExamples)
 
 
-    def formatToNumpy(self, inputs, outputs):
-        for idx, input in enumerate(inputs):
-            inputs[idx] = numpy.asarray(input)
-        return [inputs, numpy.asarray(outputs)]
+    def __formatToNumpy(self, inputs, outputs):
+        for idx, inp in enumerate(inputs):
+            inputs[idx] = numpy.asarray(inp)
+        # TODO: Irving, estou retornando apenas o primeiro item da lista.
+        # No meu caso (document classification), precisei fazer isto.
+        # Precisamos ver como generalizar este caso.
+        return (inputs[0], numpy.asarray(outputs))
 
 
 class SyncBatchIterator(object):
@@ -203,7 +204,7 @@ class AsyncBatchIterator(object):
                 b = self.__queue.get(timeout=0.0001)
                 break;
             except Queue.Empty as e:
-                print "empty"
+                print "Empty! %s" % e
                 continue
 
         if b is None:

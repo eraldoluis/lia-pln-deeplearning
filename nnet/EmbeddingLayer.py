@@ -79,7 +79,8 @@ class EmbeddingLayer(Layer):
         # Matrix of the active parameters for the given examples.
         # Its shape is (numExs * szEx, szEmb).
         input = self.getInput()
-        self.__activeVectors = self.__embedding[T.flatten(input, 1)]
+        flat = T.flatten(input, 1)
+        self.__activeVectors = self.__embedding[flat]
 
         #
         # Output of the layer for the given examples.
@@ -97,7 +98,7 @@ class EmbeddingLayer(Layer):
 
             # Reshape the gradient vector as self.__activeVectors, since these 
             # are the parameters to be updated, which follow the shape of the
-            # embedding itself (it is, in fact, a subtensor of the embedding).
+            # embedding itself (in fact, a subtensor of the embedding).
             grad = grad.reshape(self.__activeVectors.shape)
 
             # List of updates.

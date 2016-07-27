@@ -137,29 +137,33 @@ class Embedding(object):
         self.__unknownGenerateStrategy = unknownGenerateStrategy
 
         # Stop to add new objects
-        self.__stopAdd = False
+        self.__readOnly = False
 
     def stopAdd(self):
         '''        
         Stop  to add new objects and generate the unknown embedding
         '''
-        if self.isStopped():
+        if self.isReadOnly():
             return
 
         Embedding.put(self, self.__unknownGenerateStrategy.getUnknownStr(),
                       self.__unknownGenerateStrategy.generateUnkown(self))
         self.__lexicon.setUnknownIndex(self.getLexiconIndex(self.__unknownGenerateStrategy.getUnknownStr()))
 
-        self.__stopAdd = True
+        self.__readOnly = True
 
-    def isStopped(self):
+    def isReadOnly(self):
         '''
         return if the class is not adding more new objects
         '''
-        return self.__stopAdd
+        return self.__readOnly
 
     def put(self, obj, vec=None):
         """
+        Add a new object to the embedding. 
+        If the attribute self.__readOnly is False, vec is not none or object 
+        exists in lexicon, so the object index is returned.
+
         :type obj:str
         :params obj: object to be added
         
@@ -167,11 +171,8 @@ class Embedding(object):
         :params vec: vector which represents obj
         
         :return embedding of the object
-        
-        Add a new object to the embedding. 
-        If the attribute stopAdd is False, vec is not none or object exists in lexicon, so the object index is returned.
         """
-        if vec is None or self.isStopped() or self.__lexicon.exist(obj):
+        if vec is None or self.isReadOnly() or self.__lexicon.exist(obj):
             return self.getLexiconIndex(obj)
 
         if len(vec) != self.__embeddingSize:
@@ -202,7 +203,7 @@ class Embedding(object):
     def getEmbeddingMatrix(self):
         return self.__vectors
 
-    def getNumberOfEmbeddings(self):
+    def getNumberOfVectors(self):
         return len(self.__vectors)
 
     def getEmbeddingSize(self):

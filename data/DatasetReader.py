@@ -3,7 +3,7 @@
 
 class DatasetReader(object):
     """
-    The interface of the classes that will read the dataset.
+    Reads a dataset, one example 
     """
 
     def read(self):

@@ -3,8 +3,6 @@
 
 
 import theano.tensor as T
-from theano import printing
-
 
 class Objective(object):
     def calculateError(self, output, ypred, ytrue):
@@ -18,6 +16,6 @@ class MeanSquaredError(Objective):
 
 class NegativeLogLikelihood(Objective):
     def calculateError(self, output, ypred, ytrue):
-        return -T.mean(T.log(output)[T.arange(ytrue.shape[0]), ytrue])
-
-
+        # TODO: edição para testar doc. classification
+        #return -T.mean(T.log(output[T.arange(ytrue.shape[0]), ytrue]))
+        return -T.log(output[ytrue])

@@ -31,17 +31,15 @@ class WindowGenerator(FeatureGenerator):
 
         self.__startPaddingIdx, self.__endPaddingIdx = self.checkPadding(startPadding, endPadding, embedding)
 
-    def generate(self, rawData):
+    def generate(self, tokens):
         '''
         Receives a list of tokens and returns window of words.
 
-        :type rawData: list[basestring]
-        :param rawData: a list of tokens
+        :type tokens: list[basestring]
+        :param tokens: list of tokens
         :return:
         '''
-        tokens = rawData
         tknIdxs = []
-        y = []
 
         for token in tokens:
             for f in self.__filters:
@@ -50,7 +48,9 @@ class WindowGenerator(FeatureGenerator):
             tknIdxs.append(self.__embedding.put(token))
 
         x = []
-        windowGen = self.__window.buildWindows(tknIdxs, self.__startPaddingIdx, self.__endPaddingIdx)
+        windowGen = self.__window.buildWindows(tknIdxs,
+                                               self.__startPaddingIdx,
+                                               self.__endPaddingIdx)
 
         for window in windowGen:
             x.append(window)
@@ -72,7 +72,7 @@ class WindowGenerator(FeatureGenerator):
         '''
 
         if not embedding.exist(startPadding):
-            if embedding.isStopped():
+            if embedding.isReadOnly():
                 raise Exception("Start Padding doens't exist")
 
             startPaddingIdx = embedding.put(startPadding)
@@ -80,7 +80,7 @@ class WindowGenerator(FeatureGenerator):
             startPaddingIdx = embedding.getLexiconIndex(startPadding)
         if endPadding is not None:
             if not embedding.exist(endPadding):
-                if embedding.isStopped():
+                if embedding.isReadOnly():
                     raise Exception("End Padding doens't exist")
 
                 endPaddingIdx = embedding.put(endPadding)

@@ -20,8 +20,8 @@ class Lexicon(object):
     """
     Represents a lexicon of words.
     Each added word in this lexicon will be represented by a integer.
-    This class has a variable '__stopAdd' that control if the lexicon will or not insert new words.
-    If a word in new to lexicon and '__stopAdd' is true, so this lexicon will return a index which
+    This class has a variable '__readOnly' that control if the lexicon will or not insert new words.
+    If a word in new to lexicon and '__readOnly' is true, so this lexicon will return a index which
         is related with all unknown words.
     This special index need to be set with setUnknownIndex.
     """
@@ -30,13 +30,13 @@ class Lexicon(object):
         self.__lexicon = []
         self.__lexiconDict = {}
         self.unknown_index = -1
-        self.__stopAdd = False
+        self.__readOnly = False
 
-    def isStopped(self):
+    def isReadOnly(self):
         """
         :return: return if lexicon is adding new words
         """
-        return self.__stopAdd
+        return self.__readOnly
 
     def getLexiconList(self):
         """
@@ -61,14 +61,14 @@ class Lexicon(object):
         '''
         Include a new word in the lexicon and return its index. If the word is
         already in the lexicon, then just return its index.
-        If a word in new to lexicon and '__stopAdd' is true, so this lexicon will return a index which
+        If a word in new to lexicon and '__readOnly' is true, so this lexicon will return a index which
         is related with all unknown words.
         '''
 
         idx = self.__lexiconDict.get(word)
 
         if idx is None:
-            if self.isStopped():
+            if self.isReadOnly():
                 return self.getUnknownIndex()
 
             # Insert a unseen word in the lexicon.
@@ -109,4 +109,4 @@ class Lexicon(object):
 
         :return:
         """
-        self.__stopAdd = True
+        self.__readOnly = True

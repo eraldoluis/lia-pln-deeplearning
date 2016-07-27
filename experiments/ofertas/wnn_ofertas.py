@@ -32,45 +32,107 @@ from nnet.WeightGenerator import ZeroWeightGenerator, GlorotUniform, SigmoidGlor
 from optim.Adagrad import Adagrad
 from optim.SGD import SGD
 from param.JsonArgParser import JsonArgParser
+from data.DatasetReader import DatasetReader
+from nnet.MaxPoolingLayer import MaxPoolingLayer
+from theano import compile
+import theano
+import numpy
+from data.InputGenerator.FeatureGenerator import FeatureGenerator
+from nnet.ReshapeLayer import ReshapeLayer
 
-NER_PARAMETERS = {
-    "token_label_separator": {"required": True,
-                              "desc": "specify the character that is being used to separate the token from the label in the dataset."},
-    "filters": {"required": True,
+PARAMETERS = {
+    "filters": {"default": ['data.Filters.TransformLowerCaseFilter',
+                            'data.Filters.TransformNumberToZeroFilter'],
                 "desc": "list contains the filters. Each filter is describe by your module name + . + class name"},
-
     "train": {"desc": "Training File Path"},
     "num_epochs": {"desc": "Number of epochs: how many iterations over the training set."},
     "lr": {"desc": "learning rate value"},
-    "save_model": {"desc": "Path + basename that will be used to save the weights and embeddings to be saved."},
-
-    "test": {"desc": "Test File Path"},
-    "dev": {"desc": "Development File Path"},
-    "load_model": {"desc": "Path + basename that will be used to save the weights and embeddings to be loaded."},
-
-    "hidden_size": {"default": 300, "desc": "The number of neurons in the hidden layer"},
-    "word_window_size": {"default": 5, "desc": "The size of words for the wordsWindow"},
-    "batch_size": {"default": 16},
-    "word_emb_size": {"default": 100, "desc": "size of word embedding"},
+    "save_model": {"desc": "Path + basename that will be used to save the model (weights and embeddings)."},
+    "load_model": {"desc": "Path + basename that will be used to load the model (weights and embeddings)."},
+    "test": {"desc": "Test set file path"},
+    "dev": {"desc": "Development set file path"},
+    "hidden_size": {"default": 300,
+                    "desc": "The number of neurons in the hidden layer"},
+    "word_window_size": {"default": 5,
+                         "desc": "The size of words for the wordsWindow"},
+    "word_emb_size": {"default": 100,
+                      "desc": "size of word embedding"},
     "word_embedding": {"desc": "word embedding File Path"},
-    "start_symbol": {"default": "</s>", "desc": "Object that will be place when the initial limit of list is exceeded"},
-    "end_symbol": {"default": "</s>", "desc": "Object that will be place when the end limit of list is exceeded"},
-    "seed": {"desc": ""},
-    "adagrad": {"desc": "Activate AdaGrad updates.", "default": True},
-    "decay": {"default": "DIVIDE_EPOCH",
-              "desc": "Set the learning rate update strategy. NORMAL and DIVIDE_EPOCH are the options available"},
-    "load_hidden_layer": {"desc": "the file which contains weights and bias of pre-trainned hidden layer"},
+    "start_symbol": {"default": "</s>",
+                     "desc": "Object that will be place when the initial limit of list is exceeded"},
+    "end_symbol": {"default": "</s>",
+                   "desc": "Object that will be place when the end limit of list is exceeded"},
+    "seed": {"desc": "Random number generator seed."},
+    "alg": {"default": "sgd",
+            "desc": "Optimization algorithm to be used. Options are: 'sgd', 'adagrad'."},
+    "decay": {"default": "linear",
+              "desc": "Set the learning rate update strategy. Options are: 'none' and 'linear'."},
+    "load_hidden_layer": {"desc": "File containing weights and bias of pre-trained hidden layer."},
     "hidden_activation_function": {"default": "tanh",
-                                   "desc": "the activation function of the hidden layer. The possible values are: tanh and sigmoid"},
-    "shuffle": {"default": True, "desc": "able or disable the shuffle of training examples."},
-    "normalization": {"desc": "Choose the normalize method to be applied on  word embeddings. "
-                              "The possible values are: max_min, mean_normalization or none"},
-    "label_file": {"desc": ""},
-    "lambda": {"desc": ""}
+                                   "desc": "the activation function of the hidden layer. The possible values are: 'tanh' and 'sigmoid'."},
+    "shuffle": {"default": True,
+                "desc": "Enable or disable shuffling of the training examples."},
+    "normalization": {"desc": "Choose the normalization method to be applied on  word embeddings. " + 
+                              "The possible values are: 'none', 'minmax', 'mean'."},
+    "labels": {"desc": "File containing the list of possible labels."},
+    "conv_size": {"required": True,
+                  "desc": "Size of the convolution layer (number of filters)."}
 }
 
 
-class NerModelWritter(ModelWriter):
+class OfertasReader(DatasetReader):
+    """
+    Lê exemplos de ofertas. O formato o seguinte. Cada linha contém um exemplo (a 
+    primeira linha é o cabeçalho). Cada exemplo segue o seguinte formato:
+    
+    <id_pai> [TAB] <id> [TAB] <desc_norm> [TAB] <categ_shop_desc_nor> [TAB] <price>
+    
+    onde, <id_pai> é o ID da categoria pai, <id> é o ID da categoria da oferta,
+    <desc_norm> é o texto da oferta, <categ_shop_desc_nor> é categoria interna do
+    anunciante, e <price> é o preço do produto.
+    """
+
+    def __init__(self, filePath):
+        """
+        :type filePath: String
+        :param filePath: dataset path
+        """
+        self.__filePath = filePath
+        self.__log = logging.getLogger(__name__)
+        self.__printedNumberTokensRead = False
+
+    def read(self):
+        """
+        :return: lista de tokens da oferta e sua categoria.
+        """
+        f = codecs.open(self.__filePath, "r", "utf-8")
+        numExs = 0
+
+        # Skip the first line (header).
+        f.readline()
+
+        for line in f:
+            line = line.strip()
+
+            # Skip blank lines.
+            if len(line) == 0:
+                continue
+
+            ftrs = [s.strip() for s in line.split('\t')]
+
+            tokens = ftrs[2].split()
+            category = ftrs[1]
+
+            numExs += 1
+
+            yield (tokens, category)
+
+        if not self.__printedNumberTokensRead:
+            self.__log.info("Number of examples read: %d" % numExs)
+
+
+
+class OfertasModelWritter(ModelWriter):
     def __init__(self, savePath, embeddingLayer, linearLayer1, linearLayer2, embedding, lexiconLabel,
                  hiddenActFunction):
         '''
@@ -142,7 +204,40 @@ class NerModelWritter(ModelWriter):
         self.__logging.info("Model Saved in %d", int(time()) - begin)
 
 
-def mainNer(**kwargs):
+class TextLabelGenerator(FeatureGenerator):
+    '''
+    Generates one label per example (in general, the input is a piece of text).
+    This label generator is usually used for document (text) classification.
+    '''
+
+    def __init__(self, labelLexicon):
+        '''
+        :type labelLexicon: data.Lexicon.Lexicon
+        :param labelLexicon:
+        '''
+        self.__labelLexicon = labelLexicon
+
+    def generate(self, label):
+        '''
+        Return the code for the given label.
+
+        :type labels: list[basestring]
+        :param labels:
+
+        :return: li
+        '''
+
+        y = self.__labelLexicon.put(label)
+
+        if y == -1:
+            # TODO: test
+            #raise Exception("Label doesn't exist: %s" % label)
+            self.__labelLexicon.getLexicon(0)
+
+        return y
+
+
+def main(**kwargs):
     log = logging.getLogger(__name__)
     log.info(kwargs)
 
@@ -158,10 +253,10 @@ def mainNer(**kwargs):
     normalizeMethod = kwargs["normalization"].lower() if kwargs["normalization"] is not None else None
     wordWindowSize = kwargs["word_window_size"]
     hiddenLayerSize = kwargs["hidden_size"]
+    convSize = kwargs["conv_size"]
 
-    batchSize = -1 if isSentenceModel else kwargs["batch_size"]
+    # Load classes for filters.
     filters = []
-
     for filterName in kwargs["filters"]:
         moduleName, className = filterName.rsplit('.', 1)
         log.info("Usando o filtro: " + moduleName + " " + className)
@@ -180,7 +275,8 @@ def mainNer(**kwargs):
 
         # Loading Embedding
         log.info("Loading Model")
-        embedding = EmbeddingFactory().createFromW2V(loadPath + ".wv", ChosenUnknownStrategy(param["unknown"]))
+        embedding = EmbeddingFactory().createFromW2V(loadPath + ".wv",
+                                                     ChosenUnknownStrategy(param["unknown"]))
         labelLexicon = Lexicon()
 
         for l in param["labels"]:
@@ -212,8 +308,8 @@ def mainNer(**kwargs):
             embedding = EmbeddingFactory().createRandomEmbedding(kwargs["word_emb_size"])
 
         # Get the inputs and output
-        if kwargs["label_file"]:
-            labelLexicon = createLexiconUsingFile(kwargs["label_file"])
+        if kwargs["labels"]:
+            labelLexicon = createLexiconUsingFile(kwargs["labels"])
         else:
             labelLexicon = Lexicon()
 
@@ -228,14 +324,20 @@ def mainNer(**kwargs):
 
             hiddenLayerSize = b1.shape[0]
 
-    inputGenerator = WindowGenerator(wordWindowSize, embedding, filters, startSymbol, endSymbol)
-    outputGenerator = LabelGenerator(labelLexicon)
+    # Generate word windows.
+    featureGenerator = WindowGenerator(wordWindowSize, embedding, filters,
+                                     startSymbol, endSymbol)
+    # Generate one label per example (list of tokens).
+    labelGenerator = TextLabelGenerator(labelLexicon)
 
     if kwargs["train"]:
         log.info("Reading training examples")
 
-        trainDatasetReader = TokenLabelReader(kwargs["train"], kwargs["token_label_separator"])
-        trainReader = SyncBatchIterator(trainDatasetReader, [inputGenerator], outputGenerator, batchSize,
+        trainDatasetReader = OfertasReader(kwargs["train"])
+        trainReader = SyncBatchIterator(trainDatasetReader,
+                                        [featureGenerator],
+                                        labelGenerator,
+                                        - 1,
                                         shuffle=shuffle)
         embedding.stopAdd()
         labelLexicon.stopAdd()
@@ -245,8 +347,12 @@ def mainNer(**kwargs):
 
         if dev:
             log.info("Reading development examples")
-            devDatasetReader = TokenLabelReader(kwargs["dev"], kwargs["token_label_separator"])
-            devReader = SyncBatchIterator(devDatasetReader, [inputGenerator], outputGenerator, sys.maxint, shuffle=False)
+            devDatasetReader = OfertasReader(kwargs["dev"])
+            devReader = SyncBatchIterator(devDatasetReader,
+                                          [featureGenerator],
+                                          labelGenerator,
+                                          - 1,
+                                          shuffle=False)
         else:
             devReader = None
     else:
@@ -265,55 +371,104 @@ def mainNer(**kwargs):
     if normalizeMethod is not None and loadPath is not None:
         log.warn("The word embedding of model was normalized. This can change the result of test.")
 
-    input = T.lmatrix("sentence")
+    #
+    # Build the network model (Theano graph).
+    #
+    
+    # Matriz de entrada. Cada linha representa um token da oferta. Cada token é
+    # representado por uma janela de tokens (token central e alguns tokens
+    # próximos). Cada valor desta matriz corresponde a um índice que representa
+    # um token no embedding.
+    _input = T.lmatrix("sentence")
 
-    embeddingLayer = EmbeddingLayer(input, embedding.getEmbeddingMatrix(), trainable=False)
-    flatten = FlattenLayer(embeddingLayer)
+    # Categoria correta de uma oferta.
+    y = T.lscalar("y")
 
-    linear1 = LinearLayer(flatten, wordWindowSize * embedding.getEmbeddingSize(), hiddenLayerSize, W=W1, b=b1,
-                          weightInitialization=weightInit)
-    act1 = ActivationLayer(linear1, hiddenActFunction)
+    # TODO: debug
+    #theano.config.compute_test_value = 'warn'
+    #ex = trainReader.next()
+    #_input.tag.test_value = ex[0]
+    #y.tag.test_value = ex[1]
 
-    linear2 = LinearLayer(act1, hiddenLayerSize, labelLexicon.getLen(), W=W2, b=b2,
-                          weightInitialization=ZeroWeightGenerator())
-    act2 = ActivationLayer(linear2, softmax)
-    prediction = ArgmaxPrediction(1).predict(act2.getOutput())
+    # Lookup table.
+    embeddingLayer = EmbeddingLayer(_input,
+                                    embedding.getEmbeddingMatrix())
+    
+    # A saída da lookup table possui 3 dimensões (numTokens, szWindow, szEmbedding).
+    # Esta camada dá um flat nas duas últimas dimensões, produzindo uma saída
+    # com a forma (numTokens, szWindow * szEmbedding).
+    flattenInput = FlattenLayer(embeddingLayer)
 
-    y = T.lvector("y")
+    # Convolution layer. Convolução no texto de uma oferta.
+    convLinear = LinearLayer(flattenInput,
+                             wordWindowSize * embedding.getEmbeddingSize(),
+                             convSize, W=None, b=None,
+                             weightInitialization=weightInit)
+    maxPooling = MaxPoolingLayer(convLinear)
 
-    if kwargs["decay"].lower() == "normal":
-        decay = 0.0
-    elif kwargs["decay"].lower() == "divide_epoch":
+    # Hidden layer.
+    hiddenLinear = LinearLayer(maxPooling,
+                               convSize,
+                               hiddenLayerSize,
+                               W=W1, b=b1,
+                               weightInitialization=weightInit)
+    hiddenAct = ActivationLayer(hiddenLinear, hiddenActFunction)
+
+    # Entrada linear da camada softmax.
+    sotmaxLinearInput = LinearLayer(hiddenAct,
+                                    hiddenLayerSize,
+                                    labelLexicon.getLen(),
+                                    W=W2, b=b2,
+                                    weightInitialization=ZeroWeightGenerator())
+    # Softmax.
+    softmaxAct = ReshapeLayer(ActivationLayer(sotmaxLinearInput, softmax), (1,-1))
+
+    # Prediction layer (argmax).
+    prediction = ArgmaxPrediction(None).predict(softmaxAct.getOutput())
+
+    # Decaimento da taxa de aprendizado.
+    decay = 0.0
+    if kwargs["decay"].lower() == "linear":
         decay = 1.0
 
-    if kwargs["adagrad"]:
+    # Algoritmo de aprendizado.
+    if kwargs["alg"] == "adagrad":
         log.info("Using Adagrad")
         opt = Adagrad(lr=lr, decay=decay)
     else:
         log.info("Using SGD")
         opt = SGD(lr=lr, decay=decay)
 
-    # Printing embedding information
-    dictionarySize = embedding.getNumberOfEmbeddings()
+    # TODO: debug
+    #opt.lr.tag.test_value = 0.01
+
+    # Printing embedding information.
+    dictionarySize = embedding.getNumberOfVectors()
     embeddingSize = embedding.getEmbeddingSize()
-    log.info("Number of dictionary and embedding size: %d and %d" % (dictionarySize, embeddingSize))
+    log.info("Dictionary size: %d" % dictionarySize)
+    log.info("Embedding size: %d" % embeddingSize)
+    log.info("Number of categories: %d" % labelLexicon.getLen())
 
     # Compiling
-    loss = NegativeLogLikelihood().calculateError(act2.getOutput(), prediction, y)
+    loss = NegativeLogLikelihood().calculateError(softmaxAct.getOutput()[0],
+                                                  prediction, 
+                                                  y)
 
-    if kwargs["lambda"]:
-        _lambda = kwargs["lambda"]
-        log.info("Using L2 with lambda= %.2f", _lambda)
-        loss += _lambda * (T.sum(T.square(linear1.getParameters()[0])))
+#     if kwargs["lambda"]:
+#         _lambda = kwargs["lambda"]
+#         log.info("Using L2 with lambda= %.2f", _lambda)
+#         loss += _lambda * (T.sum(T.square(hiddenLinear.getParameters()[0])))
 
-    wnnModel = Model()
+    # TODO: debug
+    #model = Model(mode=compile.debugmode.DebugMode(optimizer=None))
+    model = Model()
 
-    modelUnit = ModelUnit("wnn", [input], y, loss, prediction=prediction)
+    modelUnit = ModelUnit("ofertas", [_input], y, loss, prediction=prediction)
 
-    wnnModel.addTrainingModelUnit(modelUnit, ["loss", "acc"])
-    wnnModel.setEvaluatedModelUnit(modelUnit, ["loss", "acc"])
+    model.addTrainingModelUnit(modelUnit, ["loss", "acc"])
+    model.setEvaluatedModelUnit(modelUnit, ["loss", "acc"])
 
-    wnnModel.compile([(opt, act2.getLayerSet())])
+    model.compile([(opt, softmaxAct.getLayerSet())])
 
     # Training
     if trainReader:
@@ -321,21 +476,27 @@ def mainNer(**kwargs):
 
         if kwargs["save_model"]:
             savePath = kwargs["save_model"]
-            modelWriter = NerModelWritter(savePath, embeddingLayer, linear1, linear2, embedding, labelLexicon,
-                                          hiddenActFunctionName)
+            modelWriter = OfertasModelWritter(savePath, embeddingLayer, 
+                                              hiddenLinear, sotmaxLinearInput, 
+                                              embedding, labelLexicon,
+                                              hiddenActFunctionName)
             callback.append(SaveModelCallback(modelWriter, "eval_acc", True))
 
         log.info("Training")
-        wnnModel.train([trainReader], numEpochs, devReader, callbacks=callback)
+        model.train([trainReader], numEpochs, devReader, callbacks=callback)
 
     # Testing
     if kwargs["test"]:
         log.info("Reading test examples")
-        testDatasetReader = TokenLabelReader(kwargs["test"], kwargs["token_label_separator"])
-        testReader = SyncBatchIterator(testDatasetReader, [inputGenerator], outputGenerator, batchSize, shuffle=False)
+        testDatasetReader = OfertasReader(kwargs["test"])
+        testReader = SyncBatchIterator(testDatasetReader,
+                                       [featureGenerator],
+                                       labelGenerator,
+                                       -1,
+                                       shuffle=False)
 
         log.info("Testing")
-        wnnModel.evaluate(testReader, True)
+        model.evaluate(testReader, True)
 
 
 def method_name(hiddenActFunction):
@@ -351,7 +512,8 @@ if __name__ == '__main__':
     full_path = os.path.realpath(__file__)
     path, filename = os.path.split(full_path)
 
-    logging.config.fileConfig(os.path.join(path, 'logging.conf'))
+#    logging.config.fileConfig(os.path.join(path, 'logging.conf'))
+    logging.basicConfig(level=logging.DEBUG)
 
-    parameters = JsonArgParser(NER_PARAMETERS).parse(sys.argv[1])
-    mainNer(**parameters)
+    parameters = JsonArgParser(PARAMETERS).parse(sys.argv[1])
+    main(**parameters)

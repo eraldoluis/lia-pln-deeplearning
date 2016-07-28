@@ -20,6 +20,7 @@ from DataOperation.InputGenerator.LabelGenerator import LabelGenerator
 from DataOperation.InputGenerator.WindowGenerator import WindowGenerator
 from DataOperation.Lexicon import Lexicon, createLexiconUsingFile
 from DataOperation.TokenDatasetReader import TokenLabelReader
+from ModelOperation.BasicModel import BasicModel
 from ModelOperation.Model import Model, ModelUnit
 from ModelOperation.Objective import NegativeLogLikelihood
 from ModelOperation.Prediction import ArgmaxPrediction
@@ -93,7 +94,6 @@ class WNNModelWritter(ModelWriter):
         self.__hiddenActFunction = hiddenActFunction
 
     def save(self):
-
         begin = int(time())
         # Saving embedding
         wbFile = codecs.open(self.__savePath + ".wv", "w", encoding="utf-8")
@@ -244,7 +244,7 @@ def mainWnn(**kwargs):
         log.info("Reading training examples")
 
         trainDatasetReader = TokenLabelReader(kwargs["train"], kwargs["token_label_separator"])
-        trainReader = SyncBatchIterator(trainDatasetReader, [inputGenerator], outputGenerator, batchSize,
+        trainReader = SyncBatchIterator(trainDatasetReader, [inputGenerator], [outputGenerator], batchSize,
                                         shuffle=shuffle)
         embedding.stopAdd()
         labelLexicon.stopAdd()
@@ -255,7 +255,8 @@ def mainWnn(**kwargs):
         if dev:
             log.info("Reading development examples")
             devDatasetReader = TokenLabelReader(kwargs["dev"], kwargs["token_label_separator"])
-            devReader = SyncBatchIterator(devDatasetReader, [inputGenerator], outputGenerator, sys.maxint, shuffle=False)
+            devReader = SyncBatchIterator(devDatasetReader, [inputGenerator], [outputGenerator], sys.maxint,
+                                          shuffle=False)
         else:
             devReader = None
     else:
@@ -267,6 +268,7 @@ def mainWnn(**kwargs):
     if normalizeMethod == "min_max":
         log.info("Normalization: min max")
         embedding.minMaxNormalization()
+
     elif normalizeMethod == "mean_normalization":
         log.info("Normalization: mean normalization")
         embedding.meanNormalization()
@@ -279,7 +281,7 @@ def mainWnn(**kwargs):
     else:
         input = T.lmatrix("window_words")
 
-        embeddingLayer = EmbeddingLayer(input, embedding.getEmbeddingMatrix(), trainable=False)
+        embeddingLayer = EmbeddingLayer(input, embedding.getEmbeddingMatrix(), trainable=True)
         flatten = FlattenLayer(embeddingLayer)
 
         linear1 = LinearLayer(flatten, wordWindowSize * embedding.getEmbeddingSize(), hiddenLayerSize, W=W1, b=b1,
@@ -318,14 +320,9 @@ def mainWnn(**kwargs):
         log.info("Using L2 with lambda= %.2f", _lambda)
         loss += _lambda * (T.sum(T.square(linear1.getParameters()[0])))
 
-    wnnModel = Model()
+    wnnModel = BasicModel([input], [y])
 
-    modelUnit = ModelUnit("wnn", [input], y, loss, prediction=prediction)
-
-    wnnModel.addTrainingModelUnit(modelUnit, ["loss", "acc"])
-    wnnModel.setEvaluatedModelUnit(modelUnit, ["loss", "acc"])
-
-    wnnModel.compile([(opt, act2.getLayerSet())])
+    wnnModel.compile(act2.getLayerSet(), opt, prediction, loss, ["loss","acc"])
 
     # Training
     if trainReader:
@@ -338,7 +335,7 @@ def mainWnn(**kwargs):
             callback.append(SaveModelCallback(modelWriter, "eval_acc", True))
 
         log.info("Training")
-        wnnModel.train([trainReader], numEpochs, devReader, callbacks=callback)
+        wnnModel.train(trainReader, numEpochs, devReader, callbacks=callback)
 
     # Testing
     if kwargs["test"]:

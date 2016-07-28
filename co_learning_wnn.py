@@ -19,6 +19,7 @@ from DataOperation.InputGenerator.WindowGenerator import WindowGenerator
 from DataOperation.Lexicon import createLexiconUsingFile
 from DataOperation.TokenDatasetReader import TokenLabelReader, TokenReader
 from ModelOperation.Callback import Callback
+from ModelOperation.CoLearningModel import CoLearningModel
 from ModelOperation.Model import Model, ModelUnit
 from ModelOperation.Objective import NegativeLogLikelihood
 from ModelOperation.Prediction import ArgmaxPrediction, CoLearningWnnPrediction
@@ -70,21 +71,20 @@ CO_LEARNING_PARAMETERS = {
     "normalization": {"desc": "Choose the normalize method to be applied on  word embeddings. "
                               "The possible values are: max_min, mean_normalization or none"},
     "seed": {"desc": ""},
-    "l2": {"default": [None,None]}
+    "l2": {"default": [None, None]},
+    "loss_uns_epoch": {"default": 0}
 }
 
 
-
 class ChangeLambda(Callback):
-
-    def __init__(self, lambdaShared, lambdaValue):
+    def __init__(self, lambdaShared, lambdaValue, lossUnsupervisedEpoch):
         self.lambdaShared = lambdaShared
         self.lambdaValue = lambdaValue
+        self.lossUnsupervisedEpoch = lossUnsupervisedEpoch
 
     def onEpochBegin(self, epoch, logs={}):
-        e =  1 if epoch > 15 else 0
+        e = 1 if epoch >= self.lossUnsupervisedEpoch else 0
         self.lambdaShared.set_value(self.lambdaValue * e)
-
 
 
 class LossCallback(Callback):
@@ -93,9 +93,15 @@ class LossCallback(Callback):
         self.batch = 0
         self.outputs = [0.0, 0.0]
 
+
+
+
     def onBatchBegin(self, batch, logs={}):
         inputs = []
-        inputs += batch[0:3]
+        inputs += batch[:-2]
+
+        if len(inputs) != 3:
+            return
 
         outputs = self.f(*inputs)
         batchSize = len(batch[1])
@@ -103,6 +109,7 @@ class LossCallback(Callback):
 
         for i, output in enumerate(outputs):
             self.outputs[i] += output * batchSize
+
 
     def onEpochEnd(self, epoch, logs={}):
         for i in range(len(self.outputs)):
@@ -112,6 +119,7 @@ class LossCallback(Callback):
 
         self.batch = 0
         self.outputs = [0.0, 0.0]
+
 
 
 class AccCallBack(Callback):
@@ -139,8 +147,8 @@ class AccCallBack(Callback):
         for x, y in self.batchIterator:
             inputs = []
             inputs += x
-            inputs.append(y)
-            batch = len(y)
+            inputs += y
+            batch = len(y[0])
             total += batch
             outputs = self.f(*inputs)
 
@@ -188,7 +196,7 @@ def main(**kwargs):
     # Learner1
     input1 = T.lmatrix(name="input1")
 
-    embeddingLayer1 = EmbeddingLayer(input1, embedding1.getEmbeddingMatrix(), trainable=False)
+    embeddingLayer1 = EmbeddingLayer(input1, embedding1.getEmbeddingMatrix(), trainable=True)
     flatten1 = FlattenLayer(embeddingLayer1)
 
     linear11 = LinearLayer(flatten1, wordWindowSize * embedding1.getEmbeddingSize(), hiddenLayerSize,
@@ -204,7 +212,7 @@ def main(**kwargs):
 
     input2 = T.lmatrix(name="input2")
 
-    embeddingLayer2 = EmbeddingLayer(input2, embedding2.getEmbeddingMatrix(), trainable=False)
+    embeddingLayer2 = EmbeddingLayer(input2, embedding2.getEmbeddingMatrix(), trainable=True)
     flatten2 = FlattenLayer(embeddingLayer2)
 
     linear21 = LinearLayer(flatten2, wordWindowSize * embedding2.getEmbeddingSize(), hiddenLayerSize,
@@ -226,7 +234,6 @@ def main(**kwargs):
         log.info("Using L2 with lambda= %.2f", _lambda1)
         loss1 += _lambda1 * (T.sum(T.square(linear11.getParameters()[0])))
 
-
     output2 = act22.getOutput()
     prediction2 = ArgmaxPrediction(1).predict(output2)
     loss2 = NegativeLogLikelihood().calculateError(output2, prediction2, y)
@@ -236,10 +243,14 @@ def main(**kwargs):
         log.info("Using L2 with lambda= %.2f", _lambda2)
         loss2 += _lambda2 * (T.sum(T.square(linear21.getParameters()[0])))
 
-
     loss = loss1 + loss2
 
-    prediction = CoLearningWnnPrediction().predict([output1, output2])
+    ## CoLearningPrediction
+    output = T.stack([linear12.getOutput(), linear22.getOutput()])
+    # return T.argmax(output, 2)[T.argmax(T.max(output, 2), 0),T.arange(output.shape[1])]
+    average = T.mean(output, 0)
+    prediction = ArgmaxPrediction(1).predict(ActivationLayer(average, softmax).getOutput())
+    # prediction = CoLearningWnnPrediction().predict([output1, output2])
 
     supervisedModeUnit = ModelUnit("supervised_wnn", [input1, input2], y, loss, prediction=prediction)
 
@@ -248,7 +259,7 @@ def main(**kwargs):
     ## Learner1
     inputUnsuper1 = T.lmatrix(name="input_unsupervised_1")
 
-    embeddingLayerUnsuper1 = EmbeddingLayer(inputUnsuper1, embeddingLayer1.getParameters()[0], trainable=False)
+    embeddingLayerUnsuper1 = EmbeddingLayer(inputUnsuper1, embeddingLayer1.getParameters()[0], trainable=True)
 
     flattenUnsuper1 = FlattenLayer(embeddingLayerUnsuper1)
 
@@ -264,7 +275,7 @@ def main(**kwargs):
     ## Learner2
     inputUnsuper2 = T.lmatrix(name="input_unsupervised_2")
 
-    embeddingLayerUnsuper2 = EmbeddingLayer(inputUnsuper2, embeddingLayer2.getParameters()[0], trainable=False)
+    embeddingLayerUnsuper2 = EmbeddingLayer(inputUnsuper2, embeddingLayer2.getParameters()[0], trainable=True)
     flattenUnsuper2 = FlattenLayer(embeddingLayerUnsuper2)
 
     w, b = linear21.getParameters()
@@ -293,13 +304,11 @@ def main(**kwargs):
         NegativeLogLikelihood().calculateError(outputUns1, predictionUns1, predictionUns2) +
         NegativeLogLikelihood().calculateError(outputUns2, predictionUns2, predictionUns1))
 
-    unsY = T.lvector("y")
-
     unsupervisedUnit = ModelUnit("unsupervised_wnn", [inputUnsuper1, inputUnsuper2], None, unsupervisedLoss,
                                  yWillBeReceived=False)
 
     # Creates model
-    model = Model()
+    model = CoLearningModel()
 
     model.addTrainingModelUnit(supervisedModeUnit, metrics=["loss", "acc"])
     model.addTrainingModelUnit(unsupervisedUnit, metrics=["loss"])
@@ -311,7 +320,8 @@ def main(**kwargs):
     opt2 = SGD(lr=lr[1], decay=1.0)
 
     log.info("Compiling the model")
-    model.compile([(opt1, act12.getLayerSet()), (opt2, act22.getLayerSet())])
+    model.compile([(opt1, {supervisedModeUnit: act12.getLayerSet(), unsupervisedUnit: actUnsuper12.getLayerSet()}),
+                   (opt2, {supervisedModeUnit: act22.getLayerSet(), unsupervisedUnit: actUnsuper22.getLayerSet()})])
 
     # Generators
     inputGenerator1 = WindowGenerator(wordWindowSize, embedding1, filters, startSymbol)
@@ -321,12 +331,12 @@ def main(**kwargs):
     # Reading supervised and unsupervised data sets.
     trainSupervisedDatasetReader = TokenLabelReader(kwargs["train_supervised"], kwargs["token_label_separator"])
     trainSupervisedDatasetReader = SyncBatchIterator(trainSupervisedDatasetReader, [inputGenerator1, inputGenerator2],
-                                                     outputGenerator, batchSize[0])
+                                                     [outputGenerator], batchSize[0])
 
-    trainUnsupervisedDatasetReader = TokenLabelReader(kwargs["train_unsupervised"], kwargs["token_label_separator"])
-    trainUnsupervisedDatasetReader = SyncBatchIterator(trainUnsupervisedDatasetReader,
+    trainUnsupervisedDataset = TokenLabelReader(kwargs["train_unsupervised"], kwargs["token_label_separator"])
+    trainUnsupervisedDatasetReader = SyncBatchIterator(trainUnsupervisedDataset,
                                                        [inputGenerator1, inputGenerator2],
-                                                       outputGenerator, batchSize[1])
+                                                       [outputGenerator], batchSize[1])
 
     embedding1.stopAdd()
     embedding2.stopAdd()
@@ -335,16 +345,21 @@ def main(**kwargs):
     # Get dev inputs and output
     log.info("Reading development examples")
     devDatasetReader = TokenLabelReader(kwargs["dev"], kwargs["token_label_separator"])
-    devReader = SyncBatchIterator(devDatasetReader, [inputGenerator1, inputGenerator2], outputGenerator, sys.maxint,
+    devReader = SyncBatchIterator(devDatasetReader, [inputGenerator1, inputGenerator2], [outputGenerator], sys.maxint,
                                   shuffle=False)
 
-    lambdaChange = ChangeLambda(_lambdaShared, kwargs["lambda"])
+    lambdaChange = ChangeLambda(_lambdaShared, kwargs["lambda"], kwargs["loss_uns_epoch"])
     lossCallback = LossCallback(loss1, loss2, input1, input2, y)
+
+    trainUnsupervisedDatasetReaderAcc = SyncBatchIterator(trainUnsupervisedDataset,
+                                                          [inputGenerator1, inputGenerator2],
+                                                          [outputGenerator], sys.maxint)
+
     accCallBack = AccCallBack(prediction1, prediction2, input1, input2,
-                              unsurpervisedDataset=trainUnsupervisedDatasetReader)
+                              unsurpervisedDataset=trainUnsupervisedDatasetReaderAcc)
     # Training Model
     model.train([trainSupervisedDatasetReader, trainUnsupervisedDatasetReader], numEpochs, devReader,
-                callbacks=[lambdaChange,accCallBack, lossCallback])
+                callbacks=[lambdaChange, accCallBack, lossCallback])
 
 
 if __name__ == '__main__':

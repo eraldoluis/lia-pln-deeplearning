@@ -16,7 +16,7 @@ class BatchAssembler:
     Create and returns the training batches.
     '''
 
-    def __init__(self, reader, inputGenerators, outputGenerator, batchSize):
+    def __init__(self, reader, inputGenerators, outputGenerators, batchSize):
         '''
         :type reader: DataOperation.DatasetReader.DatasetReader
         :param reader:
@@ -36,7 +36,7 @@ class BatchAssembler:
 
         self.__reader = reader
         self.__inputGenerators = inputGenerators
-        self.__outputGenerator = outputGenerator
+        self.__outputGenerators = outputGenerators
         self.__batchSize = batchSize
         self.__printed = False
         self.__log = logging.getLogger(__name__)
@@ -46,12 +46,12 @@ class BatchAssembler:
         :return: a generator from the yield expression. This generator will return the batches from the data set.
         '''
         inputs = [[] for inputGenerator in self.__inputGenerators]
-        outputs = []
-        generatedOutputs = None
+        outputs = [[] for inputGenerator in self.__outputGenerators]
         nmExamples = 0
 
         for attributes, label in self.__reader.read():
             generatedInputs = []
+            generatedOutputs = []
 
             for inputGenerator in self.__inputGenerators:
                 generatedInputs.append(inputGenerator.generate(attributes))
@@ -59,12 +59,14 @@ class BatchAssembler:
             # If outputGenerator is None, so neural network won't need of y,
             #   since y might be produced for some part of the neural network.
             # This happens with autoencoder.
-            if self.__outputGenerator:
-                generatedOutputs = self.__outputGenerator.generate(label)
+            if self.__outputGenerators:
+                for outputGenerator in self.__outputGenerators:
+                    generatedOutputs.append(outputGenerator.generate(label))
 
             nmExamples += len(generatedInputs[0])
 
             if self.__batchSize > 0:
+                # Batch  has fixed size
                 for idx in range(len(generatedInputs[0])):
                     for idxGen, genInput in enumerate(generatedInputs):
                         inputs[idxGen].append(genInput[idx])
@@ -72,15 +74,17 @@ class BatchAssembler:
                     # If outputGenerator is None, so neural network won't need of y,
                     #   since y might be produced for some part of the neural network.
                     # This happens with autoencoder.
-                    if self.__outputGenerator:
-                        outputs.append(generatedOutputs[idx])
+                    if self.__outputGenerators:
+                        for idxGen, genOutput in enumerate(generatedOutputs):
+                            outputs[idxGen].append(genOutput[idx])
 
                     if len(inputs[0]) == self.__batchSize:
                         yield self.formatToNumpy(inputs, outputs)
 
                         inputs = [[] for inputGenerator in self.__inputGenerators]
-                        outputs = []
+                        outputs = [[] for inputGenerator in self.__outputGenerators]
             else:
+                # Batch don't have fixed size
                 inputs = generatedInputs
                 outputs = generatedOutputs
 
@@ -96,7 +100,12 @@ class BatchAssembler:
     def formatToNumpy(self, inputs, outputs):
         for idx, input in enumerate(inputs):
             inputs[idx] = numpy.asarray(input)
-        return [inputs, numpy.asarray(outputs)]
+
+        for idx, out in enumerate(outputs):
+            outputs[idx] = numpy.asarray(out)
+
+
+        return [inputs, outputs]
 
 
 class SyncBatchIterator(object):

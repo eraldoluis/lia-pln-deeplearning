@@ -4,6 +4,7 @@
 '''
 '''
 import codecs
+from zlib import adler32
 
 def createLexiconUsingFile(lexiconFilePath):
     lexicon = Lexicon()
@@ -108,5 +109,85 @@ class Lexicon(object):
         Tell the class to stop adding new words
 
         :return:
+        """
+        self.__readOnly = True
+
+
+
+
+class HashLexicon(object):
+    """
+    This is a very simple, but effective, way of representing a lexicon.
+    We just hash the values and use the hash code as the value index.
+    """
+
+    def __init__(self, size):
+        self.__lexicon = None
+        self.__lexiconDict = None
+        self.unknown_index = -1
+        self.__readOnly = False
+        self.__size = size
+
+    def isReadOnly(self):
+        """
+        :return: return if lexicon is adding new words
+        """
+        return self.__readOnly
+
+    def getLexiconList(self):
+        """
+        :return: return a list of all words of the lexicon. The position of the word in the list is the idx of this word
+            in the lexicon
+        """
+        return self.__lexicon
+
+    def getLexiconDict(self):
+        """
+        :return: return a dictionary which contains the integers which represent each word.
+        """
+        return self.__lexiconDict
+
+    def getLen(self):
+        '''
+        Return the number of words in the lexicon.
+        '''
+        return self.__size
+
+    def put(self, word):
+        '''
+        Include a new word in the lexicon and return its index. If the word is
+        already in the lexicon, then just return its index.
+        If a word in new to lexicon and '__readOnly' is true, so this lexicon will return a index which
+        is related with all unknown words.
+        '''
+        
+        return self.getLexiconIndex(word)
+
+    def getLexicon(self, index):
+        '''
+        Return the word in the lexicon that is stored in the given index.
+        '''
+        return None
+
+    def getLexiconIndex(self, word):
+        '''
+        Return the code of the given word. It is its hash code.
+        '''
+        return adler32(word) % self.__size
+
+    def getUnknownIndex(self):
+        return self.unknown_index
+
+    def isUnknownIndex(self, index):
+        return index == self.unknown_index
+
+    def exist(self, word):
+        return True
+
+    def setUnknownIndex(self, unknown_index):
+        self.unknown_index = unknown_index
+
+    def stopAdd(self):
+        """
         """
         self.__readOnly = True

@@ -271,8 +271,11 @@ class RandomEmbedding(Embedding):
     In this embedding each new added object  receive a random vector
     '''
 
-    def __init__(self, embeddingSize, unknownGenerateStrategy):
+    def __init__(self, embeddingSize, unknownGenerateStrategy, lexicon=None):
         Embedding.__init__(self, embeddingSize, unknownGenerateStrategy)
+
+        if lexicon:
+            self._Embedding__lexicon = lexicon
 
         # Generator that going to generate values for vectors 
         self.__generatorWeight = FeatureVectorsGenerator()

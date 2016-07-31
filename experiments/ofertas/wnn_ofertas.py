@@ -14,11 +14,13 @@ from time import time
 import numpy as np
 import theano.tensor as T
 
-from data.Embedding import EmbeddingFactory, RandomUnknownStrategy, ChosenUnknownStrategy
-from data.InputGenerator.BatchIterator import SyncBatchIterator
+from data.Embedding import EmbeddingFactory, RandomUnknownStrategy, ChosenUnknownStrategy, \
+    Embedding, RandomEmbedding
+from data.InputGenerator.BatchIterator import SyncBatchIterator, \
+    AsyncBatchIterator
 from data.InputGenerator.LabelGenerator import LabelGenerator
 from data.InputGenerator.WindowGenerator import WindowGenerator
-from data.Lexicon import Lexicon, createLexiconUsingFile
+from data.Lexicon import Lexicon, createLexiconUsingFile, HashLexicon
 from data.TokenDatasetReader import TokenLabelReader
 from model.Model import Model, ModelUnit
 from model.Objective import NegativeLogLikelihood
@@ -76,7 +78,11 @@ PARAMETERS = {
                               "The possible values are: 'none', 'minmax', 'mean'."},
     "labels": {"desc": "File containing the list of possible labels."},
     "conv_size": {"required": True,
-                  "desc": "Size of the convolution layer (number of filters)."}
+                  "desc": "Size of the convolution layer (number of filters)."},
+    "load_method": {"default": "sync",
+                    "desc": "Method for loading the training dataset." + 
+                            "The possible values are: 'sync' and 'async'."},
+    "hash_lex_size": {"desc": "Activate the hash lexicon by specifying the hash table size."}
 }
 
 
@@ -231,7 +237,7 @@ class TextLabelGenerator(FeatureGenerator):
 
         if y == -1:
             # TODO: test
-            #raise Exception("Label doesn't exist: %s" % label)
+            # raise Exception("Label doesn't exist: %s" % label)
             self.__labelLexicon.getLexicon(0)
 
         return y
@@ -304,6 +310,10 @@ def main(**kwargs):
         if kwargs["word_embedding"]:
             log.info("Reading W2v File")
             embedding = EmbeddingFactory().createFromW2V(kwargs["word_embedding"], RandomUnknownStrategy())
+        elif kwargs["hash_lex_size"]:
+            embedding = RandomEmbedding(kwargs["word_emb_size"],
+                                        RandomUnknownStrategy(),
+                                        HashLexicon(kwargs["hash_lex_size"]))
         else:
             embedding = EmbeddingFactory().createRandomEmbedding(kwargs["word_emb_size"])
 
@@ -326,7 +336,7 @@ def main(**kwargs):
 
     # Generate word windows.
     featureGenerator = WindowGenerator(wordWindowSize, embedding, filters,
-                                     startSymbol, endSymbol)
+                                       startSymbol, endSymbol)
     # Generate one label per example (list of tokens).
     labelGenerator = TextLabelGenerator(labelLexicon)
 
@@ -334,11 +344,23 @@ def main(**kwargs):
         log.info("Reading training examples")
 
         trainDatasetReader = OfertasReader(kwargs["train"])
-        trainReader = SyncBatchIterator(trainDatasetReader,
-                                        [featureGenerator],
-                                        labelGenerator,
-                                        - 1,
-                                        shuffle=shuffle)
+        if kwargs["load_method"] == "sync":
+            trainReader = SyncBatchIterator(trainDatasetReader,
+                                            [featureGenerator],
+                                            labelGenerator,
+                                            - 1,
+                                            shuffle=shuffle)
+        elif kwargs["load_method"] == "async":
+            trainReader = AsyncBatchIterator(trainDatasetReader,
+                                             [featureGenerator],
+                                             labelGenerator,
+                                             - 1,
+                                             shuffle=shuffle,
+                                             maxqSize=1000)
+        else:
+            log.error("The option 'load_method' has an invalid value (%s)." % kwargs["load_method"])
+            sys.exit(1)
+
         embedding.stopAdd()
         labelLexicon.stopAdd()
 
@@ -379,16 +401,16 @@ def main(**kwargs):
     # representado por uma janela de tokens (token central e alguns tokens
     # próximos). Cada valor desta matriz corresponde a um índice que representa
     # um token no embedding.
-    _input = T.lmatrix("sentence")
+    _input = T.lmatrix("x")
 
     # Categoria correta de uma oferta.
     y = T.lscalar("y")
 
     # TODO: debug
-    #theano.config.compute_test_value = 'warn'
-    #ex = trainReader.next()
-    #_input.tag.test_value = ex[0]
-    #y.tag.test_value = ex[1]
+    # theano.config.compute_test_value = 'warn'
+    # ex = trainReader.next()
+    # _input.tag.test_value = ex[0]
+    # y.tag.test_value = ex[1]
 
     # Lookup table.
     embeddingLayer = EmbeddingLayer(_input,
@@ -421,7 +443,7 @@ def main(**kwargs):
                                     W=W2, b=b2,
                                     weightInitialization=ZeroWeightGenerator())
     # Softmax.
-    softmaxAct = ReshapeLayer(ActivationLayer(sotmaxLinearInput, softmax), (1,-1))
+    softmaxAct = ReshapeLayer(ActivationLayer(sotmaxLinearInput, softmax), (1, -1))
 
     # Prediction layer (argmax).
     prediction = ArgmaxPrediction(None).predict(softmaxAct.getOutput())
@@ -440,7 +462,7 @@ def main(**kwargs):
         opt = SGD(lr=lr, decay=decay)
 
     # TODO: debug
-    #opt.lr.tag.test_value = 0.01
+    # opt.lr.tag.test_value = 0.01
 
     # Printing embedding information.
     dictionarySize = embedding.getNumberOfVectors()
@@ -451,7 +473,7 @@ def main(**kwargs):
 
     # Compiling
     loss = NegativeLogLikelihood().calculateError(softmaxAct.getOutput()[0],
-                                                  prediction, 
+                                                  prediction,
                                                   y)
 
 #     if kwargs["lambda"]:
@@ -460,7 +482,7 @@ def main(**kwargs):
 #         loss += _lambda * (T.sum(T.square(hiddenLinear.getParameters()[0])))
 
     # TODO: debug
-    #model = Model(mode=compile.debugmode.DebugMode(optimizer=None))
+    # model = Model(mode=compile.debugmode.DebugMode(optimizer=None))
     model = Model()
 
     modelUnit = ModelUnit("ofertas", [_input], y, loss, prediction=prediction)
@@ -476,8 +498,8 @@ def main(**kwargs):
 
         if kwargs["save_model"]:
             savePath = kwargs["save_model"]
-            modelWriter = OfertasModelWritter(savePath, embeddingLayer, 
-                                              hiddenLinear, sotmaxLinearInput, 
+            modelWriter = OfertasModelWritter(savePath, embeddingLayer,
+                                              hiddenLinear, sotmaxLinearInput,
                                               embedding, labelLexicon,
                                               hiddenActFunctionName)
             callback.append(SaveModelCallback(modelWriter, "eval_acc", True))
@@ -492,7 +514,7 @@ def main(**kwargs):
         testReader = SyncBatchIterator(testDatasetReader,
                                        [featureGenerator],
                                        labelGenerator,
-                                       -1,
+                                       - 1,
                                        shuffle=False)
 
         log.info("Testing")

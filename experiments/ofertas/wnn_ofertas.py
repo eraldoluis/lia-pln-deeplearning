@@ -236,9 +236,7 @@ class TextLabelGenerator(FeatureGenerator):
         y = self.__labelLexicon.put(label)
 
         if y == -1:
-            # TODO: test
-            # raise Exception("Label doesn't exist: %s" % label)
-            self.__labelLexicon.getLexicon(0)
+            raise Exception("Label doesn't exist: %s" % label)
 
         return y
 

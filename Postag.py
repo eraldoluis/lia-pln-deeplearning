@@ -406,13 +406,21 @@ def run(args):
     
     
     if args.savePrediction is not None:
-            print 'Saving Prediction...'
-            predicts_y_given_x = model.predict(testData[0], testData[2], unknownDataTestCharIdxs)
+        print 'Saving Prediction...'
+        f = open(args.savePrediction, "w")
+        
+        if args.alg == "window_sentence":
+            for p in predicts:
+                for i in p:
+                    f.write(lexiconOfLabel.getLexicon(i)+ ' ')    
+                f.write('\n')
+        else:
+            for p in predicts:
+                f.write(lexiconOfLabel.getLexicon(p)+'\n')
             
-            f = open(args.savePrediction, "wb")
-            pickle.dump([predicts_y_given_x,predicts, testData[1],lexiconOfLabel], f, pickle.HIGHEST_PROTOCOL)
-            f.close()
-            print 'Prediction save with sucess in ' + args.savePrediction
+        f.close()
+        print 'Prediction save with sucess in ' + args.savePrediction
+
     
     
     evalue = EvaluateAccuracy()

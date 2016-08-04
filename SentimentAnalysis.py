@@ -390,14 +390,15 @@ def run(args):
     testData[1] = numpy.reshape(testData[1], (len(testData[1]), 1))
     
        
-    #===========================================================================
-    # if args.savePrediction is not None:
-    #         print 'Saving Prediction...'
-    #         f = open(args.savePrediction, "wb")
-    #         pickle.dump([predicts_y_given_x,predicts, testData[1],lexiconOfLabel], f, pickle.HIGHEST_PROTOCOL)
-    #         f.close()
-    #         print 'Prediction save with sucess in ' + args.savePrediction
-    #===========================================================================
+    
+    if args.savePrediction is not None:
+        print 'Saving Prediction...'
+        f = open(args.savePrediction, "w")
+        for p in predicts:
+            f.write(lexiconOfLabel.getLexicon(p)+'\n')    
+        f.close()
+        print 'Prediction save with sucess in ' + args.savePrediction
+
     
     
     evalue = EvaluateAccuracy()
@@ -524,8 +525,8 @@ def main():
     parser.add_argument('--withCharwnn', dest='withCharwnn', action='store_true', default=False,
                        help='Set training with character embeddings')
     
-    parser.add_argument('--tokenLabelSeparator', dest='tokenLabelSeparator', action='store', required=False, default="_",
-                            help="Specify the character that is being used to separate the token from the label in the dataset.")
+    parser.add_argument('--tokenLabelSeparator', dest='tokenLabelSeparator', action='store', required=False, default=",",
+                            help="Specify the character that is being used to separate the sentence from the label in the dataset.")
     
     #parser.add_argument('--alg', dest='alg', action='store',
     #                    default="window_sentence",
@@ -684,6 +685,7 @@ def main():
     
     parser.add_argument('--savePrediction', dest='savePrediction', action='store', default=None,
                        help='The file path where the prediction will be saved')
+
     
     parser.add_argument('--nonupdatewv',dest='nonupdatewv', action='store', nargs='*', type=int,default=[],
                         help='Receive word embedding indexes which is not to be updated. The index begin with 0.')

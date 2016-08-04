@@ -211,7 +211,7 @@ class TokenLabelReader:
         f = codecs.open(filename, 'r', 'utf-8')
         
         
-        ii = 0
+        #ii = 0
                 
         for line in f:
             #TODO: debug
@@ -219,7 +219,7 @@ class TokenLabelReader:
             #if ii == 1000:
             #    break 
             
-            row = line.split(',',1)
+            row = line.split(self.__tokenLabelSeparator,1)
             
             
             if len(row) < 2:

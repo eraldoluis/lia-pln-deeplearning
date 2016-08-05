@@ -274,11 +274,17 @@ class RandomEmbedding(Embedding):
     def __init__(self, embeddingSize, unknownGenerateStrategy, lexicon=None):
         Embedding.__init__(self, embeddingSize, unknownGenerateStrategy)
 
-        if lexicon:
-            self._Embedding__lexicon = lexicon
-
         # Generator that going to generate values for vectors 
         self.__generatorWeight = FeatureVectorsGenerator()
+
+        if lexicon:
+            # TODO: @eraldo: adicionei este código para o HashLexicon
+            self._Embedding__lexicon = lexicon
+            numVectors = lexicon.getLen()
+            szVectors = self.getEmbeddingSize()
+            for _ in xrange(numVectors):
+                vec = self.__generatorWeight.generateVector(szVectors)
+                self._Embedding__vectors.append(vec)
 
     def put(self, obj):
         vec = self.__generatorWeight.generateVector(self.getEmbeddingSize())

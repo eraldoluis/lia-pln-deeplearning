@@ -113,8 +113,6 @@ class Lexicon(object):
         self.__readOnly = True
 
 
-
-
 class HashLexicon(object):
     """
     This is a very simple, but effective, way of representing a lexicon.

@@ -48,6 +48,8 @@ def readVocabAndWord(args):
 
                 
 def run(args):
+    acc_hist = []
+    debug_data = []
     args.wordMode = 'random'
     filters = []
     a = 0

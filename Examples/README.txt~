@@ -14,7 +14,7 @@ tal que:
 -test: arquivo de teste (obrigatório)
 -prediction: arquivo onde deseja salvar a predição do teste
 -model: arquivo que deseja salvar o modelo
--out: arquivo onde deseja imprimir a saída (com os valores de acurácia)
+-out: arquivo onde deseja imprimir a saída (com o valor da acurácia)
 -iter: número de iterações (default 30)
 -vocab: vocabulário para o treino
 -cross: número de folds para validação cruzada (a validação é ativada com este parâmetro)

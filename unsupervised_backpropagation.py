@@ -1,6 +1,6 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
-
+import math
 import theano
 
 # !/usr/bin/env python
@@ -15,7 +15,6 @@ import sys
 import numpy as np
 import theano
 import theano.tensor as T
-from theano import printing
 
 from DataOperation.Embedding import EmbeddingFactory, RandomUnknownStrategy
 from DataOperation.InputGenerator.BatchIterator import SyncBatchIterator
@@ -24,32 +23,31 @@ from DataOperation.InputGenerator.LabelGenerator import LabelGenerator
 from DataOperation.InputGenerator.WindowGenerator import WindowGenerator
 from DataOperation.Lexicon import createLexiconUsingFile, Lexicon
 from DataOperation.TokenDatasetReader import TokenLabelReader, TokenReader
-from ModelOperation import ReverseGradientModel
 from ModelOperation.Callback import Callback
 from ModelOperation.CoLearningModel import CoLearningModel
 from ModelOperation.Model import Model, ModelUnit
 from ModelOperation.Objective import NegativeLogLikelihood
 from ModelOperation.Prediction import ArgmaxPrediction, CoLearningWnnPrediction
-from ModelOperation.ReverseGradientModel import ReverseGradientModel
+from ModelOperation.GradientReversalModel import GradientReversalModel
 from NNet.ActivationLayer import ActivationLayer, softmax, tanh
 from NNet.EmbeddingLayer import EmbeddingLayer
 from NNet.FlattenLayer import FlattenLayer
 from NNet.LinearLayer import LinearLayer
-from NNet.ReverseGradientLayer import ReverseGradientLayer
+from NNet.GradientReversalLayer import GradientReversalLayer
 from NNet.WeightGenerator import ZeroWeightGenerator, GlorotUniform
+from Optimizers import Adagrad
 from Optimizers.Adagrad import Adagrad
 from Optimizers.SGD import SGD
 from Parameters.JsonArgParser import JsonArgParser
-from co_learning_wnn import LossCallback
 
-CO_LEARNING_PARAMETERS = {
+UNSUPERVISED_BACKPROPAGATION_PARAMETERS = {
     "token_label_separator": {"required": True,
                               "desc": "specify the character that is being used to separate the token from the label in the dataset."},
     "filters": {"required": True,
                 "desc": "list contains the filters. Each filter is describe by your module name + . + class name"},
-    "lambda": {"desc": "", "required": True},
     "label_file": {"desc": "", "required": True},
     "batch_size": {"required": True},
+    "alpha": {"desc": "", "required": True},
 
     "train_source": {"desc": "Supervised Training File Path"},
     "train_target": {"desc": "Unsupervised Training File Path"},
@@ -66,8 +64,7 @@ CO_LEARNING_PARAMETERS = {
     "hidden_size": {"default": 300, "desc": "The number of neurons in the hidden layer"},
     "word_window_size": {"default": 5, "desc": "The size of words for the wordsWindow"},
     "word_emb_size": {"default": 100, "desc": "size of word embedding"},
-    "word_embedding1": {"desc": "word embedding File Path"},
-    "word_embedding2": {"desc": "word embedding File Path"},
+    "word_embedding": {"desc": "word embedding File Path"},
     "start_symbol": {"default": "</s>", "desc": "Object that will be place when the initial limit of list is exceeded"},
     "end_symbol": {"default": "</s>", "desc": "Object that will be place when the end limit of list is exceeded"},
     "seed": {"desc": ""},
@@ -81,19 +78,22 @@ CO_LEARNING_PARAMETERS = {
     "normalization": {"desc": "Choose the normalize method to be applied on  word embeddings. "
                               "The possible values are: max_min, mean_normalization or none"},
     "seed": {"desc": ""},
-    "l2": {"default": [None, None]},
 }
 
 
 class ChangeLambda(Callback):
-    def __init__(self, lambdaShared, lambdaValue, lossUnsupervisedEpoch):
+    def __init__(self, lambdaShared, alpha, maxNumEpoch, height=1, lowerBound=0):
         self.lambdaShared = lambdaShared
-        self.lambdaValue = lambdaValue
-        self.lossUnsupervisedEpoch = lossUnsupervisedEpoch
+        self.alpha = alpha
+        self.height = height
+        self.lowerBound = lowerBound
+        self.maxNumEpoch = float(maxNumEpoch)
 
     def onEpochBegin(self, epoch, logs={}):
-        e = 1 if epoch >= self.lossUnsupervisedEpoch else 0
-        self.lambdaShared.set_value(self.lambdaValue * e)
+        progress = min(1., epoch / self.maxNumEpoch)
+        _lambda = 2. * self.height / (1. + math.exp(-self.alpha * progress)) - self.height + self.lowerBound;
+
+        self.lambdaShared.set_value(_lambda)
 
 
 def main(**kwargs):
@@ -121,8 +121,16 @@ def main(**kwargs):
     numEpochs = kwargs["num_epochs"]
     lr = kwargs["lr"]
     tagLexicon = createLexiconUsingFile(kwargs["label_file"])
-    _lambda = 0
+    _lambda = theano.shared(0., "lambda")
+    useAdagrad = kwargs["adagrad"]
+    shuffle = kwargs["shuffle"]
 
+    if kwargs["decay"].lower() == "normal":
+        decay = 0.0
+    elif kwargs["decay"].lower() == "divide_epoch":
+        decay = 1.0
+
+    # Add the lexicon of target
     domainLexicon = Lexicon()
 
     domainLexicon.put("0")
@@ -136,6 +144,7 @@ def main(**kwargs):
 
     # Source part
     windowSource = T.lmatrix(name="windowSource")
+
     embeddingLayer1 = EmbeddingLayer(windowSource, embedding1.getEmbeddingMatrix(), trainable=True)
     flatten1 = FlattenLayer(embeddingLayer1)
 
@@ -147,9 +156,9 @@ def main(**kwargs):
                                    weightInitialization=ZeroWeightGenerator())
     supervisedSoftmax = ActivationLayer(supervisedLinear, softmax)
 
-    reverseGradientSource = ReverseGradientLayer(act1, _lambda)
+    gradientReversalSource = GradientReversalLayer(act1, _lambda)
 
-    unsupervisedSourceLinear = LinearLayer(reverseGradientSource, hiddenLayerSize, domainLexicon.getLen(),
+    unsupervisedSourceLinear = LinearLayer(gradientReversalSource, hiddenLayerSize, domainLexicon.getLen(),
                                            weightInitialization=ZeroWeightGenerator())
     unsupervisedSourceSoftmax = ActivationLayer(unsupervisedSourceLinear, softmax)
 
@@ -164,10 +173,11 @@ def main(**kwargs):
                                  W=w, b=b, trainable=False)
     actUnsupervised1 = ActivationLayer(linearUnsuper1, tanh)
 
-    reverseGradientTarget = ReverseGradientLayer(actUnsupervised1, _lambda)
+    grandientReversalTarget = GradientReversalLayer(actUnsupervised1, _lambda)
 
     w, b = unsupervisedSourceLinear.getParameters()
-    unsupervisedTargetLinear = LinearLayer(reverseGradientTarget, hiddenLayerSize, domainLexicon.getLen(), W=w, b=b, trainable=False)
+    unsupervisedTargetLinear = LinearLayer(grandientReversalTarget, hiddenLayerSize, domainLexicon.getLen(), W=w, b=b,
+                                           trainable=False)
     unsupervisedTargetSoftmax = ActivationLayer(unsupervisedTargetLinear, softmax)
 
     # Set loss and prediction and retrieve all layers
@@ -184,25 +194,30 @@ def main(**kwargs):
     unsupervisedLossSource = NegativeLogLikelihood().calculateError(unsupervisedOutputSource, None,
                                                                     unsupervisedLabelSource)
 
-
     unsupervisedOutputTarget = unsupervisedTargetSoftmax.getOutput()
     unsupervisedPredTarget = ArgmaxPrediction(1).predict(unsupervisedOutputTarget)
     unsupervisedLossTarget = NegativeLogLikelihood().calculateError(unsupervisedOutputTarget, None,
                                                                     unsupervisedLabelTarget)
 
-    unsupervisedPrediction = T.concatenate([unsupervisedPredSource,unsupervisedPredTarget])
+    unsupervisedPrediction = T.concatenate([unsupervisedPredSource, unsupervisedPredTarget])
 
     loss = supervisedLoss + unsupervisedLossSource + unsupervisedLossTarget
 
     # Creates model
-    model = ReverseGradientModel([windowSource, windowTarget],
-                                 [supervisedLabel, unsupervisedLabelSource, unsupervisedLabelTarget])
+    model = GradientReversalModel([windowSource, windowTarget],
+                                  [supervisedLabel, unsupervisedLabelSource, unsupervisedLabelTarget])
 
-    opt = SGD(lr=lr, decay=1.0)
+    if useAdagrad:
+        log.info("Using ADAGRAD")
+        opt = Adagrad(lr=lr, decay=decay)
+    else:
+        log.info("Using SGD")
+        opt = SGD(lr=lr, decay=decay)
 
     allLayers = supervisedSoftmax.getLayerSet() | unsupervisedSourceSoftmax.getLayerSet() | unsupervisedTargetSoftmax.getLayerSet()
 
-    model.compile(allLayers, opt, supervisedPrediction, unsupervisedPrediction, loss, loss, supervisedLoss, unsupervisedLossSource + unsupervisedLossTarget)
+    model.compile(allLayers, opt, supervisedPrediction, unsupervisedPrediction, loss, loss, supervisedLoss,
+                  unsupervisedLossSource + unsupervisedLossTarget)
 
     # Generators
     windowGenerator = WindowGenerator(wordWindowSize, embedding1, filters, startSymbol)
@@ -212,7 +227,8 @@ def main(**kwargs):
     # Reading supervised and unsupervised data sets.
     trainSupervisedDatasetReader = TokenLabelReader(kwargs["train_source"], kwargs["token_label_separator"])
     trainSupervisedBatch = SyncBatchIterator(trainSupervisedDatasetReader, [windowGenerator],
-                                             [outputGeneratorTag, unsupervisedLabelSource], batchSize[0])
+                                             [outputGeneratorTag, unsupervisedLabelSource], batchSize[0],
+                                             shuffle=shuffle)
 
     # Get Unsupervised Input
     unsupervisedLabelTarget = ConstantLabel(domainLexicon, "1")
@@ -220,7 +236,7 @@ def main(**kwargs):
     trainUnsupervisedDatasetReader = TokenReader(kwargs["train_target"])
     trainUnsupervisedDatasetBatch = SyncBatchIterator(trainUnsupervisedDatasetReader,
                                                       [windowGenerator],
-                                                      [unsupervisedLabelTarget], batchSize[1])
+                                                      [unsupervisedLabelTarget], batchSize[1], shuffle=shuffle)
 
     # Get dev inputs and output
     log.info("Reading development examples")
@@ -232,12 +248,11 @@ def main(**kwargs):
     tagLexicon.stopAdd()
     domainLexicon.stopAdd()
 
-    # Create Callbacks
-    # lambdaChange = ChangeLambda(_lambdaShared, kwargs["lambda"], kwargs["loss_uns_epoch"])
+    lambdaCallback = ChangeLambda(_lambda, kwargs["alpha"], numEpochs)
 
     # Training Model
     model.train([trainSupervisedBatch, trainUnsupervisedDatasetBatch], numEpochs, devReader,
-                callbacks=[])
+                callbacks=[lambdaCallback])
 
 
 if __name__ == '__main__':
@@ -246,6 +261,5 @@ if __name__ == '__main__':
 
     logging.config.fileConfig(os.path.join(path, 'logging.conf'))
 
-    parameters = JsonArgParser(CO_LEARNING_PARAMETERS).parse(sys.argv[1])
+    parameters = JsonArgParser(UNSUPERVISED_BACKPROPAGATION_PARAMETERS).parse(sys.argv[1])
     main(**parameters)
-

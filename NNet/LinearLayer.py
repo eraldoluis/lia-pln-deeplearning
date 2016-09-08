@@ -8,7 +8,7 @@ from NNet.WeightGenerator import GlorotUniform
 
 
 class LinearLayer(Layer):
-    def __init__(self, _input, lenIn, lenOut, W=None, b=None, weightInitialization=GlorotUniform()):
+    def __init__(self, _input, lenIn, lenOut, W=None, b=None, weightInitialization=GlorotUniform(), trainable=True):
         """
         Typical linear layer of a MLP: units are fully-connected.
         Weight matrix W is of shape (lenIn,lenOut) 
@@ -26,7 +26,7 @@ class LinearLayer(Layer):
 
         :type weightInitialization: NNet.WeightGenerator.WeightGenerator
         """
-        super(LinearLayer, self).__init__(_input)
+        super(LinearLayer, self).__init__(_input, trainable)
 
         if not isinstance(W, TensorSharedVariable):
             if isinstance(W, (numpy.ndarray, list)):
@@ -39,7 +39,7 @@ class LinearLayer(Layer):
 
             W = theano.shared(value=W_values, name='W_hiddenLayer', borrow=True)
 
-        if not isinstance(b,TensorSharedVariable):
+        if not isinstance(b, TensorSharedVariable):
             if isinstance(b, (numpy.ndarray, list)):
                 b_values = numpy.asarray(b, dtype=theano.config.floatX)
             else:

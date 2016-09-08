@@ -29,6 +29,9 @@ class Metric(object):
         self.seen = 0.0
 
     def calculate(self):
+        if self.seen == 0.0:
+            return -1
+
         return self.value / self.seen
 
 

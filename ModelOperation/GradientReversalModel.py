@@ -9,10 +9,10 @@ import theano.tensor as T
 from ModelOperation.Model import Model, Metric
 
 
-class ReverseGradientModel(Model):
+class GradientReversalModel(Model):
 
     def __init__(self, x, y ):
-        super(ReverseGradientModel, self).__init__()
+        super(GradientReversalModel, self).__init__()
 
         self.__theanoFunction = None
         self.log = logging.getLogger(__name__)

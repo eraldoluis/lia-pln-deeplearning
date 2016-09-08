@@ -1,5 +1,5 @@
 from NNet.Layer import Layer
-from ext_theano.ReverseGradient import ReverseGradient
+from ext_theano.GradientReversalOp import GradientReversalOp
 
 
 class GradientReversalLayer(Layer):
@@ -7,7 +7,7 @@ class GradientReversalLayer(Layer):
         super(GradientReversalLayer, self).__init__(_input)
 
 
-        r = ReverseGradient(_lambda)
+        r = GradientReversalOp(_lambda)
         self.__output = r(self.getInput())
 
     def getOutput(self):

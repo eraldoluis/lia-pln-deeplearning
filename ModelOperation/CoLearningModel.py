@@ -11,7 +11,7 @@ from ModelOperation.Model import Metric, StopWatch, resetAllMetrics, Model
 
 
 class CoLearningModel(Model):
-    def __init__(self):
+    def __init__(self, lossUnsupervisedEpoch):
         super(CoLearningModel, self).__init__()
 
         self.log = logging.getLogger(__name__)
@@ -29,6 +29,7 @@ class CoLearningModel(Model):
         self.evaluateMetrics = []
 
         self.__theanoTrainFunction = []
+        self.__lossUnsupervisedEpoch = lossUnsupervisedEpoch
 
     def addTrainingModelUnit(self, modelUnit, metrics=[]):
         self.__modelUnitsToTraining.append((modelUnit, metrics))
@@ -127,7 +128,7 @@ class CoLearningModel(Model):
     def getEvaluateFunction(self):
         return self.__evaluateFunction
 
-    def doEpoch(self,trainBatchGenerators, epoch, callbacks):
+    def doEpoch(self, trainBatchGenerators, epoch, callbacks):
         lr = []
 
         for optimizer in self.__optimizers:
@@ -137,6 +138,12 @@ class CoLearningModel(Model):
 
         trainBatchGeneratorsCp = list(trainBatchGenerators)
         t = {}
+
+        if epoch < self.__lossUnsupervisedEpoch:
+            trainBatchGeneratorsCp.pop()
+            self.log.info("Não lendo exemplos não supervisionados ")
+        else:
+            self.log.info("Lendo exemplos não supervisionados ")
 
         for i, batchGen in enumerate(trainBatchGeneratorsCp):
             t[batchGen] = i
@@ -180,45 +187,3 @@ class CoLearningModel(Model):
                 m.update(_output, batchSizes[m.modelUnitName])
 
             self.callbackBatchEnd(inputs, callbacks)
-
-
-    # def evaluate(self, testBatchInterator, verbose=True):
-    #     stopWatch = StopWatch()
-    #     stopWatch.start()
-    #
-    #     resetAllMetrics(self.evaluateMetrics)
-    #
-    #     for x, y in testBatchInterator:
-    #         batchSize = len(x[0])
-    #
-    #         inputs = []
-    #         inputs += x
-    #
-    #         if self.__modelUnitEvaluate[0].yWillBeReceived:
-    #             # Theano function receives 'y' as an input
-    #             inputs += y
-    #
-    #         outputs = self.__evaluateFunction(*inputs)
-    #
-    #         for m, _output in itertools.izip(self.evaluateMetrics, outputs):
-    #             m.update(_output, batchSize)
-    #
-    #     duration = stopWatch.lap()
-    #
-    #     logs = {}
-    #
-    #     for metric in self.evaluateMetrics:
-    #         logs[metric.metricName] = metric.calculate()
-    #
-    #     if verbose:
-    #         info = ""
-    #         # Print information
-    #         info += " [test: %ds]" % duration
-    #
-    #         for k, v in logs.iteritems():
-    #             info += ' - %s:' % k
-    #             info += ' %.6f' % v
-    #
-    #         self.log.info(info)
-    #
-    #     return logs

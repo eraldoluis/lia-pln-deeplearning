@@ -45,9 +45,13 @@ class BatchAssembler:
         '''
         :return: a generator from the yield expression. This generator will return the batches from the data set.
         '''
-        inputs = [[] for inputGenerator in self.__inputGenerators]
-        outputs = [[] for inputGenerator in self.__outputGenerators]
         nmExamples = 0
+        inputs = [[] for inputGenerator in self.__inputGenerators]
+
+        if self.__outputGenerators:
+            outputs = [[] for inputGenerator in self.__outputGenerators]
+        else:
+            outputs = []
 
         for attributes, label in self.__reader.read():
             generatedInputs = []
@@ -82,7 +86,10 @@ class BatchAssembler:
                         yield self.formatToNumpy(inputs, outputs)
 
                         inputs = [[] for inputGenerator in self.__inputGenerators]
-                        outputs = [[] for inputGenerator in self.__outputGenerators]
+
+                        if self.__outputGenerators:
+                            outputs = [[] for inputGenerator in self.__outputGenerators]
+
             else:
                 # Batch don't have fixed size
                 inputs = generatedInputs

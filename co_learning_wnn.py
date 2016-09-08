@@ -308,7 +308,7 @@ def main(**kwargs):
                                  yWillBeReceived=False)
 
     # Creates model
-    model = CoLearningModel()
+    model = CoLearningModel(kwargs["loss_uns_epoch"])
 
     model.addTrainingModelUnit(supervisedModeUnit, metrics=["loss", "acc"])
     model.addTrainingModelUnit(unsupervisedUnit, metrics=["loss"])
@@ -333,10 +333,10 @@ def main(**kwargs):
     trainSupervisedDatasetReader = SyncBatchIterator(trainSupervisedDatasetReader, [inputGenerator1, inputGenerator2],
                                                      [outputGenerator], batchSize[0])
 
-    trainUnsupervisedDataset = TokenLabelReader(kwargs["train_unsupervised"], kwargs["token_label_separator"])
+    trainUnsupervisedDataset = TokenReader(kwargs["train_unsupervised"])
     trainUnsupervisedDatasetReader = SyncBatchIterator(trainUnsupervisedDataset,
                                                        [inputGenerator1, inputGenerator2],
-                                                       [outputGenerator], batchSize[1])
+                                                       None, batchSize[1])
 
     embedding1.stopAdd()
     embedding2.stopAdd()
@@ -351,15 +351,16 @@ def main(**kwargs):
     lambdaChange = ChangeLambda(_lambdaShared, kwargs["lambda"], kwargs["loss_uns_epoch"])
     lossCallback = LossCallback(loss1, loss2, input1, input2, y)
 
-    trainUnsupervisedDatasetReaderAcc = SyncBatchIterator(trainUnsupervisedDataset,
-                                                          [inputGenerator1, inputGenerator2],
-                                                          [outputGenerator], sys.maxint)
+    # trainUnsupervisedDatasetReaderAcc = SyncBatchIterator(trainUnsupervisedDataset,
+    #                                                       [inputGenerator1, inputGenerator2],
+    #                                                       [outputGenerator], sys.maxint)
 
-    accCallBack = AccCallBack(prediction1, prediction2, input1, input2,
-                              unsurpervisedDataset=trainUnsupervisedDatasetReaderAcc)
+    # accCallBack = AccCallBack(prediction1, prediction2, input1, input2,
+    #                           unsurpervisedDataset=trainUnsupervisedDatasetReaderAcc)
+
     # Training Model
     model.train([trainSupervisedDatasetReader, trainUnsupervisedDatasetReader], numEpochs, devReader,
-                callbacks=[lambdaChange, accCallBack, lossCallback])
+                callbacks=[lambdaChange, lossCallback])
 
 
 if __name__ == '__main__':

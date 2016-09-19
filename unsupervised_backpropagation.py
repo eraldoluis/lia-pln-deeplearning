@@ -1,7 +1,6 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
 import math
-import theano
 
 # !/usr/bin/env python
 # -*- coding: utf-8 -*-
@@ -24,17 +23,15 @@ from DataOperation.InputGenerator.WindowGenerator import WindowGenerator
 from DataOperation.Lexicon import createLexiconUsingFile, Lexicon
 from DataOperation.TokenDatasetReader import TokenLabelReader, TokenReader
 from ModelOperation.Callback import Callback
-from ModelOperation.CoLearningModel import CoLearningModel
-from ModelOperation.Model import Model, ModelUnit
 from ModelOperation.Objective import NegativeLogLikelihood
-from ModelOperation.Prediction import ArgmaxPrediction, CoLearningWnnPrediction
+from ModelOperation.Prediction import ArgmaxPrediction
 from ModelOperation.GradientReversalModel import GradientReversalModel
-from NNet.ActivationLayer import ActivationLayer, softmax, tanh
+from NNet.ActivationLayer import ActivationLayer, softmax, tanh, sigmoid
 from NNet.EmbeddingLayer import EmbeddingLayer
 from NNet.FlattenLayer import FlattenLayer
 from NNet.LinearLayer import LinearLayer
 from NNet.GradientReversalLayer import GradientReversalLayer
-from NNet.WeightGenerator import ZeroWeightGenerator, GlorotUniform
+from NNet.WeightGenerator import ZeroWeightGenerator, GlorotUniform, SigmoidGenerator
 from Optimizers import Adagrad
 from Optimizers.Adagrad import Adagrad
 from Optimizers.SGD import SGD
@@ -78,6 +75,14 @@ UNSUPERVISED_BACKPROPAGATION_PARAMETERS = {
     "normalization": {"desc": "Choose the normalize method to be applied on  word embeddings. "
                               "The possible values are: max_min, mean_normalization or none"},
     "seed": {"desc": ""},
+    "hidden_size_unsupervised_part": {"default": 0},
+    "hidden_size_supervised_part": {"default": 0, "desc": "Set the size of the hidden layer before "
+                                                          "the softmax of the supervised part. If the value is 0, "
+                                                          "so this hidden isn't put in the NN."},
+    "normalization": {"desc": "options = none, zscore, minmax e mean"},
+    "additional_dev": {'desc': ""},
+    "activation_hidden_extractor":  { "default": "tanh" , "desc": "This parameter chooses the type of activation function"
+                                            " that will be used in the hidden layer of the extractor. Options: sigmoid or tanh"},
 }
 
 
@@ -94,6 +99,23 @@ class ChangeLambda(Callback):
         _lambda = 2. * self.height / (1. + math.exp(-self.alpha * progress)) - self.height + self.lowerBound;
 
         self.lambdaShared.set_value(_lambda)
+
+
+class AdditionalDevDataset(Callback):
+    def __init__(self, model, sourceDataset, tokenLabelSeparator, windowGenerator, outputGeneratorTag):
+        # Get dev inputs and output
+        self.log = logging.getLogger(__name__)
+        self.log.info("Reading additional dev examples")
+        devDatasetReader = TokenLabelReader(sourceDataset, tokenLabelSeparator)
+        devReader = SyncBatchIterator(devDatasetReader, [windowGenerator], [outputGeneratorTag], sys.maxint,
+                                      shuffle=False)
+
+        self.devReader = devReader
+        self.model = model
+
+    def onEpochEnd(self, epoch, logs={}):
+        result = self.model.evaluate(self.devReader, False)
+        self.log.info("Additional Dataset: " + str(result["acc"]))
 
 
 def main(**kwargs):
@@ -124,6 +146,10 @@ def main(**kwargs):
     _lambda = theano.shared(0., "lambda")
     useAdagrad = kwargs["adagrad"]
     shuffle = kwargs["shuffle"]
+    supHiddenLayerSize = kwargs["hidden_size_supervised_part"]
+    unsupHiddenLayerSize = kwargs["hidden_size_unsupervised_part"]
+    normalization = kwargs["normalization"]
+    activationHiddenExtractor = kwargs["activation_hidden_extractor"]
 
     if kwargs["decay"].lower() == "normal":
         decay = 0.0
@@ -142,23 +168,74 @@ def main(**kwargs):
     log.info("Reading W2v File1")
     embedding1 = EmbeddingFactory().createFromW2V(kwargs["word_embedding"], RandomUnknownStrategy())
 
+    if normalization == "zscore":
+        embedding1.zscoreNormalization()
+    elif normalization == "minmax":
+        embedding1.minMaxNormalization()
+    elif normalization == "mean":
+        embedding1.meanNormalization()
+    elif normalization == "none" or not normalization:
+        pass
+    else:
+        raise Exception()
+
     # Source part
     windowSource = T.lmatrix(name="windowSource")
 
     embeddingLayer1 = EmbeddingLayer(windowSource, embedding1.getEmbeddingMatrix(), trainable=True)
     flatten1 = FlattenLayer(embeddingLayer1)
 
-    linear1 = LinearLayer(flatten1, wordWindowSize * embedding1.getEmbeddingSize(), hiddenLayerSize,
-                          weightInitialization=GlorotUniform())
-    act1 = ActivationLayer(linear1, tanh)
+    if activationHiddenExtractor == "tanh":
+        log.info("Using tanh in the hidden layer of extractor")
 
-    supervisedLinear = LinearLayer(act1, hiddenLayerSize, tagLexicon.getLen(),
+        linear1 = LinearLayer(flatten1, wordWindowSize * embedding1.getEmbeddingSize(), hiddenLayerSize,
+                              weightInitialization=GlorotUniform())
+        act1 = ActivationLayer(linear1, tanh)
+    elif activationHiddenExtractor == "sigmoid":
+        log.info("Using sigmoid in the hidden layer of extractor")
+
+        linear1 = LinearLayer(flatten1, wordWindowSize * embedding1.getEmbeddingSize(), hiddenLayerSize,
+                              weightInitialization=SigmoidGenerator())
+        act1 = ActivationLayer(linear1, sigmoid)
+    else:
+        raise Exception()
+
+    if supHiddenLayerSize == 0:
+        layerBeforeSupSoftmax = act1
+        layerSizeBeforeSupSoftmax = hiddenLayerSize
+        log.info("It didn't insert the layer before the supervised softmax.")
+    else:
+        linear2 = LinearLayer(act1, hiddenLayerSize, supHiddenLayerSize,
+                              weightInitialization=GlorotUniform())
+        act2 = ActivationLayer(linear2, tanh)
+
+        layerBeforeSupSoftmax = act2
+        layerSizeBeforeSupSoftmax = supHiddenLayerSize
+
+        log.info("It inserted the layer before the supervised softmax.")
+
+    supervisedLinear = LinearLayer(layerBeforeSupSoftmax, layerSizeBeforeSupSoftmax, tagLexicon.getLen(),
                                    weightInitialization=ZeroWeightGenerator())
     supervisedSoftmax = ActivationLayer(supervisedLinear, softmax)
 
+
     gradientReversalSource = GradientReversalLayer(act1, _lambda)
 
-    unsupervisedSourceLinear = LinearLayer(gradientReversalSource, hiddenLayerSize, domainLexicon.getLen(),
+    if unsupHiddenLayerSize == 0:
+        layerBeforeUnsupSoftmax = gradientReversalSource
+        layerSizeBeforeUnsupSoftmax = hiddenLayerSize
+        log.info("It didn't insert the layer before the unsupervised softmax.")
+    else:
+        unsupervisedSourceLinearBf = LinearLayer(gradientReversalSource, hiddenLayerSize, unsupHiddenLayerSize,
+                                                 weightInitialization=GlorotUniform())
+        actUnsupervisedSourceBf = ActivationLayer(unsupervisedSourceLinearBf, tanh)
+
+        layerBeforeUnsupSoftmax = actUnsupervisedSourceBf
+        layerSizeBeforeUnsupSoftmax = unsupHiddenLayerSize
+
+        log.info("It inserted the layer before the unsupervised softmax.")
+
+    unsupervisedSourceLinear = LinearLayer(layerBeforeUnsupSoftmax, layerSizeBeforeUnsupSoftmax, domainLexicon.getLen(),
                                            weightInitialization=ZeroWeightGenerator())
     unsupervisedSourceSoftmax = ActivationLayer(unsupervisedSourceLinear, softmax)
 
@@ -171,12 +248,36 @@ def main(**kwargs):
     w, b = linear1.getParameters()
     linearUnsuper1 = LinearLayer(flattenUnsuper1, wordWindowSize * embedding1.getEmbeddingSize(), hiddenLayerSize,
                                  W=w, b=b, trainable=False)
-    actUnsupervised1 = ActivationLayer(linearUnsuper1, tanh)
+
+    if activationHiddenExtractor == "tanh":
+        log.info("Using tanh in the hidden layer of extractor")
+        actUnsupervised1 = ActivationLayer(linearUnsuper1, tanh)
+    elif activationHiddenExtractor == "sigmoid":
+        log.info("Using sigmoid in the hidden layer of extractor")
+        actUnsupervised1 = ActivationLayer(linearUnsuper1, sigmoid)
+    else:
+        raise Exception()
 
     grandientReversalTarget = GradientReversalLayer(actUnsupervised1, _lambda)
 
+    if unsupHiddenLayerSize == 0:
+        layerBeforeUnsupSoftmax = grandientReversalTarget
+        layerSizeBeforeUnsupSoftmax = hiddenLayerSize
+        log.info("It didn't insert the layer before the unsupervised softmax.")
+    else:
+        w, b = unsupervisedSourceLinearBf.getParameters()
+        unsupervisedTargetLinearBf = LinearLayer(grandientReversalTarget, hiddenLayerSize, unsupHiddenLayerSize, W=w,
+                                                 b=b, trainable=False)
+        actUnsupervisedTargetLinearBf = ActivationLayer(unsupervisedTargetLinearBf, tanh)
+
+        layerBeforeUnsupSoftmax = actUnsupervisedTargetLinearBf
+        layerSizeBeforeUnsupSoftmax = unsupHiddenLayerSize
+
+        log.info("It inserted the layer before the unsupervised softmax.")
+
     w, b = unsupervisedSourceLinear.getParameters()
-    unsupervisedTargetLinear = LinearLayer(grandientReversalTarget, hiddenLayerSize, domainLexicon.getLen(), W=w, b=b,
+    unsupervisedTargetLinear = LinearLayer(layerBeforeUnsupSoftmax, layerSizeBeforeUnsupSoftmax, domainLexicon.getLen(),
+                                           W=w, b=b,
                                            trainable=False)
     unsupervisedTargetSoftmax = ActivationLayer(unsupervisedTargetLinear, softmax)
 
@@ -248,11 +349,18 @@ def main(**kwargs):
     tagLexicon.stopAdd()
     domainLexicon.stopAdd()
 
-    lambdaCallback = ChangeLambda(_lambda, kwargs["alpha"], numEpochs)
+    callbacks = []
+
+    callbacks.append(ChangeLambda(_lambda, kwargs["alpha"], numEpochs))
+
+    if kwargs["additional_dev"]:
+        callbacks.append(
+            AdditionalDevDataset(model, kwargs["additional_dev"], kwargs["token_label_separator"], windowGenerator,
+                                 outputGeneratorTag))
 
     # Training Model
     model.train([trainSupervisedBatch, trainUnsupervisedDatasetBatch], numEpochs, devReader,
-                callbacks=[lambdaCallback])
+                callbacks=callbacks)
 
 
 if __name__ == '__main__':

@@ -9,9 +9,12 @@ import logging
 
 import sys
 
+import theano
+
 from NNet.Util import FeatureVectorsGenerator
 import codecs
 from DataOperation.Lexicon import Lexicon
+import numpy as np
 
 
 ######################################################
@@ -214,56 +217,56 @@ class Embedding(object):
         '''
         return self.__lexicon
 
-    def minMaxNormalization(self):
+    def zscoreNormalization(self, norm_coef=1.0):
         '''
-        Normalize all the embedding to a range [-1,1].
+        Normalize all the embeddings using the following equation:
+        z = (x − μ)/ σ
+
+        μ is the mean of the population.
+        σ is the standard deviation of the population.
+        :return: None
+        '''
+        if not self.isStopped():
+            raise Exception("To normalize the word embedding is necessary to stop it from accepting new words. ")
+
+        self.__vectors = np.asarray(self.__vectors, dtype=theano.config.floatX)
+
+        self.__vectors -= np.mean(self.__vectors, axis=0)
+        self.__vectors *= (norm_coef / np.std(self.__vectors, axis=0))
+
+    def minMaxNormalization(self, norm_coef=1.0):
+        '''
+        Normalize all the embeddings to a range [0,1].
+        zi= (xi − min) / (max(x)−min(x))
+        :return:None
+        '''
+
+        if not self.isStopped():
+            raise Exception("To normalize the word embedding is necessary to stop it from accepting new words. ")
+
+        self.__vectors = np.asarray(self.__vectors, dtype=theano.config.floatX)
+
+        print np.min(self.__vectors, axis=0)
+        print np.ptp(self.__vectors, axis=0)
+
+        self.__vectors -= np.min(self.__vectors, axis=0)
+        self.__vectors *= (norm_coef / np.ptp(self.__vectors, axis=0))
+
+    def meanNormalization(self, norm_coef=1.0):
+        '''
+        Normalize all the embeddings to a range [-1,1].
         zi= (xi−mean(x)) / (max(x)−min(x))
         :return:None
         '''
-        min = sys.maxint
-        max = -sys.maxint
 
-        for l in self.__vectors:
-            for x in l:
-                if x < min:
-                    min = x
+        if not self.isStopped():
+            raise Exception("To normalize the word embedding is necessary to stop it from accepting new words. ")
 
-                if x > max:
-                    max = x
+        self.__vectors = np.asarray(self.__vectors, dtype=theano.config.floatX)
 
-        for l in self.__vectors:
-            for j, x in enumerate(l):
-                l[j] = (x - min) / (max - min)
+        self.__vectors -= np.mean(self.__vectors, axis=0)
+        self.__vectors *= (norm_coef / np.ptp(self.__vectors, axis=0))
 
-
-
-    def meanNormalization(self):
-        '''
-        Normalize all the embedding to a range [-1,1].
-        zi= (xi−mean(x)) / (max(x)−min(x))
-        :return:None
-        '''
-        min = sys.maxint
-        max = -sys.maxint
-        sum = .0
-        total = .0
-
-        for l in self.__vectors:
-            for x in l:
-                if x < min:
-                    min = x
-
-                if x > max:
-                    max = x
-
-                sum += x
-                total += 1
-
-        mean = sum / total
-
-        for l in self.__vectors:
-            for j, x in enumerate(l):
-                l[j] = (x - mean) / (max - min)
 
 class RandomEmbedding(Embedding):
     '''

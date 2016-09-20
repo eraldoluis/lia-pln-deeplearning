@@ -53,6 +53,8 @@ PARAMETERS = {
     "load_model": {"desc": "Path + basename that will be used to load the model (weights and embeddings)."},
     "test": {"desc": "Test set file path"},
     "dev": {"desc": "Development set file path"},
+    "eval_per_iteration" : {"default": 0,
+                            "desc": "Eval model after this number of iterations."},
     "hidden_size": {"default": 300,
                     "desc": "The number of neurons in the hidden layer"},
     "word_window_size": {"default": 5,
@@ -364,6 +366,10 @@ def main(**kwargs):
 
         # Get dev inputs and output
         dev = kwargs["dev"]
+        evalPerIteration = kwargs["eval_per_iteration"]
+        if not dev and evalPerIteration > 0:
+            log.error("Argument eval_per_iteration cannot be used without a dev argument.")
+            sys.exit(1)
 
         if dev:
             log.info("Reading development examples")
@@ -483,7 +489,7 @@ def main(**kwargs):
     # model = Model(mode=compile.debugmode.DebugMode(optimizer=None))
     model = Model()
 
-    modelUnit = ModelUnit("ofertas", [_input], y, loss, prediction=prediction)
+    modelUnit = ModelUnit("train", [_input], y, loss, prediction=prediction)
 
     model.addTrainingModelUnit(modelUnit, ["loss", "acc"])
     model.setEvaluatedModelUnit(modelUnit, ["loss", "acc"])
@@ -503,7 +509,8 @@ def main(**kwargs):
             callback.append(SaveModelCallback(modelWriter, "eval_acc", True))
 
         log.info("Training")
-        model.train([trainReader], numEpochs, devReader, callbacks=callback)
+        model.train([trainReader], numEpochs, devReader, callbacks=callback, 
+                    evalPerIteration=evalPerIteration)
 
     # Testing
     if kwargs["test"]:

@@ -173,11 +173,35 @@ class Model:
     def prediction(self):
         pass
 
-    def train(self, trainBatchGenerators, numEpochs, devBatchGenerator=None, callbacks=[]):
+    def train(self, 
+              trainBatchGenerators, 
+              numEpochs, 
+              devBatchGenerator=None, 
+              callbacks=[], 
+              evalPerIteration=0):
+        '''
+        Runs one epoch of training (one pass over the whole training dataset).
+        
+        :param trainBatchGenerators: list of batch generators for the inputs
+            (training instances)
+        
+        :param numEpochs: number of passes over the training dataset. 
+        
+        :param devBatchGenerator: batch generator for the development dataset. 
+        
+        :param callbacks: list of callbacks.
+        
+        :param evalPerIteration: indicates whether evaluation on the development
+            dataset will be performed on a per-iteration basis.
+        '''
         stopWatch = StopWatch()
 
         for cb in callbacks:
             cb.onTrainBegin({})
+
+        # One iteration corresponds to one call to the training procedure.
+        # Thus, it corresponds to the process of one mini-batch of examples.
+        iter = 0
 
         for epoch in range(numEpochs):
             for cb in callbacks:
@@ -195,6 +219,8 @@ class Model:
             for _inputs in itertools.izip_longest(*trainBatchGenerators):
                 inputs = []
                 batchSizes = {}
+                
+                iter += 1
 
                 for modelUnitPlusMetrics, in_ in itertools.izip(self.__modelUnitsToTraining, _inputs):
                     modelUnit = modelUnitPlusMetrics[0]
@@ -229,6 +255,25 @@ class Model:
                 for cb in callbacks:
                     cb.onBatchEnd(inputs, {})
 
+                if devBatchGenerator and evalPerIteration > 0 and (iter % evalPerIteration) == 0:
+                    evaluationStopWatch = StopWatch()
+                    evaluationStopWatch.start()
+
+                    results = []
+                    for metricName, value in self.evaluate(devBatchGenerator, verbose=False).iteritems():
+                        key = "eval_" + metricName
+                        results.append((key, value))
+
+                    evalDuration = evaluationStopWatch.lap()
+
+                    # Print information
+                    info = "iteratior %d" % iter
+                    info += " [eval: %ds]" % evalDuration
+                    for k, v in results:
+                        info += ' - %s:' % k
+                        info += ' %.6f' % v
+                    self.log.info(info)
+
             trainingDuration = stopWatch.lap()
 
             logs = {}
@@ -242,7 +287,11 @@ class Model:
                 logs[key] = value
                 results.append((key, value))
 
-            if devBatchGenerator:
+            # Print information
+            info = "epoch %d" % epoch
+            info += " [train: %ds]" % trainingDuration
+
+            if devBatchGenerator and evalPerIteration == 0:
                 evaluationStopWatch = StopWatch()
                 evaluationStopWatch.start()
 
@@ -251,14 +300,7 @@ class Model:
                     logs[key] = value
                     results.append((key, value))
 
-                evalDuration = evaluationStopWatch.lap()
-
-            # Print information
-            info = "epoch %d" % epoch
-            info += " [train: %ds]" % trainingDuration
-
-            if devBatchGenerator:
-                info += " [test: %ds]" % evalDuration
+                info += " [eval: %ds]" % evaluationStopWatch.lap()
 
             for k, v in results:
                 info += ' - %s:' % k

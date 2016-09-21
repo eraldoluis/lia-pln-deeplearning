@@ -103,7 +103,6 @@ class BatchAssembler:
         if not self.__printed:
             self.__log.info("Number of examples: %d" % nmExamples)
 
-
     def formatToNumpy(self, inputs, outputs):
         for idx, input in enumerate(inputs):
             inputs[idx] = numpy.asarray(input)
@@ -111,13 +110,14 @@ class BatchAssembler:
         for idx, out in enumerate(outputs):
             outputs[idx] = numpy.asarray(out)
 
-
         return [inputs, outputs]
 
 
-class SyncBatchIterator(object):
+class SyncBatchList(object):
     '''
-    Reads all data from data set and generates the training input at once.
+    Represents a list with all inputs or/and labels to be used in training. These data are grouped in batches.
+    As a list, it's possible to iterate this object. However, if this shuffle is enabled, so this class will randomly
+        iterate through the data.
     '''
 
     def __init__(self, reader, inputGenerators, outputGenerator, batchSize, shuffle=True):
@@ -151,7 +151,8 @@ class SyncBatchIterator(object):
             self.__batchIdxs.append(idx)
             idx += 1
 
-        self.__log.info("Number of batches: %d" % len(self.__batchIdxs))
+        self.__size = len(self.__batchIdxs)
+        self.__log.info("Number of batches: %d" % self.__size)
         self.__log.info("BatchSize: %d" % batchSize)
 
         if self.__shuffle:
@@ -173,6 +174,12 @@ class SyncBatchIterator(object):
             self.__current = 0
 
             raise StopIteration()
+
+    def get(self, idx):
+        return self.__batches[idx]
+
+    def size(self):
+        return self.__size
 
 
 class AsyncBatchIterator(object):

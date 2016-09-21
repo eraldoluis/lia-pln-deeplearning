@@ -16,7 +16,7 @@ import theano
 import theano.tensor as T
 
 from DataOperation.Embedding import EmbeddingFactory, RandomUnknownStrategy
-from DataOperation.InputGenerator.BatchIterator import SyncBatchIterator
+from DataOperation.InputGenerator.BatchIterator import SyncBatchList
 from DataOperation.InputGenerator.ConstantLabel import ConstantLabel
 from DataOperation.InputGenerator.LabelGenerator import LabelGenerator
 from DataOperation.InputGenerator.WindowGenerator import WindowGenerator
@@ -81,8 +81,8 @@ UNSUPERVISED_BACKPROPAGATION_PARAMETERS = {
                                                           "so this hidden isn't put in the NN."},
     "normalization": {"desc": "options = none, zscore, minmax e mean"},
     "additional_dev": {'desc': ""},
-    "activation_hidden_extractor":  { "default": "tanh" , "desc": "This parameter chooses the type of activation function"
-                                            " that will be used in the hidden layer of the extractor. Options: sigmoid or tanh"},
+    "activation_hidden_extractor": {"default": "tanh", "desc": "This parameter chooses the type of activation function"
+                                                               " that will be used in the hidden layer of the extractor. Options: sigmoid or tanh"},
 }
 
 
@@ -107,8 +107,8 @@ class AdditionalDevDataset(Callback):
         self.log = logging.getLogger(__name__)
         self.log.info("Reading additional dev examples")
         devDatasetReader = TokenLabelReader(sourceDataset, tokenLabelSeparator)
-        devReader = SyncBatchIterator(devDatasetReader, [windowGenerator], [outputGeneratorTag], sys.maxint,
-                                      shuffle=False)
+        devReader = SyncBatchList(devDatasetReader, [windowGenerator], [outputGeneratorTag], sys.maxint,
+                                  shuffle=False)
 
         self.devReader = devReader
         self.model = model
@@ -218,7 +218,6 @@ def main(**kwargs):
                                    weightInitialization=ZeroWeightGenerator())
     supervisedSoftmax = ActivationLayer(supervisedLinear, softmax)
 
-
     gradientReversalSource = GradientReversalLayer(act1, _lambda)
 
     if unsupHiddenLayerSize == 0:
@@ -242,12 +241,12 @@ def main(**kwargs):
     ## Target Part
     windowTarget = T.lmatrix(name="windowTarget")
 
-    embeddingLayerUnsuper1 = EmbeddingLayer(windowTarget, embeddingLayer1.getParameters()[0], trainable=False)
+    embeddingLayerUnsuper1 = EmbeddingLayer(windowTarget, embeddingLayer1.getParameters()[0], trainable=True)
     flattenUnsuper1 = FlattenLayer(embeddingLayerUnsuper1)
 
     w, b = linear1.getParameters()
     linearUnsuper1 = LinearLayer(flattenUnsuper1, wordWindowSize * embedding1.getEmbeddingSize(), hiddenLayerSize,
-                                 W=w, b=b, trainable=False)
+                                 W=w, b=b, trainable=True)
 
     if activationHiddenExtractor == "tanh":
         log.info("Using tanh in the hidden layer of extractor")
@@ -267,7 +266,7 @@ def main(**kwargs):
     else:
         w, b = unsupervisedSourceLinearBf.getParameters()
         unsupervisedTargetLinearBf = LinearLayer(grandientReversalTarget, hiddenLayerSize, unsupHiddenLayerSize, W=w,
-                                                 b=b, trainable=False)
+                                                 b=b, trainable=True)
         actUnsupervisedTargetLinearBf = ActivationLayer(unsupervisedTargetLinearBf, tanh)
 
         layerBeforeUnsupSoftmax = actUnsupervisedTargetLinearBf
@@ -278,7 +277,7 @@ def main(**kwargs):
     w, b = unsupervisedSourceLinear.getParameters()
     unsupervisedTargetLinear = LinearLayer(layerBeforeUnsupSoftmax, layerSizeBeforeUnsupSoftmax, domainLexicon.getLen(),
                                            W=w, b=b,
-                                           trainable=False)
+                                           trainable=True)
     unsupervisedTargetSoftmax = ActivationLayer(unsupervisedTargetLinear, softmax)
 
     # Set loss and prediction and retrieve all layers
@@ -300,13 +299,9 @@ def main(**kwargs):
     unsupervisedLossTarget = NegativeLogLikelihood().calculateError(unsupervisedOutputTarget, None,
                                                                     unsupervisedLabelTarget)
 
-    unsupervisedPrediction = T.concatenate([unsupervisedPredSource, unsupervisedPredTarget])
-
-    loss = supervisedLoss + unsupervisedLossSource + unsupervisedLossTarget
-
     # Creates model
-    model = GradientReversalModel([windowSource, windowTarget],
-                                  [supervisedLabel, unsupervisedLabelSource, unsupervisedLabelTarget])
+    model = GradientReversalModel(windowSource, windowTarget, supervisedLabel, unsupervisedLabelSource,
+                                  unsupervisedLabelTarget)
 
     if useAdagrad:
         log.info("Using ADAGRAD")
@@ -315,10 +310,11 @@ def main(**kwargs):
         log.info("Using SGD")
         opt = SGD(lr=lr, decay=decay)
 
-    allLayers = supervisedSoftmax.getLayerSet() | unsupervisedSourceSoftmax.getLayerSet() | unsupervisedTargetSoftmax.getLayerSet()
+    allLayersSource = supervisedSoftmax.getLayerSet() | unsupervisedSourceSoftmax.getLayerSet()
+    allLayersTarget = unsupervisedTargetSoftmax.getLayerSet()
 
-    model.compile(allLayers, opt, supervisedPrediction, unsupervisedPrediction, loss, loss, supervisedLoss,
-                  unsupervisedLossSource + unsupervisedLossTarget)
+    model.compile(allLayersSource, allLayersTarget, opt, supervisedPrediction, unsupervisedPredSource,
+                  unsupervisedPredTarget, supervisedLoss, unsupervisedLossSource, unsupervisedLossTarget)
 
     # Generators
     windowGenerator = WindowGenerator(wordWindowSize, embedding1, filters, startSymbol)
@@ -327,23 +323,23 @@ def main(**kwargs):
 
     # Reading supervised and unsupervised data sets.
     trainSupervisedDatasetReader = TokenLabelReader(kwargs["train_source"], kwargs["token_label_separator"])
-    trainSupervisedBatch = SyncBatchIterator(trainSupervisedDatasetReader, [windowGenerator],
-                                             [outputGeneratorTag, unsupervisedLabelSource], batchSize[0],
-                                             shuffle=shuffle)
+    trainSupervisedBatch = SyncBatchList(trainSupervisedDatasetReader, [windowGenerator],
+                                         [outputGeneratorTag, unsupervisedLabelSource], batchSize[0],
+                                         shuffle=shuffle)
 
     # Get Unsupervised Input
     unsupervisedLabelTarget = ConstantLabel(domainLexicon, "1")
 
     trainUnsupervisedDatasetReader = TokenReader(kwargs["train_target"])
-    trainUnsupervisedDatasetBatch = SyncBatchIterator(trainUnsupervisedDatasetReader,
-                                                      [windowGenerator],
-                                                      [unsupervisedLabelTarget], batchSize[1], shuffle=shuffle)
+    trainUnsupervisedDatasetBatch = SyncBatchList(trainUnsupervisedDatasetReader,
+                                                  [windowGenerator],
+                                                  [unsupervisedLabelTarget], batchSize[1], shuffle=shuffle)
 
     # Get dev inputs and output
     log.info("Reading development examples")
     devDatasetReader = TokenLabelReader(kwargs["dev"], kwargs["token_label_separator"])
-    devReader = SyncBatchIterator(devDatasetReader, [windowGenerator], [outputGeneratorTag], sys.maxint,
-                                  shuffle=False)
+    devReader = SyncBatchList(devDatasetReader, [windowGenerator], [outputGeneratorTag], sys.maxint,
+                              shuffle=False)
     # Stopping to add new words
     embedding1.stopAdd()
     tagLexicon.stopAdd()

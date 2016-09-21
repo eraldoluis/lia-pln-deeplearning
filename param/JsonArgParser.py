@@ -6,7 +6,7 @@ import json
 
 class JsonArgParser:
 
-    def __init__(self,parameterRule):
+    def __init__(self, parameterRule):
         '''
 
         :type parameterRule: basestring
@@ -22,7 +22,7 @@ class JsonArgParser:
                 }
         '''
 
-        if isinstance(parameterRule,(basestring,unicode)):
+        if isinstance(parameterRule, (basestring, unicode)):
             self.__parameterRules = json.loads(parameterRule)
         else:
             self.__parameterRules = parameterRule

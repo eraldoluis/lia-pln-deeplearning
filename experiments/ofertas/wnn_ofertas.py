@@ -509,7 +509,7 @@ def main(**kwargs):
             callback.append(SaveModelCallback(modelWriter, "eval_acc", True))
 
         log.info("Training")
-        model.train([trainReader], numEpochs, devReader, callbacks=callback, 
+        model.train([trainReader], numEpochs, devReader, callbacks=callback,
                     evalPerIteration=evalPerIteration)
 
     # Testing
@@ -539,8 +539,7 @@ if __name__ == '__main__':
     full_path = os.path.realpath(__file__)
     path, filename = os.path.split(full_path)
 
-#    logging.config.fileConfig(os.path.join(path, 'logging.conf'))
-    logging.basicConfig(level=logging.DEBUG)
+    logging.config.fileConfig(os.path.join(path, 'logging.conf'))
 
     parameters = JsonArgParser(PARAMETERS).parse(sys.argv[1])
     main(**parameters)

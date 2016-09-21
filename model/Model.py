@@ -267,7 +267,7 @@ class Model:
                     evalDuration = evaluationStopWatch.lap()
 
                     # Print information
-                    info = "iteratior %d" % iter
+                    info = "iteration %d" % iter
                     info += " [eval: %ds]" % evalDuration
                     for k, v in results:
                         info += ' - %s:' % k

@@ -311,6 +311,8 @@ def main(**kwargs):
         if kwargs["word_embedding"]:
             log.info("Reading W2v File")
             embedding = EmbeddingFactory().createFromW2V(kwargs["word_embedding"], RandomUnknownStrategy())
+            # TODO: teste
+            embedding.stopAdd()
         elif kwargs["hash_lex_size"]:
             embedding = RandomEmbedding(kwargs["word_emb_size"],
                                         RandomUnknownStrategy(),

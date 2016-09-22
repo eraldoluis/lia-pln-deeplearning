@@ -390,12 +390,15 @@ def main(**kwargs):
 
     weightInit = SigmoidGlorot() if hiddenActFunction == sigmoid else GlorotUniform()
 
-    if normalizeMethod == "min_max":
-        log.info("Normalization: min max")
+    if normalizeMethod == "minmax":
+        log.info("Normalization: minmax")
         embedding.minMaxNormalization()
-    elif normalizeMethod == "mean_normalization":
+    elif normalizeMethod == "mean":
         log.info("Normalization: mean normalization")
         embedding.meanNormalization()
+    else:
+        log.error("Normalization: unexpected value %s" % normalizeMethod)
+        sys.exit(1)
 
     if normalizeMethod is not None and loadPath is not None:
         log.warn("The word embedding of model was normalized. This can change the result of test.")

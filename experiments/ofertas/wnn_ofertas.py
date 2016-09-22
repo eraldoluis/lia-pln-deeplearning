@@ -257,7 +257,7 @@ def main(**kwargs):
     endSymbol = kwargs["end_symbol"]
     numEpochs = kwargs["num_epochs"]
     shuffle = kwargs["shuffle"]
-    normalizeMethod = kwargs["normalization"].lower() if kwargs["normalization"] is not None else None
+    normalizeMethod = kwargs["normalization"]
     wordWindowSize = kwargs["word_window_size"]
     hiddenLayerSize = kwargs["hidden_size"]
     convSize = kwargs["conv_size"]
@@ -396,7 +396,7 @@ def main(**kwargs):
     elif normalizeMethod == "mean":
         log.info("Normalization: mean normalization")
         embedding.meanNormalization()
-    else:
+    elif normalizeMethod:
         log.error("Normalization: unexpected value %s" % normalizeMethod)
         sys.exit(1)
 

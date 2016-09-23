@@ -1,11 +1,10 @@
-# PLN Theano
+# NLP Deep Learning Framework
 
-Este repositório contém algoritmos baseados no conceito de Deep Learning para solucionar o problema de Named Entity Recognition.
-Mais que isto, estes algoritmos podem ser aplicados, potencialmente, em diversos problemas de Processamento de Linguagem Natural.
+Theano-based framework for natural language processing.
 
-## Time
+## Team
 
-Os principais envolvidos no desenvolvimento deste código são:
+The main developers are:
 
 - Eraldo R. Fernandes (eraldo@facom.ufms.br)
 - Irving M. Rodrigues (irving.muller@tecsinapse.com.br)

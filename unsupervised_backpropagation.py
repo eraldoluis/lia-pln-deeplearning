@@ -163,10 +163,28 @@ def main(**kwargs):
     domainLexicon.put("1")
     domainLexicon.stopAdd()
 
-    log.info("Reading training examples")
-
     log.info("Reading W2v File1")
     embedding1 = EmbeddingFactory().createFromW2V(kwargs["word_embedding"], RandomUnknownStrategy())
+
+    log.info("Reading training examples")
+    # Generators
+    windowGenerator = WindowGenerator(wordWindowSize, embedding1, filters, startSymbol)
+    outputGeneratorTag = LabelGenerator(tagLexicon)
+    unsupervisedLabelSource = ConstantLabel(domainLexicon, "0")
+
+    # Reading supervised and unsupervised data sets.
+    trainSupervisedDatasetReader = TokenLabelReader(kwargs["train_source"], kwargs["token_label_separator"])
+    trainSupervisedBatch = SyncBatchList(trainSupervisedDatasetReader, [windowGenerator],
+                                         [outputGeneratorTag, unsupervisedLabelSource], batchSize[0],
+                                         shuffle=shuffle)
+
+    # Get Unsupervised Input
+    unsupervisedLabelTarget = ConstantLabel(domainLexicon, "1")
+
+    trainUnsupervisedDatasetReader = TokenReader(kwargs["train_target"])
+    trainUnsupervisedDatasetBatch = SyncBatchList(trainUnsupervisedDatasetReader,
+                                                  [windowGenerator],
+                                                  [unsupervisedLabelTarget], batchSize[1], shuffle=shuffle)
 
     if normalization == "zscore":
         embedding1.zscoreNormalization()
@@ -312,28 +330,10 @@ def main(**kwargs):
 
     allLayersSource = supervisedSoftmax.getLayerSet() | unsupervisedSourceSoftmax.getLayerSet()
     allLayersTarget = unsupervisedTargetSoftmax.getLayerSet()
+    unsupervisedLossTarget *= float(trainSupervisedBatch.size()) / trainUnsupervisedDatasetBatch.size()
 
     model.compile(allLayersSource, allLayersTarget, opt, supervisedPrediction, unsupervisedPredSource,
                   unsupervisedPredTarget, supervisedLoss, unsupervisedLossSource, unsupervisedLossTarget)
-
-    # Generators
-    windowGenerator = WindowGenerator(wordWindowSize, embedding1, filters, startSymbol)
-    outputGeneratorTag = LabelGenerator(tagLexicon)
-    unsupervisedLabelSource = ConstantLabel(domainLexicon, "0")
-
-    # Reading supervised and unsupervised data sets.
-    trainSupervisedDatasetReader = TokenLabelReader(kwargs["train_source"], kwargs["token_label_separator"])
-    trainSupervisedBatch = SyncBatchList(trainSupervisedDatasetReader, [windowGenerator],
-                                         [outputGeneratorTag, unsupervisedLabelSource], batchSize[0],
-                                         shuffle=shuffle)
-
-    # Get Unsupervised Input
-    unsupervisedLabelTarget = ConstantLabel(domainLexicon, "1")
-
-    trainUnsupervisedDatasetReader = TokenReader(kwargs["train_target"])
-    trainUnsupervisedDatasetBatch = SyncBatchList(trainUnsupervisedDatasetReader,
-                                                  [windowGenerator],
-                                                  [unsupervisedLabelTarget], batchSize[1], shuffle=shuffle)
 
     # Get dev inputs and output
     log.info("Reading development examples")

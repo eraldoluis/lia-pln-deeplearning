@@ -41,7 +41,7 @@ from nnet.WeightGenerator import ZeroWeightGenerator, GlorotUniform, SigmoidGlor
 import numpy as np
 from optim.Adagrad import Adagrad
 from optim.SGD import SGD
-from param.JsonArgParser import JsonArgParser
+from args.JsonArgParser import JsonArgParser
 import theano.tensor as T
 from util.jsontools import dict2obj
 

@@ -13,9 +13,9 @@ import theano.tensor as T
 from theano import printing
 
 from DataOperation.Embedding import EmbeddingFactory, RandomUnknownStrategy
-from DataOperation.InputGenerator.BatchIterator import SyncBatchIterator
+from DataOperation.InputGenerator.BatchIterator import SyncBatchList
 from DataOperation.InputGenerator.LabelGenerator import LabelGenerator
-from DataOperation.InputGenerator.WindowGenerator import WindowGenerator
+from DataOperation.InputGenerator.WordWindowGenerator import WordWindowGenerator
 from DataOperation.Lexicon import createLexiconUsingFile
 from DataOperation.TokenDatasetReader import TokenLabelReader, TokenReader
 from ModelOperation.Callback import Callback
@@ -324,19 +324,19 @@ def main(**kwargs):
                    (opt2, {supervisedModeUnit: act22.getLayerSet(), unsupervisedUnit: actUnsuper22.getLayerSet()})])
 
     # Generators
-    inputGenerator1 = WindowGenerator(wordWindowSize, embedding1, filters, startSymbol)
-    inputGenerator2 = WindowGenerator(wordWindowSize, embedding2, filters, startSymbol)
+    inputGenerator1 = WordWindowGenerator(wordWindowSize, embedding1, filters, startSymbol)
+    inputGenerator2 = WordWindowGenerator(wordWindowSize, embedding2, filters, startSymbol)
     outputGenerator = LabelGenerator(labelLexicon)
 
     # Reading supervised and unsupervised data sets.
     trainSupervisedDatasetReader = TokenLabelReader(kwargs["train_supervised"], kwargs["token_label_separator"])
-    trainSupervisedDatasetReader = SyncBatchIterator(trainSupervisedDatasetReader, [inputGenerator1, inputGenerator2],
-                                                     [outputGenerator], batchSize[0])
+    trainSupervisedDatasetReader = SyncBatchList(trainSupervisedDatasetReader, [inputGenerator1, inputGenerator2],
+                                                 [outputGenerator], batchSize[0])
 
     trainUnsupervisedDataset = TokenReader(kwargs["train_unsupervised"])
-    trainUnsupervisedDatasetReader = SyncBatchIterator(trainUnsupervisedDataset,
-                                                       [inputGenerator1, inputGenerator2],
-                                                       None, batchSize[1])
+    trainUnsupervisedDatasetReader = SyncBatchList(trainUnsupervisedDataset,
+                                                   [inputGenerator1, inputGenerator2],
+                                                   None, batchSize[1])
 
     embedding1.stopAdd()
     embedding2.stopAdd()
@@ -345,8 +345,8 @@ def main(**kwargs):
     # Get dev inputs and output
     log.info("Reading development examples")
     devDatasetReader = TokenLabelReader(kwargs["dev"], kwargs["token_label_separator"])
-    devReader = SyncBatchIterator(devDatasetReader, [inputGenerator1, inputGenerator2], [outputGenerator], sys.maxint,
-                                  shuffle=False)
+    devReader = SyncBatchList(devDatasetReader, [inputGenerator1, inputGenerator2], [outputGenerator], sys.maxint,
+                              shuffle=False)
 
     lambdaChange = ChangeLambda(_lambdaShared, kwargs["lambda"], kwargs["loss_uns_epoch"])
     lossCallback = LossCallback(loss1, loss2, input1, input2, y)

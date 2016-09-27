@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
 from DataOperation.InputGenerator.FeatureGenerator import FeatureGenerator
-from DataOperation.InputGenerator.WindowGenerator import WindowGenerator
+from DataOperation.InputGenerator.WordWindowGenerator import WordWindowGenerator
 
 '''
 Contains classes that format the data to can be read by the supervised algorithms
@@ -12,8 +12,8 @@ class HiddenLayerFeatureGenerator(FeatureGenerator):
     def __init__(self, windowSize, embedding, filters, startPadding, endPadding):
         self.embedding = embedding
         self.windowSize = windowSize
-        self.__windowGenerator = WindowGenerator(windowSize, embedding, filters,
-                                                 startPadding, endPadding)
+        self.__windowGenerator = WordWindowGenerator(windowSize, embedding, filters,
+                                                     startPadding, endPadding)
 
     def generate(self, rawData):
         windowData = self.__windowGenerator.generate(rawData)

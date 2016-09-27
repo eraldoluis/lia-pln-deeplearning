@@ -19,7 +19,7 @@ from DataOperation.Embedding import EmbeddingFactory, RandomUnknownStrategy
 from DataOperation.InputGenerator.BatchIterator import SyncBatchList
 from DataOperation.InputGenerator.ConstantLabel import ConstantLabel
 from DataOperation.InputGenerator.LabelGenerator import LabelGenerator
-from DataOperation.InputGenerator.WindowGenerator import WindowGenerator
+from DataOperation.InputGenerator.WordWindowGenerator import WordWindowGenerator
 from DataOperation.Lexicon import createLexiconUsingFile, Lexicon
 from DataOperation.TokenDatasetReader import TokenLabelReader, TokenReader
 from ModelOperation.Callback import Callback
@@ -44,8 +44,9 @@ UNSUPERVISED_BACKPROPAGATION_PARAMETERS = {
                 "desc": "list contains the filters. Each filter is describe by your module name + . + class name"},
     "label_file": {"desc": "", "required": True},
     "batch_size": {"required": True},
-    "alpha": {"desc": "", "required": True},
+    "lambda": {"desc": "", "required": True},
 
+    "alpha": {"desc": "", "required": False},
     "train_source": {"desc": "Supervised Training File Path"},
     "train_target": {"desc": "Unsupervised Training File Path"},
     "num_epochs": {"desc": "Number of epochs: how many iterations over the training set."},
@@ -143,7 +144,7 @@ def main(**kwargs):
     numEpochs = kwargs["num_epochs"]
     lr = kwargs["lr"]
     tagLexicon = createLexiconUsingFile(kwargs["label_file"])
-    _lambda = theano.shared(0., "lambda")
+    _lambda = theano.shared(kwargs["lambda"], "lambda")
     useAdagrad = kwargs["adagrad"]
     shuffle = kwargs["shuffle"]
     supHiddenLayerSize = kwargs["hidden_size_supervised_part"]
@@ -163,12 +164,14 @@ def main(**kwargs):
     domainLexicon.put("1")
     domainLexicon.stopAdd()
 
+
+
     log.info("Reading W2v File1")
     embedding1 = EmbeddingFactory().createFromW2V(kwargs["word_embedding"], RandomUnknownStrategy())
 
     log.info("Reading training examples")
     # Generators
-    windowGenerator = WindowGenerator(wordWindowSize, embedding1, filters, startSymbol)
+    windowGenerator = WordWindowGenerator(wordWindowSize, embedding1, filters, startSymbol)
     outputGeneratorTag = LabelGenerator(tagLexicon)
     unsupervisedLabelSource = ConstantLabel(domainLexicon, "0")
 
@@ -346,8 +349,8 @@ def main(**kwargs):
     domainLexicon.stopAdd()
 
     callbacks = []
-
-    callbacks.append(ChangeLambda(_lambda, kwargs["alpha"], numEpochs))
+    log.info("Usando lambda fixo: " + str(_lambda.get_value()))
+    # callbacks.append(ChangeLambda(_lambda, kwargs["alpha"], numEpochs))
 
     if kwargs["additional_dev"]:
         callbacks.append(

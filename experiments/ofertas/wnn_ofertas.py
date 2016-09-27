@@ -6,19 +6,23 @@ import importlib
 import json
 import logging
 import logging.config
+import numpy
 import os
+from pprint import pformat
+from pprint import pprint
 import random
 import sys
-import time
+from theano import compile
+import theano
 from time import time
+import time
 
-import numpy as np
-import theano.tensor as T
-
+from data.DatasetReader import DatasetReader
 from data.Embedding import EmbeddingFactory, RandomUnknownStrategy, ChosenUnknownStrategy, \
     Embedding, RandomEmbedding
 from data.InputGenerator.BatchIterator import SyncBatchIterator, \
     AsyncBatchIterator
+from data.InputGenerator.FeatureGenerator import FeatureGenerator
 from data.InputGenerator.LabelGenerator import LabelGenerator
 from data.InputGenerator.WindowGenerator import WindowGenerator
 from data.Lexicon import Lexicon, createLexiconUsingFile, HashLexicon
@@ -31,17 +35,16 @@ from nnet.ActivationLayer import ActivationLayer, softmax, tanh, sigmoid
 from nnet.EmbeddingLayer import EmbeddingLayer
 from nnet.FlattenLayer import FlattenLayer
 from nnet.LinearLayer import LinearLayer
+from nnet.MaxPoolingLayer import MaxPoolingLayer
+from nnet.ReshapeLayer import ReshapeLayer
 from nnet.WeightGenerator import ZeroWeightGenerator, GlorotUniform, SigmoidGlorot
+import numpy as np
 from optim.Adagrad import Adagrad
 from optim.SGD import SGD
 from param.JsonArgParser import JsonArgParser
-from data.DatasetReader import DatasetReader
-from nnet.MaxPoolingLayer import MaxPoolingLayer
-from theano import compile
-import theano
-import numpy
-from data.InputGenerator.FeatureGenerator import FeatureGenerator
-from nnet.ReshapeLayer import ReshapeLayer
+import theano.tensor as T
+from util.jsontools import dict2obj
+
 
 PARAMETERS = {
     "filters": {"default": ['data.Filters.TransformLowerCaseFilter',
@@ -244,34 +247,35 @@ class TextLabelGenerator(FeatureGenerator):
         return y
 
 
-def main(**kwargs):
+def main(args):
     log = logging.getLogger(__name__)
-    log.info(kwargs)
 
-    if kwargs["seed"] != None:
-        random.seed(kwargs["seed"])
-        np.random.seed(kwargs["seed"])
+    log.info(pformat(args.__dict__))
 
-    lr = kwargs["lr"]
-    startSymbol = kwargs["start_symbol"]
-    endSymbol = kwargs["end_symbol"]
-    numEpochs = kwargs["num_epochs"]
-    shuffle = kwargs["shuffle"]
-    normalizeMethod = kwargs["normalization"]
-    wordWindowSize = kwargs["word_window_size"]
-    hiddenLayerSize = kwargs["hidden_size"]
-    convSize = kwargs["conv_size"]
+    if args.seed:
+        random.seed(args.seed)
+        np.random.seed(args.seed)
+
+    lr = args.lr
+    startSymbol = args.start_symbol
+    endSymbol = args.end_symbol
+    numEpochs = args.num_epochs
+    shuffle = args.shuffle
+    normalizeMethod = args.normalization
+    wordWindowSize = args.word_window_size
+    hiddenLayerSize = args.hidden_size
+    convSize = args.conv_size
 
     # Load classes for filters.
     filters = []
-    for filterName in kwargs["filters"]:
+    for filterName in args.filters:
         moduleName, className = filterName.rsplit('.', 1)
         log.info("Usando o filtro: " + moduleName + " " + className)
 
         module_ = importlib.import_module(moduleName)
         filters.append(getattr(module_, className)())
 
-    loadPath = kwargs["load_model"]
+    loadPath = args.load_model
 
     if loadPath:
         with codecs.open(loadPath + ".param", "r", encoding="utf-8") as paramsFile:
@@ -305,32 +309,32 @@ def main(**kwargs):
         b1 = None
         W2 = None
         b2 = None
-        hiddenActFunctionName = kwargs["hidden_activation_function"]
+        hiddenActFunctionName = args.hidden_activation_function
         hiddenActFunction = method_name(hiddenActFunctionName)
 
-        if kwargs["word_embedding"]:
+        if args.word_embedding:
             log.info("Reading W2v File")
-            embedding = EmbeddingFactory().createFromW2V(kwargs["word_embedding"], RandomUnknownStrategy())
+            embedding = EmbeddingFactory().createFromW2V(args.word_embedding, RandomUnknownStrategy())
             # TODO: teste
             embedding.stopAdd()
-        elif kwargs["hash_lex_size"]:
-            embedding = RandomEmbedding(kwargs["word_emb_size"],
+        elif args.hash_lex_size:
+            embedding = RandomEmbedding(args.word_emb_size,
                                         RandomUnknownStrategy(),
-                                        HashLexicon(kwargs["hash_lex_size"]))
+                                        HashLexicon(args.hash_lex_size))
         else:
-            embedding = EmbeddingFactory().createRandomEmbedding(kwargs["word_emb_size"])
+            embedding = EmbeddingFactory().createRandomEmbedding(args.word_emb_size)
 
         # Get the inputs and output
-        if kwargs["labels"]:
-            labelLexicon = createLexiconUsingFile(kwargs["labels"])
+        if args.labels:
+            labelLexicon = createLexiconUsingFile(args.labels)
         else:
             labelLexicon = Lexicon()
 
-        if kwargs["load_hidden_layer"]:
+        if args.load_hidden_layer:
             # Loading Hidden Layer
             log.info("Loading Hidden Layer")
 
-            hl = np.load(kwargs["load_hidden_layer"]).item(0)
+            hl = np.load(args.load_hidden_layer).item(0)
 
             W1 = hl["W_Encoder"]
             b1 = hl["b_Encoder"]
@@ -343,17 +347,17 @@ def main(**kwargs):
     # Generate one label per example (list of tokens).
     labelGenerator = TextLabelGenerator(labelLexicon)
 
-    if kwargs["train"]:
+    if args.train:
         log.info("Reading training examples")
 
-        trainDatasetReader = OfertasReader(kwargs["train"])
-        if kwargs["load_method"] == "sync":
+        trainDatasetReader = OfertasReader(args.train)
+        if args.load_method == "sync":
             trainReader = SyncBatchIterator(trainDatasetReader,
                                             [featureGenerator],
                                             labelGenerator,
                                             - 1,
                                             shuffle=shuffle)
-        elif kwargs["load_method"] == "async":
+        elif args.load_method == "async":
             trainReader = AsyncBatchIterator(trainDatasetReader,
                                              [featureGenerator],
                                              labelGenerator,
@@ -361,22 +365,22 @@ def main(**kwargs):
                                              shuffle=shuffle,
                                              maxqSize=1000)
         else:
-            log.error("The option 'load_method' has an invalid value (%s)." % kwargs["load_method"])
+            log.error("The option 'load_method' has an invalid value (%s)." % args.load_method)
             sys.exit(1)
 
         embedding.stopAdd()
         labelLexicon.stopAdd()
 
         # Get dev inputs and output
-        dev = kwargs["dev"]
-        evalPerIteration = kwargs["eval_per_iteration"]
+        dev = args.dev
+        evalPerIteration = args.eval_per_iteration
         if not dev and evalPerIteration > 0:
             log.error("Argument eval_per_iteration cannot be used without a dev argument.")
             sys.exit(1)
 
         if dev:
             log.info("Reading development examples")
-            devDatasetReader = OfertasReader(kwargs["dev"])
+            devDatasetReader = OfertasReader(args.dev)
             devReader = SyncBatchIterator(devDatasetReader,
                                           [featureGenerator],
                                           labelGenerator,
@@ -460,16 +464,19 @@ def main(**kwargs):
 
     # Decaimento da taxa de aprendizado.
     decay = 0.0
-    if kwargs["decay"].lower() == "linear":
+    if args.decay == "linear":
         decay = 1.0
 
     # Algoritmo de aprendizado.
-    if kwargs["alg"] == "adagrad":
+    if args.alg == "adagrad":
         log.info("Using Adagrad")
         opt = Adagrad(lr=lr, decay=decay)
-    else:
+    elif args.alg == "sgd":
         log.info("Using SGD")
         opt = SGD(lr=lr, decay=decay)
+    else:
+        log.error("Unknown algorithm: %s. Expected values are: adagrad or sgd." % args.alg)
+        sys.exit(1)
 
     # TODO: debug
     # opt.lr.tag.test_value = 0.01
@@ -506,8 +513,8 @@ def main(**kwargs):
     if trainReader:
         callback = []
 
-        if kwargs["save_model"]:
-            savePath = kwargs["save_model"]
+        if args.save_model:
+            savePath = args.save_model
             modelWriter = OfertasModelWritter(savePath, embeddingLayer,
                                               hiddenLinear, sotmaxLinearInput,
                                               embedding, labelLexicon,
@@ -519,9 +526,9 @@ def main(**kwargs):
                     evalPerIteration=evalPerIteration)
 
     # Testing
-    if kwargs["test"]:
+    if args.test:
         log.info("Reading test examples")
-        testDatasetReader = OfertasReader(kwargs["test"])
+        testDatasetReader = OfertasReader(args.test)
         testReader = SyncBatchIterator(testDatasetReader,
                                        [featureGenerator],
                                        labelGenerator,
@@ -547,5 +554,5 @@ if __name__ == '__main__':
 
     logging.config.fileConfig(os.path.join(path, 'logging.conf'))
 
-    parameters = JsonArgParser(PARAMETERS).parse(sys.argv[1])
-    main(**parameters)
+    args = dict2obj(JsonArgParser(PARAMETERS).parse(sys.argv[1]), 'Arguments')
+    main(args)

@@ -30,6 +30,8 @@ class Layer(object):
 
         if isinstance(_input,list):
             self.__input = []
+            self.__set = set()
+
             for i in _input:
                 self.__input.append(self.__auxConst(i))
         else:

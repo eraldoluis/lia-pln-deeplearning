@@ -12,7 +12,8 @@ import sys
 from nnet.Util import FeatureVectorsGenerator
 import codecs
 from data.Lexicon import Lexicon
-
+import numpy as np
+import theano
 
 ######################################################
 # Strategy to Generate the embedding, which represents the unknown object, randomly
@@ -151,6 +152,11 @@ class Embedding(object):
         self.__lexicon.setUnknownIndex(self.getLexiconIndex(self.__unknownGenerateStrategy.getUnknownStr()))
 
         self.__readOnly = True
+        
+        self.convertToNumPy()
+
+    def convertToNumPy(self):
+        self.__vectors = np.asarray(self.__vectors, dtype=theano.config.floatX)
 
     def isReadOnly(self):
         '''

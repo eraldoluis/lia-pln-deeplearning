@@ -9,12 +9,12 @@ import time
 
 
 class BatchAssembler:
-    '''
+    """
     Create and return training batches.
-    '''
+    """
 
     def __init__(self, reader, inputGenerators, outputGenerator, batchSize):
-        '''
+        """
         :type reader: data.DatasetReader.DatasetReader
         :param reader:
 
@@ -29,7 +29,7 @@ class BatchAssembler:
             so this algorithm will consider that the training has variable batch.
             Thus each output of TrainingInputGenerator will consider a same batch.
             If this parameter has a value bigger than zero, so will packed automatically each element of output in a batch.
-        '''
+        """
 
         self.__reader = reader
         self.__inputGenerators = inputGenerators
@@ -39,10 +39,9 @@ class BatchAssembler:
         self.__log = logging.getLogger(__name__)
 
     def getGeneratorObject(self):
-        '''
-        :return: a generator from the yield expression. This generator will 
-        return the batches from the data set.
-        '''
+        """
+        :return: yield-based generator that generates training batches from the data set.
+        """
         inputs = [[] for inputGenerator in self.__inputGenerators]
         outputs = []
         generatedOutputs = None
@@ -101,18 +100,17 @@ class BatchAssembler:
 
 
 class SyncBatchIterator(object):
-    '''
+    """
     Reads all data from data set and generates the training input at once.
-    '''
+    """
 
     def __init__(self, reader, inputGenerators, outputGenerator, batchSize, shuffle=True):
-        '''
+        """
         :type reader: data.DatasetReader.DatasetReader
         :param reader:
 
         :type inputGenerators: list[data.InputGenerator.FeatureGenerator.FeatureGenerator]
         :param inputGenerators: generate the input of the training
-
 
         :type outputGenerator: list[data.InputGenerator.FeatureGenerator.FeatureGenerator]
         :param outputGenerator: generate the output of the training
@@ -123,7 +121,7 @@ class SyncBatchIterator(object):
             If this parameter has a value bigger than zero, so will treat treat each output of generate method as a normal example.
 
         :param shuffle: is to shufle or not the batches
-        '''
+        """
         self.__batches = []
         self.__batchIdxs = []
         self.__shuffle = shuffle
@@ -161,13 +159,13 @@ class SyncBatchIterator(object):
 
 
 class AsyncBatchIterator(object):
-    '''
+    """
     Reads a certain quantity of batches from the data set at a time.
-    '''
+    """
 
     def __init__(self, datasetReader, inputGenerators, outputGenerator, batchSize, shuffle=True, maxqSize=100,
                  waitTime=0.005):
-        '''
+        """
             :type reader: data.DatasetReader.DatasetReader
             :param reader:
 
@@ -188,7 +186,7 @@ class AsyncBatchIterator(object):
             :param maxqSize: maximum number of batches in queue
 
             :param waitTime: time which de thread is going to wait when the queue is full
-            '''
+            """
         self.__batchIterator = BatchAssembler(datasetReader, inputGenerators, outputGenerator, batchSize)
         self.__generatorObj = self.__batchIterator.getGeneratorObject()
         self.__queue, self.__stop = self.generatorQueue(maxqSize, waitTime)

@@ -250,7 +250,7 @@ class TextLabelGenerator(FeatureGenerator):
 def main(args):
     log = logging.getLogger(__name__)
 
-    log.info(pformat(args.__dict__))
+    log.info(args)
 
     if args.seed:
         random.seed(args.seed)
@@ -270,7 +270,7 @@ def main(args):
     filters = []
     for filterName in args.filters:
         moduleName, className = filterName.rsplit('.', 1)
-        log.info("Usando o filtro: " + moduleName + " " + className)
+        log.info("Filtro: " + moduleName + " " + className)
 
         module_ = importlib.import_module(moduleName)
         filters.append(getattr(module_, className)())
@@ -342,8 +342,7 @@ def main(args):
             hiddenLayerSize = b1.shape[0]
 
     # Generate word windows.
-    featureGenerator = WindowGenerator(wordWindowSize, embedding, filters,
-                                       startSymbol, endSymbol)
+    featureGenerator = WindowGenerator(wordWindowSize, embedding, filters, startSymbol, endSymbol)
     # Generate one label per example (list of tokens).
     labelGenerator = TextLabelGenerator(labelLexicon)
 
@@ -554,5 +553,5 @@ if __name__ == '__main__':
 
     logging.config.fileConfig(os.path.join(path, 'logging.conf'))
 
-    args = dict2obj(JsonArgParser(PARAMETERS).parse(sys.argv[1]), 'Arguments')
+    args = dict2obj(JsonArgParser(PARAMETERS).parse(sys.argv[1]), 'OfertaArguments')
     main(args)

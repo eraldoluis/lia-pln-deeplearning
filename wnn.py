@@ -52,12 +52,13 @@ WNN_PARAMETERS = {
     "dev": {"desc": "Development File Path"},
     "load_model": {"desc": "Path + basename that will be used to save the weights and embeddings to be loaded."},
 
-    "with_charwnn": {"default": False, "desc":"Enable or disable the charwnn of the model"},
-    "conv_size": {"default": 50 , "desc": "The number of neurons in the convolutional layer"},
+    "with_charwnn": {"default": False, "desc": "Enable or disable the charwnn of the model"},
+    "conv_size": {"default": 50, "desc": "The number of neurons in the convolutional layer"},
     "char_emb_size": {"default": 10, "desc": "The size of char embedding"},
     "char_window_size": {"default": 5, "desc": "The size of character windows."},
-    "charwnn_with_act": {"default": True, "desc": "Enable or disable the use of a activation function in the convolution. "
-                                                  "When this parameter is true, we use tanh as activation function"},
+    "charwnn_with_act": {"default": True,
+                         "desc": "Enable or disable the use of a activation function in the convolution. "
+                                 "When this parameter is true, we use tanh as activation function"},
     "alg": {"default": "window_word",
             "desc": "The type of algorithm to train and test. The posible inputs are: window_word or window_stn"},
     "hidden_size": {"default": 300, "desc": "The number of neurons in the hidden layer"},
@@ -256,7 +257,7 @@ def mainWnn(**kwargs):
         charWindowSize = kwargs["char_window_size"]
         startSymbolChar = "</s>"
 
-        #Create the character embedding
+        # Create the character embedding
         charEmbedding = EmbeddingFactory().createRandomEmbedding(charEmbeddingSize)
 
         # Insert the padding of the character window
@@ -334,8 +335,9 @@ def mainWnn(**kwargs):
             charWindowIdxs = T.ltensor4(name="char_window_idx")
             inputModel.append(charWindowIdxs)
 
-            charEmbeddingConvLayer = EmbeddingConvolutionalLayer(charWindowIdxs, charEmbedding, numMaxChar, convSize,
-                                                                 charWindowSize, charAct)
+            charEmbeddingConvLayer = EmbeddingConvolutionalLayer(charWindowIdxs, charEmbedding.getEmbeddingMatrix(),
+                                                                 numMaxChar, convSize, charWindowSize,
+                                                                 charEmbeddingSize, charAct)
             layerBeforeLinear = ConcatenateLayer([flatten, charEmbeddingConvLayer])
             sizeLayerBeforeLinear = wordWindowSize * (wordEmbedding.getEmbeddingSize() + convSize)
         else:
@@ -370,7 +372,7 @@ def mainWnn(**kwargs):
     embeddingSize = wordEmbedding.getEmbeddingSize()
     log.info("Size of  word dictionary and word embedding size: %d and %d" % (dictionarySize, embeddingSize))
     log.info("Size of  char dictionary and char embedding size: %d and %d" % (
-                    charEmbedding.getNumberOfEmbeddings(), charEmbedding.getEmbeddingSize()))
+        charEmbedding.getNumberOfEmbeddings(), charEmbedding.getEmbeddingSize()))
 
     # Compiling
     loss = NegativeLogLikelihood().calculateError(act2.getOutput(), prediction, y)

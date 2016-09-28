@@ -129,17 +129,17 @@ class GradientReversalModel(Model):
         # Create theano functions
         self.__trainFuncs = []
 
-        sourceFuncInput = [self.__sourceInput, self.__sourceSupLabel, self.__sourceUnsLabel] + optimizerInput
+        sourceFuncInput = self.__sourceInput + [self.__sourceSupLabel, self.__sourceUnsLabel] + optimizerInput
         self.__trainFuncs.append(theano.function(inputs=sourceFuncInput, outputs=_outputSourceFuncTrain,
                                                  updates=optimizer.getUpdates(lossSup + lossUnsSource,
                                                                               trainableSourceLayers)))
 
-        targetFuncInput = [self.__targetInput, self.__targetLabel] + optimizerInput
+        targetFuncInput = self.__targetInput + [self.__targetLabel] + optimizerInput
         self.__trainFuncs.append(theano.function(inputs=targetFuncInput, outputs=_outputTargetFuncTrain,
                                                  updates=optimizer.getUpdates(lossUnsTarget, trainableTargetLayers)))
 
-        self.evaluateFunction = theano.function([self.__sourceInput, self.__sourceSupLabel], outputs=_outputFuncEval)
-        self.__predictionFunction = theano.function([self.__sourceInput], outputs=predictionSup)
+        self.evaluateFunction = theano.function(self.__sourceInput + [self.__sourceSupLabel], outputs=_outputFuncEval)
+        self.__predictionFunction = theano.function(self.__sourceInput, outputs=predictionSup)
 
     def getTrainingMetrics(self):
         metrics = []

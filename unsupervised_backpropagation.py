@@ -16,7 +16,9 @@ import theano
 import theano.tensor as T
 
 from DataOperation.Embedding import EmbeddingFactory, RandomUnknownStrategy
+from DataOperation.InputGenerator import CharacterWindowGenerator
 from DataOperation.InputGenerator.BatchIterator import SyncBatchList
+from DataOperation.InputGenerator.CharacterWindowGenerator import CharacterWindowGenerator
 from DataOperation.InputGenerator.ConstantLabel import ConstantLabel
 from DataOperation.InputGenerator.LabelGenerator import LabelGenerator
 from DataOperation.InputGenerator.WordWindowGenerator import WordWindowGenerator
@@ -27,6 +29,8 @@ from ModelOperation.Objective import NegativeLogLikelihood
 from ModelOperation.Prediction import ArgmaxPrediction
 from ModelOperation.GradientReversalModel import GradientReversalModel
 from NNet.ActivationLayer import ActivationLayer, softmax, tanh, sigmoid
+from NNet.ConcatenateLayer import ConcatenateLayer
+from NNet.EmbeddingConvolutionalLayer import EmbeddingConvolutionalLayer
 from NNet.EmbeddingLayer import EmbeddingLayer
 from NNet.FlattenLayer import FlattenLayer
 from NNet.LinearLayer import LinearLayer
@@ -84,6 +88,14 @@ UNSUPERVISED_BACKPROPAGATION_PARAMETERS = {
     "additional_dev": {'desc': ""},
     "activation_hidden_extractor": {"default": "tanh", "desc": "This parameter chooses the type of activation function"
                                                                " that will be used in the hidden layer of the extractor. Options: sigmoid or tanh"},
+
+    "with_charwnn": {"default": False, "desc": "Enable or disable the charwnn of the model"},
+    "conv_size": {"default": 50, "desc": "The number of neurons in the convolutional layer"},
+    "char_emb_size": {"default": 10, "desc": "The size of char embedding"},
+    "char_window_size": {"default": 5, "desc": "The size of character windows."},
+    "charwnn_with_act": {"default": True,
+                         "desc": "Enable or disable the use of a activation function in the convolution. "
+                                 "When this parameter is true, we use tanh as activation function"},
 }
 
 
@@ -103,12 +115,12 @@ class ChangeLambda(Callback):
 
 
 class AdditionalDevDataset(Callback):
-    def __init__(self, model, sourceDataset, tokenLabelSeparator, windowGenerator, outputGeneratorTag):
+    def __init__(self, model, sourceDataset, tokenLabelSeparator, inputGenerator, outputGeneratorTag):
         # Get dev inputs and output
         self.log = logging.getLogger(__name__)
         self.log.info("Reading additional dev examples")
         devDatasetReader = TokenLabelReader(sourceDataset, tokenLabelSeparator)
-        devReader = SyncBatchList(devDatasetReader, [windowGenerator], [outputGeneratorTag], sys.maxint,
+        devReader = SyncBatchList(devDatasetReader, inputGenerator, [outputGeneratorTag], sys.maxint,
                                   shuffle=False)
 
         self.devReader = devReader
@@ -136,11 +148,11 @@ def main(**kwargs):
         module_ = importlib.import_module(moduleName)
         filters.append(getattr(module_, className)())
 
-    # Get the inputs and output
     wordWindowSize = kwargs["word_window_size"]
     hiddenLayerSize = kwargs["hidden_size"]
     batchSize = kwargs["batch_size"]
     startSymbol = kwargs["start_symbol"]
+    endSymbol = kwargs["end_symbol"]
     numEpochs = kwargs["num_epochs"]
     lr = kwargs["lr"]
     tagLexicon = createLexiconUsingFile(kwargs["label_file"])
@@ -151,6 +163,20 @@ def main(**kwargs):
     unsupHiddenLayerSize = kwargs["hidden_size_unsupervised_part"]
     normalization = kwargs["normalization"]
     activationHiddenExtractor = kwargs["activation_hidden_extractor"]
+
+    withCharWNN = kwargs["with_charwnn"]
+    convSize = kwargs["conv_size"]
+    charEmbeddingSize = kwargs["char_emb_size"]
+    charWindowSize = kwargs["char_window_size"]
+    startSymbolChar = "</s>"
+
+    if kwargs["charwnn_with_act"]:
+        charAct = tanh
+    else:
+        charAct = None
+
+    # TODO: the maximum number of characters of word is fixed in 20.
+    numMaxChar = 20
 
     if kwargs["decay"].lower() == "normal":
         decay = 0.0
@@ -164,20 +190,35 @@ def main(**kwargs):
     domainLexicon.put("1")
     domainLexicon.stopAdd()
 
-
-
     log.info("Reading W2v File1")
-    embedding1 = EmbeddingFactory().createFromW2V(kwargs["word_embedding"], RandomUnknownStrategy())
+    wordEmbedding = EmbeddingFactory().createFromW2V(kwargs["word_embedding"], RandomUnknownStrategy())
 
     log.info("Reading training examples")
     # Generators
-    windowGenerator = WordWindowGenerator(wordWindowSize, embedding1, filters, startSymbol)
+    inputGenerators = [WordWindowGenerator(wordWindowSize, wordEmbedding, filters, startSymbol)]
     outputGeneratorTag = LabelGenerator(tagLexicon)
+
+    if withCharWNN:
+        # Create the character embedding
+        charEmbedding = EmbeddingFactory().createRandomEmbedding(charEmbeddingSize)
+
+        # Insert the padding of the character window
+        charEmbedding.put(startSymbolChar)
+
+        # Insert the character that will be used to fill the matrix
+        # with a dimension lesser than chosen dimension.This enables that the convolution is performed by a matrix multiplication.
+        artificialChar = "ART_CHAR"
+        charEmbedding.put(artificialChar)
+
+        inputGenerators.append(
+            CharacterWindowGenerator(charEmbedding, numMaxChar, charWindowSize, wordWindowSize, artificialChar,
+                                     startSymbolChar, startPaddingWrd=startSymbol, endPaddingWrd=endSymbol))
+
     unsupervisedLabelSource = ConstantLabel(domainLexicon, "0")
 
     # Reading supervised and unsupervised data sets.
     trainSupervisedDatasetReader = TokenLabelReader(kwargs["train_source"], kwargs["token_label_separator"])
-    trainSupervisedBatch = SyncBatchList(trainSupervisedDatasetReader, [windowGenerator],
+    trainSupervisedBatch = SyncBatchList(trainSupervisedDatasetReader, inputGenerators,
                                          [outputGeneratorTag, unsupervisedLabelSource], batchSize[0],
                                          shuffle=shuffle)
 
@@ -186,41 +227,70 @@ def main(**kwargs):
 
     trainUnsupervisedDatasetReader = TokenReader(kwargs["train_target"])
     trainUnsupervisedDatasetBatch = SyncBatchList(trainUnsupervisedDatasetReader,
-                                                  [windowGenerator],
+                                                  inputGenerators,
                                                   [unsupervisedLabelTarget], batchSize[1], shuffle=shuffle)
 
+    # Stopping to add new words, labels and chars
+    wordEmbedding.stopAdd()
+    tagLexicon.stopAdd()
+    domainLexicon.stopAdd()
+
+    if withCharWNN:
+        charEmbedding.stopAdd()
+
+
+    #Word Embedding Normalization
     if normalization == "zscore":
-        embedding1.zscoreNormalization()
+        wordEmbedding.zscoreNormalization()
     elif normalization == "minmax":
-        embedding1.minMaxNormalization()
+        wordEmbedding.minMaxNormalization()
     elif normalization == "mean":
-        embedding1.meanNormalization()
+        wordEmbedding.meanNormalization()
     elif normalization == "none" or not normalization:
         pass
     else:
         raise Exception()
 
-    # Source part
-    windowSource = T.lmatrix(name="windowSource")
+    # Source input
+    wordWindowSource = T.lmatrix(name="windowSource")
+    sourceInput = [wordWindowSource]
 
-    embeddingLayer1 = EmbeddingLayer(windowSource, embedding1.getEmbeddingMatrix(), trainable=True)
-    flatten1 = FlattenLayer(embeddingLayer1)
+    # Create the layers related with the extractor of features
+    embeddingLayerSrc = EmbeddingLayer(wordWindowSource, wordEmbedding.getEmbeddingMatrix(), trainable=True)
+    flattenSrc = FlattenLayer(embeddingLayerSrc)
+
+    if withCharWNN:
+        log.info("Using charwnn")
+
+        # Create the charwn
+        charWindowIdxSrc = T.ltensor4(name="char_window_idx_source")
+        sourceInput.append(charWindowIdxSrc)
+
+        charEmbeddingConvLayerSrc = EmbeddingConvolutionalLayer(charWindowIdxSrc, charEmbedding.getEmbeddingMatrix(),
+                                                                numMaxChar, convSize, charWindowSize, charEmbeddingSize,
+                                                                charAct)
+        layerBeforeLinearSrc = ConcatenateLayer([flattenSrc, charEmbeddingConvLayerSrc])
+        sizeLayerBeforeLinearSrc = wordWindowSize * (wordEmbedding.getEmbeddingSize() + convSize)
+    else:
+        layerBeforeLinearSrc = flattenSrc
+        sizeLayerBeforeLinearSrc = wordWindowSize * wordEmbedding.getEmbeddingSize()
 
     if activationHiddenExtractor == "tanh":
         log.info("Using tanh in the hidden layer of extractor")
 
-        linear1 = LinearLayer(flatten1, wordWindowSize * embedding1.getEmbeddingSize(), hiddenLayerSize,
+        linear1 = LinearLayer(layerBeforeLinearSrc, sizeLayerBeforeLinearSrc, hiddenLayerSize,
                               weightInitialization=GlorotUniform())
         act1 = ActivationLayer(linear1, tanh)
     elif activationHiddenExtractor == "sigmoid":
         log.info("Using sigmoid in the hidden layer of extractor")
 
-        linear1 = LinearLayer(flatten1, wordWindowSize * embedding1.getEmbeddingSize(), hiddenLayerSize,
+        linear1 = LinearLayer(layerBeforeLinearSrc, sizeLayerBeforeLinearSrc, hiddenLayerSize,
                               weightInitialization=SigmoidGenerator())
         act1 = ActivationLayer(linear1, sigmoid)
     else:
         raise Exception()
 
+    # Create the layers with the Tagger
     if supHiddenLayerSize == 0:
         layerBeforeSupSoftmax = act1
         layerSizeBeforeSupSoftmax = hiddenLayerSize
@@ -239,6 +309,7 @@ def main(**kwargs):
                                    weightInitialization=ZeroWeightGenerator())
     supervisedSoftmax = ActivationLayer(supervisedLinear, softmax)
 
+    # Create the layers with the domain classifier
     gradientReversalSource = GradientReversalLayer(act1, _lambda)
 
     if unsupHiddenLayerSize == 0:
@@ -261,12 +332,31 @@ def main(**kwargs):
 
     ## Target Part
     windowTarget = T.lmatrix(name="windowTarget")
+    targetInput = [windowTarget]
 
-    embeddingLayerUnsuper1 = EmbeddingLayer(windowTarget, embeddingLayer1.getParameters()[0], trainable=True)
+    # Create the layers related with the extractor of features
+    embeddingLayerUnsuper1 = EmbeddingLayer(windowTarget, embeddingLayerSrc.getParameters()[0], trainable=True)
     flattenUnsuper1 = FlattenLayer(embeddingLayerUnsuper1)
 
+    if withCharWNN:
+        log.info("Using charwnn")
+
+        # Create the charwn
+        charWindowIdxTgt = T.ltensor4(name="char_window_idx_target")
+        targetInput.append(charWindowIdxTgt)
+
+        charEmbeddingConvLayerTgt = EmbeddingConvolutionalLayer(charWindowIdxTgt,
+                                                                charEmbeddingConvLayerSrc.getParameters()[0],
+                                                                numMaxChar, convSize, charWindowSize, charEmbeddingSize,
+                                                                charAct, trainable=True)
+        layerBeforeLinearTgt = ConcatenateLayer([flattenUnsuper1, charEmbeddingConvLayerTgt])
+        sizeLayerBeforeLinearTgt = wordWindowSize * (wordEmbedding.getEmbeddingSize() + convSize)
+    else:
+        layerBeforeLinearTgt = flattenUnsuper1
+        sizeLayerBeforeLinearTgt = wordWindowSize * wordEmbedding.getEmbeddingSize()
+
     w, b = linear1.getParameters()
-    linearUnsuper1 = LinearLayer(flattenUnsuper1, wordWindowSize * embedding1.getEmbeddingSize(), hiddenLayerSize,
+    linearUnsuper1 = LinearLayer(layerBeforeLinearTgt, sizeLayerBeforeLinearTgt, hiddenLayerSize,
                                  W=w, b=b, trainable=True)
 
     if activationHiddenExtractor == "tanh":
@@ -278,6 +368,7 @@ def main(**kwargs):
     else:
         raise Exception()
 
+    # Create the layers with the domain classifier
     grandientReversalTarget = GradientReversalLayer(actUnsupervised1, _lambda)
 
     if unsupHiddenLayerSize == 0:
@@ -321,7 +412,7 @@ def main(**kwargs):
                                                                     unsupervisedLabelTarget)
 
     # Creates model
-    model = GradientReversalModel(windowSource, windowTarget, supervisedLabel, unsupervisedLabelSource,
+    model = GradientReversalModel(sourceInput, targetInput, supervisedLabel, unsupervisedLabelSource,
                                   unsupervisedLabelTarget)
 
     if useAdagrad:
@@ -341,12 +432,8 @@ def main(**kwargs):
     # Get dev inputs and output
     log.info("Reading development examples")
     devDatasetReader = TokenLabelReader(kwargs["dev"], kwargs["token_label_separator"])
-    devReader = SyncBatchList(devDatasetReader, [windowGenerator], [outputGeneratorTag], sys.maxint,
+    devReader = SyncBatchList(devDatasetReader, inputGenerators, [outputGeneratorTag], sys.maxint,
                               shuffle=False)
-    # Stopping to add new words
-    embedding1.stopAdd()
-    tagLexicon.stopAdd()
-    domainLexicon.stopAdd()
 
     callbacks = []
     log.info("Usando lambda fixo: " + str(_lambda.get_value()))
@@ -354,7 +441,7 @@ def main(**kwargs):
 
     if kwargs["additional_dev"]:
         callbacks.append(
-            AdditionalDevDataset(model, kwargs["additional_dev"], kwargs["token_label_separator"], windowGenerator,
+            AdditionalDevDataset(model, kwargs["additional_dev"], kwargs["token_label_separator"], inputGenerators,
                                  outputGeneratorTag))
 
     # Training Model

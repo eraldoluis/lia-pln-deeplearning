@@ -16,6 +16,8 @@ class MeanSquaredError(Objective):
 
 class NegativeLogLikelihood(Objective):
     def calculateError(self, output, ypred, ytrue):
-        # TODO: edição para testar doc. classification
-        #return -T.mean(T.log(output[T.arange(ytrue.shape[0]), ytrue]))
+        return -T.mean(T.log(output[T.arange(ytrue.shape[0]), ytrue]))
+
+class NegativeLogLikelihoodOneExample(Objective):
+    def calculateError(self, output, ypred, ytrue):
         return -T.log(output[ytrue])

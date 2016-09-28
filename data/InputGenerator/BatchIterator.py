@@ -42,7 +42,7 @@ class BatchAssembler:
         """
         :return: yield-based generator that generates training batches from the data set.
         """
-        inputs = [[] for inputGenerator in self.__inputGenerators]
+        inputs = [[] for _ in xrange(len(self.__inputGenerators))]
         outputs = []
         generatedOutputs = None
         nmExamples = 0
@@ -53,16 +53,14 @@ class BatchAssembler:
             for inputGenerator in self.__inputGenerators:
                 generatedInputs.append(inputGenerator.generate(attributes))
 
-            # If outputGenerator is None, so neural network won't need of y,
-            #   since y might be produced for some part of the neural network.
-            # This happens with autoencoder.
+            # Unsupervised networks do not use an output (like autoencoders, for instance).
             if self.__outputGenerator:
-                generatedOutputs = self.__outputGenerator.generate(label)
+                generatedOutputs = self.__outputGenerator(label)
 
             nmExamples += len(generatedInputs[0])
 
             if self.__batchSize > 0:
-                for idx in range(len(generatedInputs[0])):
+                for idx in xrange(len(generatedInputs[0])):
                     for idxGen, genInput in enumerate(generatedInputs):
                         inputs[idxGen].append(genInput[idx])
 
@@ -75,7 +73,7 @@ class BatchAssembler:
                     if len(inputs[0]) == self.__batchSize:
                         yield self.__formatToNumpy(inputs, outputs)
 
-                        inputs = [[] for inputGenerator in self.__inputGenerators]
+                        inputs = [[] for _ in xrange(len(self.__inputGenerators))]
                         outputs = []
             else:
                 inputs = generatedInputs
@@ -89,14 +87,10 @@ class BatchAssembler:
         if not self.__printed:
             self.__log.info("Number of examples: %d" % nmExamples)
 
-
     def __formatToNumpy(self, inputs, outputs):
         for idx, inp in enumerate(inputs):
             inputs[idx] = numpy.asarray(inp)
-        # TODO: Irving, estou retornando apenas o primeiro item da lista.
-        # No meu caso (document classification), precisei fazer isto.
-        # Precisamos ver como generalizar este caso.
-        return (inputs[0], numpy.asarray(outputs))
+        return inputs, numpy.asarray(outputs)
 
 
 class SyncBatchIterator(object):

@@ -133,7 +133,7 @@ def run(args):
             for wv in wvs:
                 if lexicon.getLen() != wv.getLength():
                     raise Exception("O número de palavras no vacabulário é diferente do número de palavras do word Vector")
-            
+
 
             if args.testOOUV:
                 lexiconFindInWV = set([word for word in lexicon.getLexiconDict()])

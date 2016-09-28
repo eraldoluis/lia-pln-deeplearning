@@ -28,7 +28,7 @@ from data.InputGenerator.WindowGenerator import WindowGenerator
 from data.Lexicon import Lexicon, createLexiconUsingFile, HashLexicon
 from data.TokenDatasetReader import TokenLabelReader
 from model.Model import Model, ModelUnit
-from model.Objective import NegativeLogLikelihood
+from model.Objective import NegativeLogLikelihoodOneExample
 from model.Prediction import ArgmaxPrediction
 from model.SaveModelCallback import ModelWriter, SaveModelCallback
 from nnet.ActivationLayer import ActivationLayer, softmax, tanh, sigmoid
@@ -456,7 +456,8 @@ def main(args):
                                     W=W2, b=b2,
                                     weightInitialization=ZeroWeightGenerator())
     # Softmax.
-    softmaxAct = ReshapeLayer(ActivationLayer(sotmaxLinearInput, softmax), (1, -1))
+    #softmaxAct = ReshapeLayer(ActivationLayer(sotmaxLinearInput, softmax), (1, -1))
+    softmaxAct = ActivationLayer(sotmaxLinearInput, softmax)
 
     # Prediction layer (argmax).
     prediction = ArgmaxPrediction(None).predict(softmaxAct.getOutput())
@@ -488,9 +489,7 @@ def main(args):
     log.info("Number of categories: %d" % labelLexicon.getLen())
 
     # Compiling
-    loss = NegativeLogLikelihood().calculateError(softmaxAct.getOutput()[0],
-                                                  prediction,
-                                                  y)
+    loss = NegativeLogLikelihoodOneExample().calculateError(softmaxAct.getOutput()[0], prediction, y)
 
 #     if kwargs["lambda"]:
 #         _lambda = kwargs["lambda"]

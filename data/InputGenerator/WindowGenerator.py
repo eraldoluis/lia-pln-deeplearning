@@ -3,8 +3,7 @@ from data.InputGenerator.FeatureGenerator import FeatureGenerator
 
 class WindowGenerator(FeatureGenerator):
     """
-    Generate window of words from each word of a list.
-    This list can be a line.
+    Generate window of tokens from each word of a list. This list can be a line.
     """
 
     def __init__(self, windowSize, embedding, filters, startPadding, endPadding=None):
@@ -66,16 +65,6 @@ class WindowGenerator(FeatureGenerator):
                 self.__endPaddingIdx = embedding.getLexiconIndex(endPadding)
         else:
             self.__endPaddingIdx = None
-
-    def __call__(self, tokens):
-        """
-        Receives a list of tokens and returns window of words.
-
-        :type tokens: list[basestring]
-        :param tokens: list of tokens
-        :return: list of token windows
-        """
-        return self.generate(tokens)
 
     def generate(self, tokens):
         """

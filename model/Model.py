@@ -230,10 +230,7 @@ class Model:
                             "The epoch from a model unit finished, but the others units have more examples to train.")
 
                     x, y = in_
-                    # TODO: Irving, a mudança abaixo (inclusão dos colchetes) tem
-                    # a ver com a mudança que fiz na linha 100 do arquivo 
-                    # BatchIterator.py.
-                    inputs += [x]
+                    inputs += x
 
                     batchSize = len(x[0])
                     batchSizes[modelUnit.name] = batchSize
@@ -324,10 +321,7 @@ class Model:
             batchSize = len(x[0])
 
             inputs = []
-            # TODO: Irving, a mudança abaixo (inclusão dos colchetes) tem
-            # a ver com a mudança que fiz na linha 100 do arquivo 
-            # BatchIterator.py.
-            inputs += [x]
+            inputs += x
 
             if self.__modelUnitEvaluate[0].yWillBeReceived:
                 # Theano function receives 'y' as an input

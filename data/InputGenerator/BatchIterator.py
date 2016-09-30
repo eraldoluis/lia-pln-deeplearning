@@ -10,7 +10,7 @@ import time
 
 class BatchAssembler:
     """
-    Create and return training batches.
+    Create and return training (mini) batches.
     """
 
     def __init__(self, reader, inputGenerators, outputGenerator, batchSize):
@@ -20,7 +20,6 @@ class BatchAssembler:
 
         :type inputGenerators: list[data.InputGenerator.FeatureGenerator.FeatureGenerator]
         :param inputGenerators: generate the input of the training
-
 
         :type outputGenerator: list[data.InputGenerator.FeatureGenerator.FeatureGenerator]
         :param outputGenerator: generate the output of the training
@@ -51,7 +50,7 @@ class BatchAssembler:
             generatedInputs = []
 
             for inputGenerator in self.__inputGenerators:
-                generatedInputs.append(inputGenerator.generate(attributes))
+                generatedInputs.append(inputGenerator(attributes))
 
             # Unsupervised networks do not use an output (like autoencoders, for instance).
             if self.__outputGenerator:
@@ -75,14 +74,14 @@ class BatchAssembler:
 
                         inputs = [[] for _ in xrange(len(self.__inputGenerators))]
                         outputs = []
+
+                if len(inputs[0]):
+                    yield self.__formatToNumpy(inputs, outputs)
             else:
                 inputs = generatedInputs
                 outputs = generatedOutputs
 
                 yield self.__formatToNumpy(inputs, outputs)
-
-        if len(inputs[0]):
-            yield self.__formatToNumpy(inputs, outputs)
 
         if not self.__printed:
             self.__log.info("Number of examples: %d" % nmExamples)

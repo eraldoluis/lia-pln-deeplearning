@@ -4,6 +4,7 @@ import Queue
 import logging
 import random
 import threading
+from datetime import time
 import numpy
 import time
 
@@ -13,7 +14,7 @@ class BatchAssembler:
     Create and return training (mini) batches.
     """
 
-    def __init__(self, reader, inputGenerators, outputGenerator, batchSize):
+    def __init__(self, reader, inputGenerators, outputGenerators, batchSize):
         """
         :type reader: data.DatasetReader.DatasetReader
         :param reader:
@@ -21,8 +22,8 @@ class BatchAssembler:
         :type inputGenerators: list[data.InputGenerator.FeatureGenerator.FeatureGenerator]
         :param inputGenerators: generate the input of the training
 
-        :type outputGenerator: list[data.InputGenerator.FeatureGenerator.FeatureGenerator]
-        :param outputGenerator: generate the output of the training
+        :type outputGenerators: list[DataOperation.InputGenerator.FeatureGenerator.FeatureGenerator]
+        :param outputGenerators: generate the output of the training
 
         :param batchSize: If this parameter has a negative or zero value,
             so this algorithm will consider that the training has variable batch.
@@ -32,7 +33,7 @@ class BatchAssembler:
 
         self.__reader = reader
         self.__inputGenerators = inputGenerators
-        self.__outputGenerator = outputGenerator
+        self.__outputGenerators = outputGenerators
         self.__batchSize = batchSize
         self.__printed = False
         self.__log = logging.getLogger(__name__)
@@ -42,42 +43,51 @@ class BatchAssembler:
         :return: yield-based generator that generates training batches from the data set.
         """
         inputs = [[] for _ in xrange(len(self.__inputGenerators))]
-        outputs = []
         generatedOutputs = None
         nmExamples = 0
 
+        if self.__outputGenerators:
+            outputs = [[] for _ in xrange(len(self.__outputGenerators))]
+        else:
+            outputs = []
+
         for attributes, label in self.__reader.read():
             generatedInputs = []
+            generatedOutputs = []
 
             for inputGenerator in self.__inputGenerators:
                 generatedInputs.append(inputGenerator(attributes))
 
             # Unsupervised networks do not use an output (like autoencoders, for instance).
-            if self.__outputGenerator:
-                generatedOutputs = self.__outputGenerator(label)
+            if self.__outputGenerators:
+                for outputGenerator in self.__outputGenerators:
+                    generatedOutputs.append(outputGenerator.generate(label))
 
             nmExamples += len(generatedInputs[0])
 
             if self.__batchSize > 0:
+                # Batch  has fixed size
                 for idx in xrange(len(generatedInputs[0])):
                     for idxGen, genInput in enumerate(generatedInputs):
                         inputs[idxGen].append(genInput[idx])
 
-                    # If outputGenerator is None, so neural network won't need of y,
-                    #   since y might be produced for some part of the neural network.
-                    # This happens with autoencoder.
-                    if self.__outputGenerator:
-                        outputs.append(generatedOutputs[idx])
+                    # Unsupervised networks do not use an output (like autoencoders, for instance).
+                    if self.__outputGenerators:
+                        for idxGen, genOutput in enumerate(generatedOutputs):
+                            outputs[idxGen].append(genOutput[idx])
 
                     if len(inputs[0]) == self.__batchSize:
                         yield self.__formatToNumpy(inputs, outputs)
 
                         inputs = [[] for _ in xrange(len(self.__inputGenerators))]
-                        outputs = []
+                        if self.__outputGenerators:
+                            outputs = [[] for _ in xrange(len(self.__outputGenerators))]
 
                 if len(inputs[0]):
                     yield self.__formatToNumpy(inputs, outputs)
+
             else:
+                # Batch don't have fixed size
                 inputs = generatedInputs
                 outputs = generatedOutputs
 
@@ -89,7 +99,9 @@ class BatchAssembler:
     def __formatToNumpy(self, inputs, outputs):
         for idx, inp in enumerate(inputs):
             inputs[idx] = numpy.asarray(inp)
-        return inputs, numpy.asarray(outputs)
+        for idx, out in enumerate(outputs):
+            outputs[idx] = numpy.asarray(out)
+        return inputs, outputs
 
 
 class SyncBatchIterator(object):
@@ -127,7 +139,8 @@ class SyncBatchIterator(object):
             self.__batchIdxs.append(idx)
             idx += 1
 
-        self.__log.info("Number of batches: %d" % len(self.__batchIdxs))
+        self.__size = len(self.__batchIdxs)
+        self.__log.info("Number of batches: %d" % self.__size)
         self.__log.info("BatchSize: %d" % batchSize)
 
         if self.__shuffle:
@@ -149,6 +162,12 @@ class SyncBatchIterator(object):
             self.__current = 0
 
             raise StopIteration()
+
+    def get(self, idx):
+        return self.__batches[idx]
+
+    def size(self):
+        return self.__size
 
 
 class AsyncBatchIterator(object):

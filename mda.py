@@ -122,12 +122,12 @@ def main(**kwargs):
     embedding.minMaxNormalization()
 
     datasetReader = TokenReader(kwargs["train"])
-    inputGenerator = WindowGenerator(wordWindowSize, embedding, filters,
-                                     startSymbol, endSymbol)
+    inputGenerator = WordWindowGenerator(wordWindowSize, embedding, filters,
+                                         startSymbol, endSymbol)
 
     if sync:
         log.info("Loading e pre-processing train data set")
-        trainBatchGenerator = SyncBatchIterator(datasetReader, [inputGenerator], None, batchSize)
+        trainBatchGenerator = SyncBatchList(datasetReader, [inputGenerator], None, batchSize)
     else:
         trainBatchGenerator = AsyncBatchIterator(datasetReader, [inputGenerator], None, batchSize)
         # We can't stop, because the data set is reading in a asynchronous way

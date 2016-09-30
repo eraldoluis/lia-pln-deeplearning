@@ -12,8 +12,8 @@ class HiddenLayerFeatureGenerator(FeatureGenerator):
     def __init__(self, windowSize, embedding, filters, startPadding, endPadding):
         self.embedding = embedding
         self.windowSize = windowSize
-        self.__windowGenerator = WindowGenerator(windowSize, embedding, filters,
-                                                 startPadding, endPadding)
+        self.__windowGenerator = WordWindowGenerator(windowSize, embedding, filters,
+                                                     startPadding, endPadding)
 
     def generate(self, rawData):
         windowData = self.__windowGenerator.generate(rawData)

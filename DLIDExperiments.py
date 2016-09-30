@@ -12,7 +12,7 @@ import time
 import random
 import math
 import datetime
-from TransferRate.WordFeatureGenerator import Word2VecGenerate, \
+from crfsuite.WordFeatureGenerator import Word2VecGenerate, \
     InterporlationGenerate, AverageGenerator, RandomWeightGenerator, \
     RandomUnknownStrategy, MeanLessShowedWordsUnknownStrategy, \
     ChosenUnknownStrategy

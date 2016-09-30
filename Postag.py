@@ -5,21 +5,21 @@ import argparse
 import time
 import logging.config
 
-from DataOperation.TokenLabelReader import TokenLabelReader
-from DataOperation.WordVector import WordVector
+from data.TokenLabelReader import TokenLabelReader
+from data.WordVector import WordVector
 from Evaluate.EvaluateAccuracy import EvaluateAccuracy
 from WindowModelBySentence import WindowModelBySentence, NeuralNetworkChoiceEnum
-from NNet.EmbeddingConvolutionalLayer import EmbeddingConvolutionalLayer
+from nnet.EmbeddingConvolutionalLayer import EmbeddingConvolutionalLayer
 import cPickle as pickle
-from DataOperation.Lexicon import Lexicon
+from data.Lexicon import Lexicon
 from WindowModelByWord import WindowModelByWord
 import sys
 import numpy
 from WindowModelBasic import WindowModelBasic
 from Evaluate.EvaluateEveryNumEpoch import EvaluateEveryNumEpoch
-from DataOperation.ReaderLexiconAndWordVec import ReaderLexiconAndWordVec
+from data.ReaderLexiconAndWordVec import ReaderLexiconAndWordVec
 import importlib
-from NNet.Util import LearningRateUpdDivideByEpochStrategy, \
+from nnet.Util import LearningRateUpdDivideByEpochStrategy, \
     LearningRateUpdNormalStrategy
 from Evaluate.EvaluatePercPredictsCorrectNotInWordSet import EvaluatePercPredictsCorrectNotInWordSet
 import random
@@ -43,7 +43,7 @@ def run(args):
     
     filters = []
     a = 0
-    args.filters.append('DataOperation.TransformLowerCaseFilter')
+    args.filters.append('data.TransformLowerCaseFilter')
     args.filters.append('TransformLowerCaseFilter')
     while a < len(args.filters):
         print "Usando o filtro: " + args.filters[a] + " " + args.filters[a + 1]
@@ -90,7 +90,8 @@ def run(args):
                                    charVars=charVars, filters=filters, 
                                    setWordsInDataSet=lexiconFindInTrain,unknownDataTestCharIdxs=unkownData)
             
-            model.charModel.updateAllCharIndexes(unkownData)
+            if model.charModel is not None:
+                model.charModel.updateAllCharIndexes(unkownData)
         if args.testOOUV:
             if args.vocab is not None or args.wordVectors is not None:
                 lexiconWV, _ = readVocabAndWord(args)
@@ -132,7 +133,7 @@ def run(args):
             for wv in wvs:
                 if lexicon.getLen() != wv.getLength():
                     raise Exception("O número de palavras no vacabulário é diferente do número de palavras do word Vector")
-            
+
 
             if args.testOOUV:
                 lexiconFindInWV = set([word for word in lexicon.getLexiconDict()])
@@ -227,6 +228,17 @@ def run(args):
             learningRateUpdStrategy = LearningRateUpdDivideByEpochStrategy()
         
         lexiconFindInTrain = set() if args.testOOSV else None
+        
+        
+        if args.networkChoice == "complete":
+            networkChoice = NeuralNetworkChoiceEnum.COMPLETE
+        elif args.networkChoice == "without_hidden_update_wv":
+            networkChoice = NeuralNetworkChoiceEnum.WITHOUT_HIDDEN_LAYER_AND_UPD_WV
+        elif args.networkChoice == "without_update_wv":
+            networkChoice = NeuralNetworkChoiceEnum.WITHOUT_UPD_WV
+        else:
+            networkChoice = NeuralNetworkChoiceEnum.COMPLETE
+        
         if args.alg == "window_word":
             separeSentence = False
             print 'Loading train data...'
@@ -277,7 +289,8 @@ def run(args):
                                       args.norm_coef, not args.noStructGrad,
                                       adaGrad=args.adaGrad,
                                       randomizeInput=not args.notRandomizeInput,
-                                      embeddingNotUpdate = args.nonupdatewv)
+                                      embeddingNotUpdate = args.nonupdatewv,
+                                      choiceNetwork=networkChoice)
         
         elif args.alg == "window_sentence":
             separeSentence = True
@@ -289,15 +302,6 @@ def run(args):
                                                addWordUnknown, args.withCharwnn,
                                                charVars, True, filters,
                                                lexiconFindInTrain)
-
-            if args.networkChoice == "complete":
-                networkChoice = NeuralNetworkChoiceEnum.COMPLETE
-            elif args.networkChoice == "without_hidden_update_wv":
-                networkChoice = NeuralNetworkChoiceEnum.WITHOUT_HIDDEN_LAYER_AND_UPD_WV
-            elif args.networkChoice == "without_update_wv":
-                networkChoice = NeuralNetworkChoiceEnum.WITHOUT_UPD_WV
-            else:
-                networkChoice = NeuralNetworkChoiceEnum.COMPLETE
 
             numClasses = lexiconOfLabel.getLen()
             
@@ -345,7 +349,7 @@ def run(args):
             # When the test data is loaded by the script, but no one predict is done, 
             #   so it's necessary to update all char indexes, because the lexiconRaw is going to have data,
             #    that is not in AllCharWindowIndexes.
-            if len(charModel.AllCharWindowIndexes) != lexiconRaw.getLen():
+            if charModel is not None and len(charModel.AllCharWindowIndexes) != lexiconRaw.getLen():
                 charModel.updateAllCharIndexes(unknownDataTestCharIdxs)
             
             pickle.dump([lexicon, lexiconOfLabel, lexiconRaw, model, charVars], f, pickle.HIGHEST_PROTOCOL)

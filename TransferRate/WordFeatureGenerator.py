@@ -10,7 +10,7 @@ import random
 import util
 import re
 import sys
-import NNet
+import nnet
 import logging
 
 
@@ -31,7 +31,7 @@ class RandomUnknownStrategy(UnknownGenerateStrategy):
     def generateUnkown(self,wv,wvFile):
         dim =  len(wv.itervalues().next())
         
-        return NNet.Util.FeatureVectorsGenerator().generateVector(dim)
+        return nnet.Util.FeatureVectorsGenerator().generateVector(dim)
 
 class MeanLessShowedWordsUnknownStrategy(UnknownGenerateStrategy):
      
@@ -193,7 +193,7 @@ class Word2VecGenerate(WordFeatureGenerator):
                     t[1] = tokenLabelSeparator
                 str = t[0]
             else:
-                str = token
+                str = token.strip()
             
             i += 1
             char = ' ' if i != len(tokensWithLabels) else '\n'

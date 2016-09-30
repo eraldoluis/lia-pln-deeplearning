@@ -1,7 +1,6 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
 import theano
-import theano.tensor as T
 from theano.tensor.shared_randomstreams import RandomStreams
 
 from nnet.Layer import Layer

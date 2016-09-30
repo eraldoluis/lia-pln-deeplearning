@@ -14,18 +14,18 @@
 
 """
 import importlib
+import logging
+import logging.config
+import numpy
 import os
 import sys
 
-import logging.config
-import logging
-
-import numpy
 import theano.tensor as T
+from data import WordWindowGenerator
 
+from args.JsonArgParser import JsonArgParser
+from data.BatchIterator import AsyncBatchIterator, SyncBatchIterator
 from data.Embedding import EmbeddingFactory, RandomUnknownStrategy
-from data.InputGenerator.BatchIterator import AsyncBatchIterator, SyncBatchIterator
-from data.InputGenerator.WindowGenerator import WindowGenerator
 from data.TokenDatasetReader import TokenReader
 from model import Model, SaveModelCallback
 from model.MDALoss import MDALoss
@@ -33,7 +33,7 @@ from model.Model import Model
 from model.Objective import MeanSquaredError
 from model.SaveModelCallback import ModelWriter, SaveModelCallback
 from nnet import EmbeddingLayer, FlattenLayer, LinearLayer, ActivationLayer
-from nnet.ActivationLayer import ActivationLayer, tanh, softmax, sigmoid
+from nnet.ActivationLayer import ActivationLayer, sigmoid
 from nnet.EmbeddingLayer import EmbeddingLayer
 from nnet.FlattenLayer import FlattenLayer
 from nnet.LinearLayer import LinearLayer
@@ -41,7 +41,6 @@ from nnet.TiedLayer import TiedLayer
 from nnet.WeightGenerator import SigmoidGlorot
 from optim import SGD
 from optim.SGD import SGD
-from param.JsonArgParser import JsonArgParser
 
 MDA_PARAMETERS = {
     "train": {"desc": "Training File Path", "required": True},
@@ -127,7 +126,7 @@ def main(**kwargs):
 
     if sync:
         log.info("Loading e pre-processing train data set")
-        trainBatchGenerator = SyncBatchList(datasetReader, [inputGenerator], None, batchSize)
+        trainBatchGenerator = SyncBatchIterator(datasetReader, [inputGenerator], None, batchSize)
     else:
         trainBatchGenerator = AsyncBatchIterator(datasetReader, [inputGenerator], None, batchSize)
         # We can't stop, because the data set is reading in a asynchronous way

@@ -6,28 +6,24 @@ import importlib
 import json
 import logging
 import logging.config
-import numpy
+import numpy as np
 import os
-from pprint import pformat
-from pprint import pprint
 import random
 import sys
-from theano import compile
-import theano
-from time import time
 import time
+from time import time
 
+import theano.tensor as T
+from data.BatchIterator import SyncBatchIterator, AsyncBatchIterator
+from data.FeatureGenerator import FeatureGenerator
+from data.WordWindowGenerator import WordWindowGenerator
+
+from args.JsonArgParser import JsonArgParser
 from data.DatasetReader import DatasetReader
 from data.Embedding import EmbeddingFactory, RandomUnknownStrategy, ChosenUnknownStrategy, \
-    Embedding, RandomEmbedding
-from data.InputGenerator.BatchIterator import SyncBatchIterator, \
-    AsyncBatchIterator
-from data.InputGenerator.FeatureGenerator import FeatureGenerator
-from data.InputGenerator.LabelGenerator import LabelGenerator
-from data.InputGenerator.WindowGenerator import WindowGenerator
+    RandomEmbedding
 from data.Lexicon import Lexicon, createLexiconUsingFile, HashLexicon
-from data.TokenDatasetReader import TokenLabelReader
-from model.Model import Model, ModelUnit
+from model.BasicModel import BasicModel
 from model.Objective import NegativeLogLikelihoodOneExample
 from model.Prediction import ArgmaxPrediction
 from model.SaveModelCallback import ModelWriter, SaveModelCallback
@@ -36,15 +32,10 @@ from nnet.EmbeddingLayer import EmbeddingLayer
 from nnet.FlattenLayer import FlattenLayer
 from nnet.LinearLayer import LinearLayer
 from nnet.MaxPoolingLayer import MaxPoolingLayer
-from nnet.ReshapeLayer import ReshapeLayer
 from nnet.WeightGenerator import ZeroWeightGenerator, GlorotUniform, SigmoidGlorot
-import numpy as np
 from optim.Adagrad import Adagrad
 from optim.SGD import SGD
-from args.JsonArgParser import JsonArgParser
-import theano.tensor as T
 from util.jsontools import dict2obj
-
 
 PARAMETERS = {
     "filters": {"default": ['data.Filters.TransformLowerCaseFilter',
@@ -57,8 +48,8 @@ PARAMETERS = {
     "load_model": {"desc": "Path + basename that will be used to load the model (weights and embeddings)."},
     "test": {"desc": "Test set file path"},
     "dev": {"desc": "Development set file path"},
-    "eval_per_iteration" : {"default": 0,
-                            "desc": "Eval model after this number of iterations."},
+    "eval_per_iteration": {"default": 0,
+                           "desc": "Eval model after this number of iterations."},
     "hidden_size": {"default": 300,
                     "desc": "The number of neurons in the hidden layer"},
     "word_window_size": {"default": 5,
@@ -80,13 +71,13 @@ PARAMETERS = {
                                    "desc": "the activation function of the hidden layer. The possible values are: 'tanh' and 'sigmoid'."},
     "shuffle": {"default": True,
                 "desc": "Enable or disable shuffling of the training examples."},
-    "normalization": {"desc": "Choose the normalization method to be applied on  word embeddings. " + 
+    "normalization": {"desc": "Choose the normalization method to be applied on  word embeddings. " +
                               "The possible values are: 'none', 'minmax', 'mean'."},
     "labels": {"desc": "File containing the list of possible labels."},
     "conv_size": {"required": True,
                   "desc": "Size of the convolution layer (number of filters)."},
     "load_method": {"default": "sync",
-                    "desc": "Method for loading the training dataset." + 
+                    "desc": "Method for loading the training dataset." +
                             "The possible values are: 'sync' and 'async'."},
     "hash_lex_size": {"desc": "Activate the hash lexicon by specifying the hash table size."}
 }
@@ -143,7 +134,6 @@ class OfertasReader(DatasetReader):
             self.__log.info("Number of examples read: %d" % numExs)
 
 
-
 class OfertasModelWritter(ModelWriter):
     def __init__(self, savePath, embeddingLayer, linearLayer1, linearLayer2, embedding, lexiconLabel,
                  hiddenActFunction):
@@ -165,7 +155,6 @@ class OfertasModelWritter(ModelWriter):
         self.__hiddenActFunction = hiddenActFunction
 
     def save(self):
-
         begin = int(time())
         # Saving embedding
         wbFile = codecs.open(self.__savePath + ".wv", "w", encoding="utf-8")
@@ -341,7 +330,7 @@ def main(args):
             hiddenLayerSize = b1.shape[0]
 
     # Generate word windows.
-    wordWindowFeatureGenerator = WindowGenerator(wordWindowSize, wordEmbedding, filters, startSymbol, endSymbol)
+    wordWindowFeatureGenerator = WordWindowGenerator(wordWindowSize, wordEmbedding, filters, startSymbol, endSymbol)
     # Generate one label per example (list of tokens).
     labelGenerator = TextLabelGenerator(labelLexicon)
 
@@ -350,15 +339,15 @@ def main(args):
 
         trainDatasetReader = OfertasReader(args.train)
         if args.load_method == "sync":
-            trainReader = SyncBatchIterator(trainDatasetReader,
+            trainIterator = SyncBatchIterator(trainDatasetReader,
                                             [wordWindowFeatureGenerator],
-                                            labelGenerator,
+                                            [labelGenerator],
                                             - 1,
                                             shuffle=shuffle)
         elif args.load_method == "async":
-            trainReader = AsyncBatchIterator(trainDatasetReader,
+            trainIterator = AsyncBatchIterator(trainDatasetReader,
                                              [wordWindowFeatureGenerator],
-                                             labelGenerator,
+                                             [labelGenerator],
                                              - 1,
                                              shuffle=shuffle,
                                              maxqSize=1000)
@@ -378,17 +367,17 @@ def main(args):
 
         if dev:
             log.info("Reading development examples")
-            devDatasetReader = OfertasReader(args.dev)
-            devReader = SyncBatchIterator(devDatasetReader,
-                                          [wordWindowFeatureGenerator],
-                                          labelGenerator,
-                                          - 1,
-                                          shuffle=False)
+            devReader = OfertasReader(args.dev)
+            devIterator = SyncBatchIterator(devReader,
+                                            [wordWindowFeatureGenerator],
+                                            [labelGenerator],
+                                            - 1,
+                                            shuffle=False)
         else:
-            devReader = None
+            devIterator = None
     else:
-        trainReader = None
-        devReader = None
+        trainIterator = None
+        devIterator = None
 
     weightInit = SigmoidGlorot() if hiddenActFunction == sigmoid else GlorotUniform()
 
@@ -408,7 +397,7 @@ def main(args):
     #
     # Build the network model (Theano graph).
     #
-    
+
     # Matriz de entrada. Cada linha representa um token da oferta. Cada token é
     # representado por uma janela de tokens (token central e alguns tokens
     # próximos). Cada valor desta matriz corresponde a um índice que representa
@@ -427,7 +416,7 @@ def main(args):
     # Lookup table.
     embeddingLayer = EmbeddingLayer(inWords,
                                     wordEmbedding.getEmbeddingMatrix())
-    
+
     # A saída da lookup table possui 3 dimensões (numTokens, szWindow, szEmbedding).
     # Esta camada dá um flat nas duas últimas dimensões, produzindo uma saída
     # com a forma (numTokens, szWindow * szEmbedding).
@@ -455,7 +444,7 @@ def main(args):
                                     W=W2, b=b2,
                                     weightInitialization=ZeroWeightGenerator())
     # Softmax.
-    #softmaxAct = ReshapeLayer(ActivationLayer(sotmaxLinearInput, softmax), (1, -1))
+    # softmaxAct = ReshapeLayer(ActivationLayer(sotmaxLinearInput, softmax), (1, -1))
     softmaxAct = ActivationLayer(sotmaxLinearInput, softmax)
 
     # Prediction layer (argmax).
@@ -490,24 +479,18 @@ def main(args):
     # Compiling
     loss = NegativeLogLikelihoodOneExample().calculateError(softmaxAct.getOutput()[0], prediction, outLabel)
 
-#     if kwargs["lambda"]:
-#         _lambda = kwargs["lambda"]
-#         log.info("Using L2 with lambda= %.2f", _lambda)
-#         loss += _lambda * (T.sum(T.square(hiddenLinear.getParameters()[0])))
+    #     if kwargs["lambda"]:
+    #         _lambda = kwargs["lambda"]
+    #         log.info("Using L2 with lambda= %.2f", _lambda)
+    #         loss += _lambda * (T.sum(T.square(hiddenLinear.getParameters()[0])))
 
     # TODO: debug
     # model = Model(mode=compile.debugmode.DebugMode(optimizer=None))
-    model = Model()
-
-    modelUnit = ModelUnit("train", [inWords], outLabel, loss, prediction=prediction)
-
-    model.addTrainingModelUnit(modelUnit, ["loss", "acc"])
-    model.setEvaluatedModelUnit(modelUnit, ["loss", "acc"])
-
-    model.compile([(opt, softmaxAct.getLayerSet())])
+    model = BasicModel([inWords], [outLabel], evalPerIteration=evalPerIteration, devBatchIterator=devIterator)
+    model.compile(softmaxAct.getLayerSet(), opt, prediction, loss, ["loss", "acc"])
 
     # Training
-    if trainReader:
+    if trainIterator:
         callback = []
 
         if args.save_model:
@@ -519,21 +502,20 @@ def main(args):
             callback.append(SaveModelCallback(modelWriter, "eval_acc", True))
 
         log.info("Training")
-        model.train([trainReader], numEpochs, devReader, callbacks=callback,
-                    evalPerIteration=evalPerIteration)
+        model.train(trainIterator, numEpochs, devIterator, callbacks=callback)
 
     # Testing
     if args.test:
         log.info("Reading test examples")
-        testDatasetReader = OfertasReader(args.test)
-        testReader = SyncBatchIterator(testDatasetReader,
-                                       [wordWindowFeatureGenerator],
-                                       labelGenerator,
-                                       - 1,
-                                       shuffle=False)
+        testReader = OfertasReader(args.test)
+        testIterator = SyncBatchIterator(testReader,
+                                         [wordWindowFeatureGenerator],
+                                         [labelGenerator],
+                                         - 1,
+                                         shuffle=False)
 
         log.info("Testing")
-        model.evaluate(testReader, True)
+        model.evaluate(testIterator, True)
 
 
 def method_name(hiddenActFunction):

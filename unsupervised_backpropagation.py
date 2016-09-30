@@ -1,45 +1,39 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
-import math
-
-# !/usr/bin/env python
-# -*- coding: utf-8 -*-
 import importlib
 import logging
 import logging.config
+import math
+import numpy as np
 import os
 import random
 import sys
 
-import numpy as np
 import theano
 import theano.tensor as T
-
-from DataOperation.Embedding import EmbeddingFactory, RandomUnknownStrategy
-from DataOperation.InputGenerator import CharacterWindowGenerator
-from DataOperation.InputGenerator.BatchIterator import SyncBatchList
-from DataOperation.InputGenerator.CharacterWindowGenerator import CharacterWindowGenerator
-from DataOperation.InputGenerator.ConstantLabel import ConstantLabel
-from DataOperation.InputGenerator.LabelGenerator import LabelGenerator
-from DataOperation.InputGenerator.WordWindowGenerator import WordWindowGenerator
-from DataOperation.Lexicon import createLexiconUsingFile, Lexicon
-from DataOperation.TokenDatasetReader import TokenLabelReader, TokenReader
-from ModelOperation.Callback import Callback
-from ModelOperation.Objective import NegativeLogLikelihood
-from ModelOperation.Prediction import ArgmaxPrediction
-from ModelOperation.GradientReversalModel import GradientReversalModel
-from NNet.ActivationLayer import ActivationLayer, softmax, tanh, sigmoid
-from NNet.ConcatenateLayer import ConcatenateLayer
-from NNet.EmbeddingConvolutionalLayer import EmbeddingConvolutionalLayer
-from NNet.EmbeddingLayer import EmbeddingLayer
-from NNet.FlattenLayer import FlattenLayer
-from NNet.LinearLayer import LinearLayer
-from NNet.GradientReversalLayer import GradientReversalLayer
-from NNet.WeightGenerator import ZeroWeightGenerator, GlorotUniform, SigmoidGenerator
-from Optimizers import Adagrad
-from Optimizers.Adagrad import Adagrad
-from Optimizers.SGD import SGD
-from Parameters.JsonArgParser import JsonArgParser
+from data.Embedding import EmbeddingFactory, RandomUnknownStrategy
+from data.BatchIterator import SyncBatchIterator
+from data.CharacterWindowGenerator import CharacterWindowGenerator
+from data.ConstantLabel import ConstantLabel
+from data.LabelGenerator import LabelGenerator
+from data.WordWindowGenerator import WordWindowGenerator
+from data.Lexicon import createLexiconUsingFile, Lexicon
+from data.TokenDatasetReader import TokenLabelReader, TokenReader
+from model.Callback import Callback
+from model.GradientReversalModel import GradientReversalModel
+from model.Objective import NegativeLogLikelihood
+from model.Prediction import ArgmaxPrediction
+from nnet.ActivationLayer import ActivationLayer, softmax, tanh, sigmoid
+from nnet.ConcatenateLayer import ConcatenateLayer
+from nnet.EmbeddingConvolutionalLayer import EmbeddingConvolutionalLayer
+from nnet.EmbeddingLayer import EmbeddingLayer
+from nnet.FlattenLayer import FlattenLayer
+from nnet.GradientReversalLayer import GradientReversalLayer
+from nnet.LinearLayer import LinearLayer
+from nnet.WeightGenerator import ZeroWeightGenerator, GlorotUniform, SigmoidGenerator
+from optim.Adagrad import Adagrad
+from optim.SGD import SGD
+from args.JsonArgParser import JsonArgParser
 
 UNSUPERVISED_BACKPROPAGATION_PARAMETERS = {
     "token_label_separator": {"required": True,
@@ -120,7 +114,7 @@ class AdditionalDevDataset(Callback):
         self.log = logging.getLogger(__name__)
         self.log.info("Reading additional dev examples")
         devDatasetReader = TokenLabelReader(sourceDataset, tokenLabelSeparator)
-        devReader = SyncBatchList(devDatasetReader, inputGenerator, [outputGeneratorTag], sys.maxint,
+        devReader = SyncBatchIterator(devDatasetReader, inputGenerator, [outputGeneratorTag], sys.maxint,
                                   shuffle=False)
 
         self.devReader = devReader
@@ -218,7 +212,7 @@ def main(**kwargs):
 
     # Reading supervised and unsupervised data sets.
     trainSupervisedDatasetReader = TokenLabelReader(kwargs["train_source"], kwargs["token_label_separator"])
-    trainSupervisedBatch = SyncBatchList(trainSupervisedDatasetReader, inputGenerators,
+    trainSupervisedBatch = SyncBatchIterator(trainSupervisedDatasetReader, inputGenerators,
                                          [outputGeneratorTag, unsupervisedLabelSource], batchSize[0],
                                          shuffle=shuffle)
 
@@ -226,7 +220,7 @@ def main(**kwargs):
     unsupervisedLabelTarget = ConstantLabel(domainLexicon, "1")
 
     trainUnsupervisedDatasetReader = TokenReader(kwargs["train_target"])
-    trainUnsupervisedDatasetBatch = SyncBatchList(trainUnsupervisedDatasetReader,
+    trainUnsupervisedDatasetBatch = SyncBatchIterator(trainUnsupervisedDatasetReader,
                                                   inputGenerators,
                                                   [unsupervisedLabelTarget], batchSize[1], shuffle=shuffle)
 
@@ -432,7 +426,7 @@ def main(**kwargs):
     # Get dev inputs and output
     log.info("Reading development examples")
     devDatasetReader = TokenLabelReader(kwargs["dev"], kwargs["token_label_separator"])
-    devReader = SyncBatchList(devDatasetReader, inputGenerators, [outputGeneratorTag], sys.maxint,
+    devReader = SyncBatchIterator(devDatasetReader, inputGenerators, [outputGeneratorTag], sys.maxint,
                               shuffle=False)
 
     callbacks = []

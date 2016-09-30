@@ -1,17 +1,17 @@
-from data.InputGenerator.FeatureGenerator import FeatureGenerator
+from data.FeatureGenerator import FeatureGenerator
 
 
-class LabelGenerator(FeatureGenerator):
+class ConstantLabel(FeatureGenerator):
     '''
-    Receives a list of tags or labels and returns a list of integers which represent these labels or tags.
+        This class gives always the same label for a input.
     '''
 
-    def __init__(self,labelLexicon):
+    def __init__(self, labelLexicon, label):
         '''
-        :type labelLexicon: data.Lexicon.Lexicon
+        :type labelLexicon: DataOperation.Lexicon.Lexicon
         :param labelLexicon:
         '''
-        self.__labelLexicon = labelLexicon
+        self.__labelId = labelLexicon.put(label)
 
     def generate(self, labels):
         '''
@@ -26,7 +26,7 @@ class LabelGenerator(FeatureGenerator):
         y = []
 
         for label in labels:
-            i = self.__labelLexicon.put(label)
+            i = self.__labelId
 
             if i == -1:
                 raise Exception("Label doesn't exist: %s" % label)
@@ -34,3 +34,4 @@ class LabelGenerator(FeatureGenerator):
             y.append(i)
 
         return y
+

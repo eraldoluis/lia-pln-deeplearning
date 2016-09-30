@@ -2,12 +2,11 @@
 # -*- coding: utf-8 -*-
 import itertools
 import logging
-import time
 from numpy import random
 
 import theano
 import theano.tensor as T
-from ModelOperation.Model import Metric, StopWatch, resetAllMetrics, Model
+from model.Model import Metric, Model
 
 
 class CoLearningModel(Model):

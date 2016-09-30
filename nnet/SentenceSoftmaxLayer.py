@@ -1,11 +1,14 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
 
-import theano.tensor as T
-import theano
-from nnet.Util import WeightBottou88Generator, generateRandomNumberUniformly
 from _collections import deque
+
+import theano
+import theano.tensor as T
+
 from nnet.Layer import Layer
+from nnet.Util import WeightBottou88Generator, generateRandomNumberUniformly
+
 
 class SentenceSoftmaxLayer(Layer):
    

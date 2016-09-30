@@ -1,16 +1,12 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
-import logging
-
 import itertools
-from __builtin__ import set
-
+import logging
 from numpy import random
 
 import theano
 import theano.tensor as T
-
-from ModelOperation.Model import Model, Metric
+from model.Model import Model, Metric
 
 
 class ConcatenatorDataset(object):
@@ -20,8 +16,8 @@ class ConcatenatorDataset(object):
 
     def __init__(self, listSyncBatchList):
         """
-        :type inputGenerators: list[DataOperation.InputGenerator.BatchIterator.SyncBatchList]
-        :param listSyncBatchList: list that contains SyncBatchList from every dataset
+        :type inputGenerators: list[DataOperation.InputGenerator.BatchIterator.SyncBatchIterator]
+        :param listSyncBatchList: list that contains SyncBatchIterator from every dataset
         """
         self.__list = listSyncBatchList
 

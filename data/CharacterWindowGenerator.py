@@ -2,20 +2,19 @@
 # -*- coding: utf-8 -*-
 
 
-from DataOperation.Context import Window
-from DataOperation.InputGenerator.FeatureGenerator import FeatureGenerator
+from data.Context import Window
+from data.FeatureGenerator import FeatureGenerator
 
 
 class CharacterWindowGenerator(FeatureGenerator):
-    '''
+    """
     Generate the character window of the words.
     This class considers that words has the same number of character, that will call numMaxChar.
     If the word has a number of characters lesser than numChar,
         so this class will fill this word with empty character.
     If the word has a number of characters greater than numChar,
         so will thrown way the begin of the word.
-
-    '''
+    """
 
     def __init__(self, embedding, numMaxChar, charWindowSize, wrdWindowSize, artificialChar, startPadding,
                  endPadding=None, startPaddingWrd=None, endPaddingWrd=None):

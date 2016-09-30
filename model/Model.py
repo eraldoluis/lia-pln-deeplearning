@@ -4,9 +4,6 @@ import itertools
 import logging
 import time
 
-import theano
-import theano.tensor as T
-
 
 def resetAllMetrics(metrics):
     for metric in metrics:
@@ -46,27 +43,8 @@ class StopWatch(object):
         return int(time.time()) - self.__start
 
 
-class ModelUnit:
-    def __init__(self, name, x, y, loss, prediction=None, yWillBeReceived=True):
-        '''
-            :param x: list of tensors that represent the inputs.
-
-            :param y: tensor that represents the correct output.
-
-            :param yExist: This parameter is true when the learner produce your own correct output
-                                            or use the input as the correct output, like DA.
-
-        '''
-        self.name = name
-        self.x = x
-        self.y = y
-        self.loss = loss
-        self.prediction = prediction
-        self.yWillBeReceived = yWillBeReceived
-
-
-class Model:
-    def __init__(self, mode = None):
+class Model(object):
+    def __init__(self):
         self.log = logging.getLogger(__name__)
         self.callBatchBegin = False
         self.callBatchEnd = False
@@ -86,27 +64,6 @@ class Model:
     def prediction(self):
         pass
 
-    def train(self,
-              trainBatchGenerators,
-              numEpochs,
-              devBatchGenerator=None,
-              callbacks=[],
-              evalPerIteration=0):
-        """
-        Runs one epoch of training (one pass over the whole training dataset).
-
-        :param trainBatchGenerators: list of batch generators for the inputs
-            (training instances)
-
-        :param numEpochs: number of passes over the training dataset.
-
-        :param devBatchGenerator: batch generator for the development dataset.
-
-        :param callbacks: list of callbacks.
-
-        :param evalPerIteration: indicates whether evaluation on the development
-            dataset will be performed on a per-iteration basis.
-        """
     def evaluateFuncUseY(self):
         raise NotImplementedError()
 
@@ -125,7 +82,26 @@ class Model:
 
         self.callBatchEnd = True
 
-    def train(self, trainBatchGenerators, numEpochs, devBatchGenerator=None, callbacks=[]):
+    def train(self,
+              trainBatchGenerators,
+              numEpochs,
+              devBatchIterator=None,
+              callbacks=[]):
+        """
+        Runs one epoch of training (one pass over the whole training dataset).
+
+        :param trainBatchGenerators: list of batch generators for the inputs
+            (training instances)
+
+        :param numEpochs: number of passes over the training dataset.
+
+        :param devBatchIterator: batch generator for the development dataset.
+
+        :param callbacks: list of callbacks.
+
+        :param evalPerIteration: indicates whether evaluation on the development
+            dataset will be performed on a per-iteration basis.
+        """
         stopWatch = StopWatch()
         trainingMetrics = self.getTrainingMetrics()
 
@@ -144,8 +120,6 @@ class Model:
             stopWatch.start()
             self.callBatchBegin = False
             self.callBatchEnd = False
-
-            # TODO: como controlar as iterações?
 
             self.doEpoch(trainBatchGenerators, epoch, callbacks)
 
@@ -166,11 +140,11 @@ class Model:
                 logs[key] = value
                 results.append((key, value))
 
-            if devBatchGenerator:
+            if devBatchIterator:
                 evaluationStopWatch = StopWatch()
                 evaluationStopWatch.start()
 
-                for metricName, value in self.evaluate(devBatchGenerator, verbose=False).iteritems():
+                for metricName, value in self.evaluate(devBatchIterator, verbose=False).iteritems():
                     key = "eval_" + metricName
                     logs[key] = value
                     results.append((key, value))
@@ -181,7 +155,7 @@ class Model:
             info = "epoch %d" % epoch
             info += " [train: %ds]" % trainingDuration
 
-            if devBatchGenerator:
+            if devBatchIterator:
                 info += " [test: %ds]" % evalDuration
 
             for k, v in results:
@@ -196,7 +170,7 @@ class Model:
         for cb in callbacks:
             cb.onTrainEnd()
 
-    def evaluate(self, testBatchInterator, verbose=True):
+    def evaluate(self, testBatchInterator, verbose=True, name="test"):
         stopWatch = StopWatch()
         evaluateMetrics = self.getEvaluateMetrics()
         evaluateFunction = self.getEvaluateFunction()
@@ -230,7 +204,7 @@ class Model:
         if verbose:
             info = ""
             # Print information
-            info += " [test: %ds]" % duration
+            info += " [%s: %ds]" % (name, duration)
 
             for k, v in logs.iteritems():
                 info += ' - %s:' % k

@@ -1,6 +1,7 @@
-import theano.tensor as T
 import numpy
+
 import theano
+import theano.tensor as T
 from theano.tensor.sharedvar import TensorSharedVariable
 
 from nnet.Layer import Layer

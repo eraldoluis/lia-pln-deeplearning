@@ -2,15 +2,12 @@
 # -*- coding: utf-8 -*-
 
 import argparse
-import sys, os
+import cPickle as pickle
 import time
 
-from data.FeatureFactory import *
 from Datum import *
 from WindowModelByWord import *
-import cPickle as pickle
-from Evaluate.EvaluatePrecisionRecallF1 import EvaluatePrecisionRecallF1
-from data.WordVector import WordVector
+from data.FeatureFactory import *
 
 
 def main():

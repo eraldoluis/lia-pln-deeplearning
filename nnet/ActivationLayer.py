@@ -1,7 +1,6 @@
 #!/usr/bin/env python
 import theano.tensor as T
 
-# Activations functions
 from nnet.Layer import Layer
 
 

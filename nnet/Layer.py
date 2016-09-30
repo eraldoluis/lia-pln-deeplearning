@@ -3,7 +3,6 @@ Created on Nov 19, 2015
 
 @author: eraldo
 '''
-from collections import Set
 
 
 class Layer(object):

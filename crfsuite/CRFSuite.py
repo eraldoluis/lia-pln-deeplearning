@@ -1,15 +1,16 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
 
-import crfsuite
-from time import sleep
-import os
-import logging
-import time
-from util.util import unicodeToSrt
-import itertools
-import re
 import codecs
+import itertools
+import logging
+import re
+import time
+from time import sleep
+
+import crfsuite
+from util.util import unicodeToSrt
+
 
 # Inherit crfsuite.Trainer to implement message() function, which receives
 # progress messages from a training process.

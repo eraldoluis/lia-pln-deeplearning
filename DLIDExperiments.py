@@ -1,29 +1,28 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
 
-import sys
 import argparse
-import os
+import calendar
+import datetime
+import importlib
 import logging
 import logging.config
-import codecs
-import calendar
-import time
-import random
 import math
-import datetime
+import numpy
+import os
+import random
+import sys
+import time
+
+from data.WordVector import WordVector
+
+import Postag
 from crfsuite.WordFeatureGenerator import Word2VecGenerate, \
     InterporlationGenerate, AverageGenerator, RandomWeightGenerator, \
     RandomUnknownStrategy, MeanLessShowedWordsUnknownStrategy, \
     ChosenUnknownStrategy
-from data.WordVector import WordVector
-from util.util import getFileNameInPath, removeExtension
-# from TransferRate import CRFSuite
-import Postag
-import importlib
 from data.Lexicon import Lexicon
-import multiprocessing
-import numpy
+from util.util import getFileNameInPath, removeExtension
 
 
 # import resource

@@ -1,6 +1,7 @@
-import h5py
 import numpy as np
 import sys
+
+import h5py
 
 h5File = h5py.File(sys.argv[1], "r")
 

@@ -10,9 +10,10 @@ Os índices dos exemplos de teste são fornecidos em um arquivo de entrada (um
 índice em cada linha) e os demais exemplos são considerados de treino.
 
 '''
-from codecs import open
 import sys
+from codecs import open
 from sets import Set
+
 
 def docsFile2Dir(inputFilename, testIndicesFilename):
     print 'Reading test indices...'

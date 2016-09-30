@@ -1,8 +1,9 @@
 import numpy
+
 import theano
+import theano.tensor as T
 
 from nnet.Layer import Layer
-import theano.tensor as T
 
 
 class SoftmaxLayer(Layer):

@@ -1,11 +1,11 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
 import numpy
+
 import theano
 import theano.tensor as T
 from theano.tensor.sharedvar import TensorSharedVariable
 
-from nnet import LinearLayer
 from nnet.Layer import Layer
 
 

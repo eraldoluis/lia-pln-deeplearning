@@ -1,8 +1,9 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
 
-from model.Objective import MeanSquaredError, Objective
 import theano.tensor as T
+
+from model.Objective import MeanSquaredError, Objective
 
 
 class MDALoss(Objective):

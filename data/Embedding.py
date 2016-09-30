@@ -5,15 +5,14 @@
 Classes and functions that operate on distributed representations
 '''
 
-import logging
-
-import sys
-
-from nnet.Util import FeatureVectorsGenerator
 import codecs
-from data.Lexicon import Lexicon
+import logging
 import numpy as np
+
 import theano
+
+from data.Lexicon import Lexicon
+from nnet.Util import FeatureVectorsGenerator
 
 
 ######################################################

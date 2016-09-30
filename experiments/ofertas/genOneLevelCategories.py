@@ -23,9 +23,10 @@ anunciante, e <price> é o preço do produto.
 A saída segue o mesmo formato da entrada.
 
 '''
-from codecs import open
 import sys
+from codecs import open
 from sets import Set
+
 
 def flatTree(tree, node):
     '''

@@ -2,16 +2,16 @@
 # -*- coding: utf-8 -*-
 import itertools
 import logging
-import time
 
 import theano
 import theano.tensor as T
-from model.Model import Metric, Model
+
+from model.Model import Metric, Model, StopWatch
 
 
 class BasicModel(Model):
-    def __init__(self, x, y, yExist=False):
-        '''
+    def __init__(self, x, y, yExist=False, evalPerIteration=0, devBatchIterator=None):
+        """
         :param x: list of tensors that represent the inputs.
 
         :param y: list of tensor that represents the corrects outputs.
@@ -20,7 +20,12 @@ class BasicModel(Model):
                                         or use the input as the correct output, like DA.
 
         :param outputLayer: a list of outputs
-        '''
+
+        :param evalPerIteration: number of iterations before each evaluation. If it is equal to zero, do not perform
+                                 more than one evaluation per epoch.
+
+        :param devBatchIterator: iterator over development examples for per-iteration evaluation.
+        """
         super(BasicModel, self).__init__()
 
         self.__theanoFunction = None
@@ -30,6 +35,8 @@ class BasicModel(Model):
         self.__isY_ProducedByNN = yExist
         self.trainingMetrics = []
         self.evaluateMetrics = []
+        self.__evalPerIteration = evalPerIteration
+        self.__devBatchIterator = devBatchIterator
 
         if not isinstance(x, (set, list)):
             self.__x = [x]
@@ -123,15 +130,19 @@ class BasicModel(Model):
 
         self.log.info("Lr: %f" % lr[0])
 
-        for x, y in trainBatchGenerators:
-            batchSize = len(x[0])
+        # For per-iteration evaluation.
+        iter = 0
+        devBatchIterator = self.__devBatchIterator
 
+        for x, y in trainBatchGenerators:
+            iter += 1
+
+            batchSize = len(x[0])
 
             inputs = []
             inputs += x
-            useY = self.evaluateFuncUseY()
 
-            if useY:
+            if self.evaluateFuncUseY():
                 # Theano function receives 'y' as an input
                 inputs += y
 
@@ -145,3 +156,23 @@ class BasicModel(Model):
                 m.update(_output, batchSize)
 
             self.callbackBatchEnd(inputs, callbacks)
+
+            # Development per-iteration evaluation
+            if devBatchIterator and (iter % self.__evalPerIteration) == 0:
+                evaluationStopWatch = StopWatch()
+                evaluationStopWatch.start()
+
+                results = []
+                for metricName, value in self.evaluate(devBatchIterator, verbose=False).iteritems():
+                    key = "eval_" + metricName
+                    results.append((key, value))
+
+                evalDuration = evaluationStopWatch.lap()
+
+                # Print information
+                info = "iteration %d" % iter
+                info += " [eval: %ds]" % evalDuration
+                for k, v in results:
+                    info += ' - %s:' % k
+                    info += ' %.6f' % v
+                self.log.info(info)

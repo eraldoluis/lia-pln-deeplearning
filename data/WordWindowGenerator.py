@@ -1,7 +1,7 @@
-from data.InputGenerator.FeatureGenerator import FeatureGenerator
+from data.FeatureGenerator import FeatureGenerator
 
 
-class WindowGenerator(FeatureGenerator):
+class WordWindowGenerator(FeatureGenerator):
     """
     Generate window of tokens from each word of a list. This list can be a line.
     """

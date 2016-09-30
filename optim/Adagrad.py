@@ -2,8 +2,8 @@
 # -*- coding: utf-8 -*-
 import numpy
 
-import theano.tensor as T
 import theano
+import theano.tensor as T
 
 from optim.Optimizer import Optimizer
 

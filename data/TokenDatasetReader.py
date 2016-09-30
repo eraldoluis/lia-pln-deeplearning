@@ -9,7 +9,6 @@ import logging
 
 from data.DatasetReader import DatasetReader
 
-
 """
 Read sentences without labels. Each line comprises a sentence.
 """

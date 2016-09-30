@@ -1,31 +1,30 @@
 import importlib
 import logging
+import logging.config
+import numpy
 import os
-
 import sys
 
-import numpy
+from data import WordWindowGenerator
+from args import JsonArgParser
 from theano import tensor as T
 
+from data.BatchIterator import SyncBatchIterator, AsyncBatchIterator
 from data.Embedding import EmbeddingFactory, RandomUnknownStrategy
-from data.InputGenerator.BatchIterator import SyncBatchIterator, AsyncBatchIterator
-from data.InputGenerator.WindowGenerator import WindowGenerator
 from data.TokenDatasetReader import TokenReader
 from model.Model import Model
 from model.Objective import MeanSquaredError
 from model.SaveModelCallback import ModelWriter, SaveModelCallback
 from nnet import EmbeddingLayer, FlattenLayer, DropoutLayer, LinearLayer, ActivationLayer
-from nnet.ActivationLayer import sigmoid, ActivationLayer, tanh
+from nnet.ActivationLayer import ActivationLayer, tanh
 from nnet.DropoutLayer import DropoutLayer
 from nnet.EmbeddingLayer import EmbeddingLayer
 from nnet.FlattenLayer import FlattenLayer
 from nnet.LinearLayer import LinearLayer
 from nnet.TiedLayer import TiedLayer
-from nnet.WeightGenerator import SigmoidGlorot, GlorotUniform
+from nnet.WeightGenerator import GlorotUniform
 from optim import SGD
 from optim.SGD import SGD
-from param.JsonArgParser import JsonArgParser
-import logging.config
 
 DA_PARAMETERS = {
     "train": {"desc": "Training File Path", "required": True},
@@ -107,8 +106,8 @@ def main(**kwargs):
     embedding.meanNormalization()
 
     datasetReader = TokenReader(kwargs["train"])
-    inputGenerator = WindowGenerator(wordWindowSize, embedding, filters,
-                                     startSymbol, endSymbol)
+    inputGenerator = WordWindowGenerator(wordWindowSize, embedding, filters,
+                                         startSymbol, endSymbol)
 
     if sync:
         log.info("Loading e pre-processing train data set")

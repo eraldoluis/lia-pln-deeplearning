@@ -3,7 +3,6 @@
 
 
 import theano.tensor as T
-from theano import printing
 
 
 class Prediction(object):

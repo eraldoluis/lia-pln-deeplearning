@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
-from NNet.Layer import Layer
 import theano.tensor as T
+from nnet.Layer import Layer
 
 
 class ConcatenateLayer(Layer):

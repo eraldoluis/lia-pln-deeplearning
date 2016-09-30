@@ -2,11 +2,11 @@
 # -*- coding: utf-8 -*-
 import Queue
 import logging
+import numpy
 import random
 import threading
-from datetime import time
-import numpy
 import time
+from datetime import time
 
 
 class BatchAssembler:

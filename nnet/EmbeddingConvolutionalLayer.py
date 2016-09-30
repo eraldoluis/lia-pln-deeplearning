@@ -1,11 +1,8 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
-import theano
 import theano.tensor as T
-from nnet.LinearLayer import LinearLayer
-from nnet.EmbeddingLayer import EmbeddingLayer
-from nnet.Util import LearningRateUpdNormalStrategy
-from nnet.Layer import Layer
+
+from nnet import ReshapeLayer, EmbeddingLayer, Layer, LinearLayer
 
 
 class EmbeddingConvolutionalLayer(Layer):

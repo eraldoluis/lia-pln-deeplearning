@@ -2,28 +2,30 @@
 # -*- coding: utf-8 -*-
 
 import argparse
-import time
+import cPickle as pickle
+import importlib
 import logging.config
+import numpy
+import os
+import random
+import sys
+import time
 
+from Evaluate.EvaluateAccuracy import EvaluateAccuracy
+from Evaluate.EvaluateEveryNumEpoch import EvaluateEveryNumEpoch
+from Evaluate.EvaluatePercPredictsCorrectNotInWordSet import EvaluatePercPredictsCorrectNotInWordSet
+from WindowModelBasic import WindowModelBasic
+from WindowModelBySentence import WindowModelBySentence, NeuralNetworkChoiceEnum
+from WindowModelByWord import WindowModelByWord
+from data.ReaderLexiconAndWordVec import ReaderLexiconAndWordVec
 from data.TokenLabelReader import TokenLabelReader
 from data.WordVector import WordVector
-from Evaluate.EvaluateAccuracy import EvaluateAccuracy
-from WindowModelBySentence import WindowModelBySentence, NeuralNetworkChoiceEnum
-from nnet.EmbeddingConvolutionalLayer import EmbeddingConvolutionalLayer
-import cPickle as pickle
+
 from data.Lexicon import Lexicon
-from WindowModelByWord import WindowModelByWord
-import sys
-import numpy
-from WindowModelBasic import WindowModelBasic
-from Evaluate.EvaluateEveryNumEpoch import EvaluateEveryNumEpoch
-from data.ReaderLexiconAndWordVec import ReaderLexiconAndWordVec
-import importlib
+from nnet.EmbeddingConvolutionalLayer import EmbeddingConvolutionalLayer
 from nnet.Util import LearningRateUpdDivideByEpochStrategy, \
     LearningRateUpdNormalStrategy
-from Evaluate.EvaluatePercPredictsCorrectNotInWordSet import EvaluatePercPredictsCorrectNotInWordSet
-import random
-import os
+
 
 def readVocabAndWord(args):
     # Este if só foi criado para permitir que DLIDPostag possa reusar o run do postag

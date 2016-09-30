@@ -1,17 +1,16 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
 
-from abc import ABCMeta, abstractmethod
-
-
 import codecs
+import logging
 import os
 import random
-import util
 import re
 import sys
+from abc import ABCMeta, abstractmethod
+
 import nnet
-import logging
+import util
 
 
 class UnknownGenerateStrategy:

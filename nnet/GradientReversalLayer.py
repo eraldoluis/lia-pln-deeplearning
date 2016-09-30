@@ -1,4 +1,5 @@
-from NNet.Layer import Layer
+from nnet import Layer
+
 from ext_theano.GradientReversalOp import GradientReversalOp
 
 

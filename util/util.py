@@ -2,8 +2,9 @@
 # -*- coding: utf-8 -*-
 
 import logging.config
-import subprocess
 import os
+import subprocess
+
 import theano.tensor as T
 
 

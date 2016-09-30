@@ -10,10 +10,10 @@ desenvolvimento. Os exemplos são sorteados aleatoriamente, de acordo com a
 probabilidade fornecida na linha de comando.
 
 '''
-from codecs import open
-import sys
-from sets import Set
 import random
+import sys
+from codecs import open
+
 
 def docsFile2Dir(inputFilename, devProb):
     # Open input dataset file.

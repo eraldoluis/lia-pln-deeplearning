@@ -13,10 +13,9 @@ consiste em:
     - obter somente o texto das ofertas (descartando os demais atributos);
     - subtituir dígitos por 0.
 '''
-from codecs import open
-import sys
-from sets import Set
 import re
+import sys
+from codecs import open
 
 if __name__ == "__main__":
     if len(sys.argv) != 3:

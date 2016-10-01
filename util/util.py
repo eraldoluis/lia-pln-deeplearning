@@ -44,6 +44,14 @@ def getFileNameInPath(str):
 def removeExtension(file):
     return os.path.splitext(file)[0]
 
+def isUpper(word):
+    """
+    This method is used when the word encoding is unicode.
+    :param word: unicode
+    :return:
+    """
+    return sum(c.isupper() for c in word) == len(word)
+
 
 def loadConfigLogging():
     full_path = os.path.realpath(__file__)

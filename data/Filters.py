@@ -7,6 +7,8 @@ Filters are classes that change the token, like transform to lower case the lett
 
 import re
 
+from util.util import isUpper
+
 
 class Filter:
     def filter(self, token, sentence):
@@ -89,11 +91,11 @@ class LeftRightBracketsFilter:
 
 class UpperCaseWordFilter:
     """
-    Left brackets such as “<”,“{” and “[” are converted to “-LRB-”. Similarly, right brackets are converted to “-RRB-”
+    Upper cased words that contain more than 4 letters are lowercased.
     """
 
     def filter(self, token, sentence):
-        if len(token) > 4 and token.isUpper():
+        if len(token) > 4 and isUpper(token):
             return token.lower()
 
         return token

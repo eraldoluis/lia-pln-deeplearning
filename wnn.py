@@ -75,10 +75,13 @@ WNN_PARAMETERS = {
     "hidden_activation_function": {"default": "tanh",
                                    "desc": "the activation function of the hidden layer. The possible values are: tanh and sigmoid"},
     "shuffle": {"default": True, "desc": "able or disable the shuffle of training examples."},
-    "normalization": { "desc": "Choose the normalize method to be applied on  word embeddings. "
-                                                 "The possible values are: minmax or mean"},
+    "normalization": {"desc": "Choose the normalize method to be applied on  word embeddings. "
+                              "The possible values are: minmax or mean"},
     "label_file": {"desc": "file with all possible labels"},
-    "lambda": {"desc": "Set the value of L2 coefficient"}
+    "lambda": {"desc": "Set the value of L2 coefficient"},
+    "charwnn_filters": {"default": [], "desc": "list contains the filters that will be used by charwnn. "
+                                               "Each filter is describe by your module name + . + class name"},
+
 }
 
 
@@ -183,12 +186,25 @@ def mainWnn(**kwargs):
     batchSize = -1 if isSentenceModel else kwargs["batch_size"]
     filters = []
 
+    log.info("Lendo filtros básicos")
+
     for filterName in kwargs["filters"]:
         moduleName, className = filterName.rsplit('.', 1)
         log.info("Usando o filtro: " + moduleName + " " + className)
 
         module_ = importlib.import_module(moduleName)
         filters.append(getattr(module_, className)())
+
+    filterCharwnn = []
+
+    log.info("Lendo filtros do charwnn")
+
+    for filterName in kwargs["charwnn_filters"]:
+        moduleName, className = filterName.rsplit('.', 1)
+        log.info("Usando o filtro: " + moduleName + " " + className)
+
+        module_ = importlib.import_module(moduleName)
+        filterCharwnn.append(getattr(module_, className)())
 
     loadPath = kwargs["load_model"]
 
@@ -269,7 +285,8 @@ def mainWnn(**kwargs):
 
         inputGenerators.append(
             CharacterWindowGenerator(charEmbedding, numMaxChar, charWindowSize, wordWindowSize, artificialChar,
-                                     startSymbolChar, startPaddingWrd=startSymbol, endPaddingWrd=endSymbol))
+                                     startSymbolChar, startPaddingWrd=startSymbol, endPaddingWrd=endSymbol,
+                                     filters=filterCharwnn))
 
     outputGenerator = LabelGenerator(labelLexicon)
 

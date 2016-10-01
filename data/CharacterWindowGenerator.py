@@ -17,13 +17,14 @@ class CharacterWindowGenerator(FeatureGenerator):
     """
 
     def __init__(self, embedding, numMaxChar, charWindowSize, wrdWindowSize, artificialChar, startPadding,
-                 endPadding=None, startPaddingWrd=None, endPaddingWrd=None):
+                 endPadding=None, startPaddingWrd=None, endPaddingWrd=None, filters=[]):
         self.__charWindowSize = charWindowSize
         self.__charWindow = Window(charWindowSize)
         self.__wordWindow = Window(wrdWindowSize)
         self.__embedding = embedding
         self.__numMaxChar = numMaxChar
         self.__wrdWindowSize = wrdWindowSize
+        self.__filters = filters
         self.__artificialCharWindow = [embedding.getLexiconIndex(artificialChar)] * charWindowSize
 
         self.__startPaddingIdx, self.__endPaddingIdx = Window.checkPadding(startPadding, endPadding, embedding)
@@ -50,6 +51,10 @@ class CharacterWindowGenerator(FeatureGenerator):
                     charWindowList = [paddingWindow]
                     lenWord = 1
                 else:
+
+                    for f in self.__filters:
+                        word = f.filter(word, rawData)
+
                     allCharacters = [c for c in word]
                     lenWord = len(word)
                     chardIdxs = []

@@ -1,43 +1,64 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
-import math
 
 
 class Window:
     """
-    Window of words, characters or any kind of objects.
+    Generate a sequence of windows (sliding window features) from a sequence of items.
     """
 
-    def __init__(self, windowSize):
+    def __init__(self, embedding, windowSize, startPadding, endPadding=None):
         """
         :type windowSize: int
         :param windowSize: the size of window
+
+        :type startPadding: string
+        :param startPadding: string to extend the given sequences to the left.
+
+        :type endPadding: string
+        :param endPadding: string to extend the given sequences to the right.
+            If it is not given, the start padding will be used.
         """
         if windowSize % 2 == 0:
             raise Exception("The window size (%s) is not odd." % windowSize)
         self.__windowSize = windowSize
 
-    def buildWindows(self, sequence, startPadding, endPadding=None):
-        """
-        Receives a list of objects and creates the windows of this list.
+        # Verify whether the start padding symbol exist in the lexicon.
+        if not embedding.exist(startPadding):
+            if embedding.isReadOnly():
+                raise Exception("Start padding symbol does not exist!")
+            startPaddingIdx = embedding.put(startPadding)
+        else:
+            startPaddingIdx = embedding.getLexiconIndex(startPadding)
+        self.__startPaddingIdx = startPaddingIdx
 
-        :type sequence: []
+        # Verify whether the end padding symbol exist in the lexicon.
+        endPaddingIdx = startPaddingIdx
+        if endPadding:
+            if not embedding.exist(endPadding):
+                if embedding.isReadOnly():
+                    raise Exception("End padding symbol does not exist!")
+                endPaddingIdx = embedding.put(endPadding)
+            else:
+                endPaddingIdx = embedding.getLexiconIndex(endPadding)
+        self.__endPaddingIdx = endPaddingIdx
+
+    def buildWindows(self, sequence):
+        """
+        Receives a sequence of items and returns a sequence of windows for the given sequence.
+
+        :type sequence: list
         :param sequence: sequence of items for which the windows will be created.
-        
-        :param startPadding: Object that will be placed when the initial limit of list is exceeded
-        
-        :param endPadding: Object that will be placed when the end limit of sequence is exceeded.
-            When this parameter is null, so the endPadding has the same value of startPadding
 
         :return Returns a generator from yield
         """
-        if endPadding is None:
-            endPadding = startPadding
+        startPadding = self.__startPaddingIdx
+        endPadding = self.__endPaddingIdx
 
         winSize = self.__windowSize
         contextSize = (winSize - 1) / 2
 
-        # Extend the given sentence with start and end padding items.
+        # Extend the given sequence with start and end padding items.
         paddedSequence = [startPadding] * contextSize + sequence + [endPadding] * contextSize
 
         windows = []
@@ -45,38 +66,3 @@ class Window:
             windows.append(paddedSequence[idx:idx + winSize])
 
         return windows
-
-    @staticmethod
-    def checkPadding(startPadding, endPadding, embedding):
-        """
-        Verify if the start padding and end padding exist in lexicon or embedding.
-
-        :param startPadding: Object that will be place when the initial limit of a list is exceeded
-
-        :param endPadding: Object that will be place when the end limit a list is exceeded.
-            If this parameter is None, so the endPadding has the same value of startPadding
-
-        :param embedding: DataOperation.Embedding.Embedding
-
-        :return: the index of start and end padding in lexicon
-        """
-
-        if not embedding.exist(startPadding):
-            if embedding.isReadOnly():
-                raise Exception("Start Padding doens't exist")
-
-            startPaddingIdx = embedding.put(startPadding)
-        else:
-            startPaddingIdx = embedding.getLexiconIndex(startPadding)
-
-        endPaddingIdx = None
-        if endPadding is not None:
-            if not embedding.exist(endPadding):
-                if embedding.isReadOnly():
-                    raise Exception("End Padding doens't exist")
-
-                endPaddingIdx = embedding.put(endPadding)
-            else:
-                endPaddingIdx = embedding.getLexiconIndex(endPadding)
-
-        return startPaddingIdx, endPaddingIdx

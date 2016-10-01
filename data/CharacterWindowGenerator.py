@@ -8,36 +8,51 @@ from data.FeatureGenerator import FeatureGenerator
 
 class CharacterWindowGenerator(FeatureGenerator):
     """
-    Generate the character window of the words.
-    This class considers that words has the same number of character, that will call numMaxChar.
-    If the word has a number of characters lesser than numChar,
-        so this class will fill this word with empty character.
-    If the word has a number of characters greater than numChar,
-        so will thrown way the begin of the word.
+    Generate sequences of character windows for a given sequence of words. For each word in the given sequence, a
+    sequence of character windows will be generated.
+
+    This class considers that words has the same number of character (numMaxChar).
+    If a word has less than numMaxChar characters, then it will be filled with an artificial character to become a
+    numMaxChar-character word. If the word has more than numMaxChar characters, then it will be used only its numMaxChar
+    last characters (suffix).
     """
 
     def __init__(self, embedding, numMaxChar, charWindowSize, wrdWindowSize, artificialChar, startPadding,
                  endPadding=None, startPaddingWrd=None, endPaddingWrd=None, filters=[]):
+        """
+        Create a character window feature generator.
+
+        TODO: Irving, comentar cada parâmetro.
+
+        :param embedding:
+        :param numMaxChar:
+        :param charWindowSize:
+        :param wrdWindowSize:
+        :param artificialChar:
+        :param startPadding:
+        :param endPadding:
+        :param startPaddingWrd:
+        :param endPaddingWrd:
+        :param filters:
+        """
         self.__charWindowSize = charWindowSize
-        self.__charWindow = Window(charWindowSize)
-        self.__wordWindow = Window(wrdWindowSize)
+        self.__charWindow = Window(embedding, charWindowSize, startPadding, endPadding)
+        self.__wordWindow = Window(embedding, wrdWindowSize, startPaddingWrd, endPaddingWrd)
         self.__embedding = embedding
         self.__numMaxChar = numMaxChar
         self.__wrdWindowSize = wrdWindowSize
         self.__filters = filters
         self.__artificialCharWindow = [embedding.getLexiconIndex(artificialChar)] * charWindowSize
 
-        self.__startPaddingIdx, self.__endPaddingIdx = Window.checkPadding(startPadding, endPadding, embedding)
+    def generate(self, sequence):
+        """
+        Generate character-level features for the given sequence of tokens.
 
-        if not (startPaddingWrd or startPaddingWrd):
-            startPaddingWrd = "PADD_WRD"
-
-        self.__startPaddingWrdIdx, self.__endPaddingWrdIdx = Window.checkPadding(startPaddingWrd, endPaddingWrd,
-                                                                                 embedding)
-
-    def generate(self, rawData):
-        wordWindowList = self.__wordWindow.buildWindows(rawData, self.__startPaddingWrdIdx,
-                                                        self.__endPaddingWrdIdx)
+        :type sequence: list
+        :param sequence: sequence of tokens
+        :return:
+        """
+        wordWindowList = self.__wordWindow.buildWindows(sequence)
         charsAllExamples = []
         for wordWindow in wordWindowList:
             charsOfExample = []
@@ -53,7 +68,7 @@ class CharacterWindowGenerator(FeatureGenerator):
                 else:
 
                     for f in self.__filters:
-                        word = f.filter(word, rawData)
+                        word = f.filter(word, sequence)
 
                     allCharacters = [c for c in word]
                     lenWord = len(word)
@@ -62,7 +77,7 @@ class CharacterWindowGenerator(FeatureGenerator):
                     for c in allCharacters:
                         chardIdxs.append(self.__embedding.put(c))
 
-                    charWindowList = list(self.__charWindow.buildWindows(chardIdxs, self.__startPaddingIdx,self.__endPaddingIdx))
+                    charWindowList = list(self.__charWindow.buildWindows(chardIdxs))
 
                 if lenWord >= self.__numMaxChar:
                     # Get only the numMaxCh-character long suffix of the word.

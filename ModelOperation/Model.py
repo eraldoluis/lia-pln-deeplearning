@@ -80,11 +80,14 @@ class Model(object):
     def getEvaluateMetrics(self):
         raise NotImplementedError()
 
+    def getPredictionFunction(self):
+        raise NotImplementedError()
+
     def doEpoch(self, epoch, trainBatchGenerators, callbacks):
         raise NotImplementedError()
 
-    def prediction(self):
-        pass
+    def prediction(self,inputs):
+        return self.getPredictionFunction()(*inputs)
 
     def evaluateFuncUseY(self):
         raise NotImplementedError()

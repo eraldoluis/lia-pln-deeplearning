@@ -62,6 +62,9 @@ class BasicModel(Model):
     def getEvaluateFunction(self):
         return self.evaluateFunction
 
+    def getPredictionFunction(self):
+        return self.__predictionFunction
+
     def compile(self, allLayers, optimizer, predictionFunction, lossFunction, metrics=[]):
         '''
         :type allLayers: [ NNet.Layer.Layer]
@@ -88,7 +91,7 @@ class BasicModel(Model):
         for metricName in self.__metrics:
             if metricName == "acc":
                 self.__calculateAcc = True
-                _outputFunc.append(T.mean(T.eq(self.__prediction, self.__y)))
+                _outputFunc.append(T.mean(T.eq(self.__prediction, self.__y[0])))
             elif metricName == "loss":
                 self.__loss = lossFunction
                 _outputFunc.append(self.__loss)

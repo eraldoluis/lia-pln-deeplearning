@@ -83,15 +83,16 @@ class BatchAssembler:
                         if self.__outputGenerators:
                             outputs = [[] for _ in xrange(len(self.__outputGenerators))]
 
-                if len(inputs[0]):
-                    yield self.__formatToNumpy(inputs, outputs)
-
             else:
                 # Batch don't have fixed size
                 inputs = generatedInputs
                 outputs = generatedOutputs
 
                 yield self.__formatToNumpy(inputs, outputs)
+
+        # The remaining batches are returned
+        if len(inputs[0]):
+            yield self.__formatToNumpy(inputs, outputs)
 
         if not self.__printed:
             self.__log.info("Number of examples: %d" % nmExamples)

@@ -60,3 +60,38 @@ class Window:
                 i += 1
 
             yield context
+
+    @staticmethod
+    def checkPadding(startPadding, endPadding, embedding):
+        '''
+        Verify if the start padding and end padding exist in lexicon or embedding.
+
+        :param startPadding: Object that will be place when the initial limit of a list is exceeded
+
+        :param endPadding: Object that will be place when the end limit a list is exceeded.
+            If this parameter is None, so the endPadding has the same value of startPadding
+
+        :param embedding: DataOperation.Embedding.Embedding
+
+        :return: the index of start and end padding in lexicon
+        '''
+
+        if not embedding.exist(startPadding):
+            if embedding.isStopped():
+                raise Exception("Start Padding doens't exist")
+
+            startPaddingIdx = embedding.put(startPadding)
+        else:
+            startPaddingIdx = embedding.getLexiconIndex(startPadding)
+        if endPadding is not None:
+            if not embedding.exist(endPadding):
+                if embedding.isStopped():
+                    raise Exception("End Padding doens't exist")
+
+                endPaddingIdx = embedding.put(endPadding)
+            else:
+                endPaddingIdx = embedding.getLexiconIndex(endPadding)
+        else:
+            endPaddingIdx = None
+
+        return startPaddingIdx, endPaddingIdx

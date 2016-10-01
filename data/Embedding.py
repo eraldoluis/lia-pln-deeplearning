@@ -250,9 +250,6 @@ class Embedding(object):
 
         self.__vectors = np.asarray(self.__vectors, dtype=theano.config.floatX)
 
-        print np.min(self.__vectors, axis=0)
-        print np.ptp(self.__vectors, axis=0)
-
         self.__vectors -= np.min(self.__vectors, axis=0)
         self.__vectors *= (norm_coef / np.ptp(self.__vectors, axis=0))
 

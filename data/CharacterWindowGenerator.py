@@ -2,7 +2,7 @@
 # -*- coding: utf-8 -*-
 
 
-from data.Context import Window
+from data.Window import Window
 from data.FeatureGenerator import FeatureGenerator
 
 

@@ -235,11 +235,11 @@ def main(**kwargs):
         charEmbedding.stopAdd()
 
     # Printing embedding information
-    dictionarySize = wordEmbedding.getNumberOfEmbeddings()
+    dictionarySize = wordEmbedding.getNumberOfVectors()
     embeddingSize = wordEmbedding.getEmbeddingSize()
     log.info("Size of  word dictionary and word embedding size: %d and %d" % (dictionarySize, embeddingSize))
     log.info("Size of  char dictionary and char embedding size: %d and %d" % (
-        charEmbedding.getNumberOfEmbeddings(), charEmbedding.getEmbeddingSize()))
+        charEmbedding.getNumberOfVectors(), charEmbedding.getEmbeddingSize()))
 
 
     #Word Embedding Normalization

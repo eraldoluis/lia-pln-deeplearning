@@ -2,7 +2,12 @@
 # -*- coding: utf-8 -*-
 import theano.tensor as T
 
-from nnet import ReshapeLayer, EmbeddingLayer, Layer, LinearLayer
+from nnet.ActivationLayer import tanh, sigmoid, ActivationLayer
+from nnet.EmbeddingLayer import EmbeddingLayer
+from nnet.Layer import Layer
+from nnet.LinearLayer import LinearLayer
+from nnet.ReshapeLayer import ReshapeLayer
+from nnet.WeightGenerator import GlorotUniform, SigmoidGenerator
 
 
 class EmbeddingConvolutionalLayer(Layer):

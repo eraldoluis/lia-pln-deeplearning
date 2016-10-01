@@ -75,8 +75,8 @@ WNN_PARAMETERS = {
     "hidden_activation_function": {"default": "tanh",
                                    "desc": "the activation function of the hidden layer. The possible values are: tanh and sigmoid"},
     "shuffle": {"default": True, "desc": "able or disable the shuffle of training examples."},
-    "normalization": {"desc": "Choose the normalize method to be applied on  word embeddings. "
-                              "The possible values are: minmax or mean"},
+    "normalization": { "desc": "Choose the normalize method to be applied on  word embeddings. "
+                                                 "The possible values are: minmax or mean"},
     "label_file": {"desc": "file with all possible labels"},
     "lambda": {"desc": "Set the value of L2 coefficient"}
 }
@@ -278,7 +278,7 @@ def mainWnn(**kwargs):
 
         trainDatasetReader = TokenLabelReader(kwargs["train"], kwargs["token_label_separator"])
         trainReader = SyncBatchIterator(trainDatasetReader, inputGenerators, [outputGenerator], batchSize,
-                                    shuffle=shuffle)
+                                        shuffle=shuffle)
         wordEmbedding.stopAdd()
 
         if withCharWNN:
@@ -293,7 +293,7 @@ def mainWnn(**kwargs):
             log.info("Reading development examples")
             devDatasetReader = TokenLabelReader(kwargs["dev"], kwargs["token_label_separator"])
             devReader = SyncBatchIterator(devDatasetReader, inputGenerators, [outputGenerator], sys.maxint,
-                                      shuffle=False)
+                                          shuffle=False)
         else:
             devReader = None
     else:
@@ -302,7 +302,9 @@ def mainWnn(**kwargs):
 
     weightInit = SigmoidGlorot() if hiddenActFunction == sigmoid else GlorotUniform()
 
-    if normalizeMethod == "minmax":
+    if not normalizeMethod:
+        pass
+    elif normalizeMethod == "minmax":
         log.info("Normalization: minmax")
         wordEmbedding.minMaxNormalization()
     elif normalizeMethod == "mean":
@@ -369,11 +371,11 @@ def mainWnn(**kwargs):
         opt = SGD(lr=lr, decay=decay)
 
     # Printing embedding information
-    dictionarySize = wordEmbedding.getNumberOfEmbeddings()
+    dictionarySize = wordEmbedding.getNumberOfVectors()
     embeddingSize = wordEmbedding.getEmbeddingSize()
     log.info("Size of  word dictionary and word embedding size: %d and %d" % (dictionarySize, embeddingSize))
     log.info("Size of  char dictionary and char embedding size: %d and %d" % (
-        charEmbedding.getNumberOfEmbeddings(), charEmbedding.getEmbeddingSize()))
+        charEmbedding.getNumberOfVectors(), charEmbedding.getEmbeddingSize()))
 
     # Compiling
     loss = NegativeLogLikelihood().calculateError(act2.getOutput(), prediction, y)

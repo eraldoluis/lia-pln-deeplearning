@@ -16,3 +16,4 @@ dataset/
 *.model
 *.zip
 *.log
+.idea/

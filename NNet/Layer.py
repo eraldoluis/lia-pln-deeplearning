@@ -3,6 +3,8 @@ Created on Nov 19, 2015
 
 @author: eraldo
 '''
+from collections import Set
+
 
 class Layer(object):
     '''
@@ -21,11 +23,41 @@ class Layer(object):
     since just some of its parameters are used in each learning iteration.
     '''
 
-    def __init__(self, _input):
+    def __init__(self, _input, trainable=True):
         '''
         Constructor
         '''
-        self.__input = _input
+
+        if isinstance(_input,list):
+            self.__input = []
+            self.__set = set()
+
+            for i in _input:
+                self.__input.append(self.__auxConst(i))
+        else:
+            self.__set = set()
+            self.__input = self.__auxConst(_input)
+
+        self.__set.add(self)
+        self.__trainable = trainable
+
+    def isTrainable(self):
+        return self.__trainable
+
+    def __auxConst(self, _input):
+        if isinstance(_input, Layer):
+            for s in _input.getLayerSet():
+                self.__set.add(s)
+            return _input.getOutput()
+
+        return _input
+
+    def getLayerSet(self):
+        '''
+        :return returns a set with previous layers and this layer.
+        '''
+        return self.__set
+
 
     def getInput(self):
         '''
@@ -38,20 +70,20 @@ class Layer(object):
         :return the symbolic variable representing the output of this layer.
         '''
         raise NotImplementedError()
-    
+
     def getParameters(self):
         '''
         :return a list comprising all parameters (shared variables) of this layer.
         '''
         raise NotImplementedError()
-    
+
     def getStructuredParameters(self):
         '''
         :return a list of parameters (shared variables) whose gradients and 
             updates are computed in a structured way, like in an embedding layer.
         '''
         raise NotImplementedError()
-    
+
     def getDefaultGradParameters(self):
         '''
         :return a list of parameters (shared variables) whose gradients and 
@@ -60,7 +92,7 @@ class Layer(object):
                 params = params - learningRate * grad
         '''
         raise NotImplementedError()
-    
+
     def getUpdates(self, cost, learningRate, sumSqGrads=None):
         '''
         Some layers can have an efficient ways of computing the gradient w.r.t. 

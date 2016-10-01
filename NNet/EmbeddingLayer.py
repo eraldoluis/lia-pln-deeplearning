@@ -1,5 +1,11 @@
+import numpy
+
+import theano
 import theano.tensor as T
+from theano.tensor.sharedvar import TensorSharedVariable
+
 from NNet.Layer import Layer
+
 
 class EmbeddingLayer(Layer):
     """
@@ -14,14 +20,11 @@ class EmbeddingLayer(Layer):
     These vectors comprise the learnable parameters of this layer.
     """
 
-    def __init__(self, examples, embedding, structGrad=True):
+    def __init__(self, _input, embedding, structGrad=True, trainable=True):
         """
-        :type examples: T.TensorType
-        :param examples: matrix of examples (mini-batch).
-            Each example is an array of feature values.
-            Each feature value is an index within the given embedding.
-        
-        :type embedding: T.TensorSharedVariable
+        :param _input: _input need be a matrix with 2 dimensions
+
+        :type embedding: numpy.array or python list
         :param embedding: This is the dictionary of feature embeddings, which
             comprise this layer parameters.
             It is a matrix of parameters.
@@ -36,6 +39,8 @@ class EmbeddingLayer(Layer):
             However, when using large batches (ordinary gradient descent, in the
             limit), ordinary gradients and updates are more efficient because
             most (or all of the) word vectors are used on each iteration.
+
+        :param trainable: set if the layer is trainable or not
 
         Considering that:
         
@@ -58,17 +63,24 @@ class EmbeddingLayer(Layer):
             embedding.shape = (numVectors, szEmb)
 
         """
-        Layer.__init__(self, examples)
-        
-        self.__embedding = embedding
-        
+        super(EmbeddingLayer, self).__init__(_input, trainable)
+
+        if not isinstance(embedding, TensorSharedVariable):
+            if isinstance(embedding, list):
+                embedding = numpy.asarray(embedding, dtype=theano.config.floatX)
+
+            self.__embedding = theano.shared(value=embedding, name='embedding', borrow=True)
+        else:
+            self.__embedding = embedding
+
         # Whether to use structured gradients or not.
         self.__structGrad = structGrad
-        
+
         # Matrix of the active parameters for the given examples.
         # Its shape is (numExs * szEx, szEmb).
-        self.__activeVectors = embedding[examples.flatten(1)]
-        
+        input = self.getInput()
+        self.__activeVectors = self.__embedding[T.flatten(input, 1)]
+
         #
         # Output of the layer for the given examples.
         # Its shape is (numExs, szEx * szEmb).
@@ -76,7 +88,7 @@ class EmbeddingLayer(Layer):
         # This variable holds the same information as self.__activeVectors,
         # but with a different shape.
         #
-        self.__output = embedding[examples].flatten(2)
+        self.__output = self.__embedding[input]
 
     def getUpdates(self, cost, learningRate, sumSqGrads=None):
         if self.__structGrad:
@@ -87,7 +99,7 @@ class EmbeddingLayer(Layer):
             # are the parameters to be updated, which follow the shape of the
             # embedding itself (it is, in fact, a subtensor of the embedding).
             grad = grad.reshape(self.__activeVectors.shape)
-            
+
             # List of updates.
             updates = []
 
@@ -115,7 +127,7 @@ class EmbeddingLayer(Layer):
                 updates = [(self.__embedding, up)]
 
             return updates
-        
+
         # When using ordinary gradients, we need to return these parameters
         # through the getDefaultGradParameters(...) method.
         return []
@@ -140,7 +152,7 @@ class EmbeddingLayer(Layer):
 
     def getOutput(self):
         return self.__output
-    
+
     def getParameters(self):
         return [self.__embedding]
 
@@ -157,5 +169,5 @@ class EmbeddingLayer(Layer):
         """
         if self.__structGrad:
             return []
-        
+
         return [self.__embedding]

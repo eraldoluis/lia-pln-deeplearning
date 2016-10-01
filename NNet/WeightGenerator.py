@@ -1,0 +1,70 @@
+#!/usr/bin/env python
+# -*- coding: utf-8 -*-
+import numpy
+
+
+def generateRandomNumberUniformly(low, high, n_in, n_out):
+    if n_out == 0.0:
+        return numpy.random.uniform(low, high, n_in)
+    else:
+        return numpy.random.uniform(low, high, (n_in, n_out))
+
+
+class WeightGenerator(object):
+    def generateWeight(self, shape):
+        '''
+        :type shape: tuple
+        :param shape: a tuple like numpy
+
+        :return: matrix with the weights
+        '''
+        raise NotImplementedError()
+
+
+class ZeroWeightGenerator(WeightGenerator):
+    def generateWeight(self, shape):
+        """
+        :param shape:
+        :return:
+        """
+        return numpy.zeros(shape)
+
+
+class SigmoidGlorot(WeightGenerator):
+    # results presented in [Xavier10] suggest that you
+    # should use 4 times larger initial weights for sigmoid
+    # compared to tanh
+
+    def __init__(self):
+        self.__glorotUniform = GlorotUniform()
+
+    def generateWeight(self, shape):
+        """
+        :param shape:
+        :return:
+        """
+        return self.__glorotUniform.generateWeight(shape) * 4
+
+
+class GlorotUniform(WeightGenerator):
+    """
+    This initialization can be use with tanh.
+    """
+
+    def generateWeight(self, shape):
+        """
+        :param shape:
+        :return:
+        """
+        high = numpy.sqrt(6. / (shape[0] + shape[1]))
+        return generateRandomNumberUniformly(-high, high, shape[0], shape[1])
+
+
+class SigmoidGenerator(WeightGenerator):
+    def generateWeight(self, shape):
+        #   results presented in [Xavier10] suggest that you
+        #   should use 4 times larger initial weights for sigmoid compared to tanh
+        #
+
+        high = numpy.sqrt(6. / (shape[0] + shape[1]))
+        return 4 * generateRandomNumberUniformly(-high, high, shape[0], shape[1])

@@ -2,23 +2,27 @@ import theano
 import theano.tensor as T
 import numpy
 
-
 ################################ FUNCTIONS ########################
+
+
+
+
+
 def defaultGradParameters(cost, parameters, learningRate, sumsSqGrads=None):
     """
     :param cost: symbolic variable expressing the cost function value.
-    
+
     :param parameters: shared variable with the parameters to compute the gradient w.r.t.
-    
+
     :param learningRate: value or symbolic variable representing the learning rate.
-    
-    :param sumsSqGrads: (optional) shared variable storing the sum of the 
+
+    :param sumsSqGrads: (optional) shared variable storing the sum of the
         squared historical gradient for each parameter,
         which are used in AdaGrad.
     """
     # Compute gradient of the cost function w.r.t. each parameter.
     grads = [T.grad(cost, param) for param in parameters]
-    
+
     if sumsSqGrads:
         # For numerical stability.
         fudgeFactor = 1e-10
@@ -32,7 +36,7 @@ def defaultGradParameters(cost, parameters, learningRate, sumsSqGrads=None):
             updates.append((param, newParam))
     else:
         # Ordinary SGD updates.
-        updates = [(param, param - learningRate * grad) 
+        updates = [(param, param - learningRate * grad)
                    for param, grad in zip(parameters, grads)]
 
     return updates
@@ -98,12 +102,7 @@ class WeightBottou88Generator:
         
         return generateRandomNumberUniformly(-high, high, n_in, n_out)
     
-class WeightEqualZeroGenerator:
-    def generateWeight(self, n_in, n_out=0.0): 
-        if n_out == 0.0:
-            return numpy.zeros(n_in, dtype=theano.config.floatX)
-        else:
-            return numpy.zeros((n_in, n_out), dtype=theano.config.floatX)
+
 
 class WeightEqualOneGenerator:
     

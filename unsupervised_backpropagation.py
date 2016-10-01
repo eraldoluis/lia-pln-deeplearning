@@ -48,9 +48,10 @@ UNSUPERVISED_BACKPROPAGATION_PARAMETERS = {
                 "desc": "list contains the filters. Each filter is describe by your module name + . + class name"},
     "label_file": {"desc": "", "required": True},
     "batch_size": {"required": True},
-    "lambda": {"desc": "", "required": True},
+    # "lambda": {"desc": "", "required": True},
 
-    "alpha": {"desc": "", "required": False},
+    "alpha": {"desc": "", "required": True},
+    "height": {"default": 1 ,"desc": "", "required": False},
     "train_source": {"desc": "Supervised Training File Path"},
     "train_target": {"desc": "Unsupervised Training File Path"},
     "num_epochs": {"desc": "Number of epochs: how many iterations over the training set."},
@@ -156,7 +157,8 @@ def main(**kwargs):
     numEpochs = kwargs["num_epochs"]
     lr = kwargs["lr"]
     tagLexicon = createLexiconUsingFile(kwargs["label_file"])
-    _lambda = theano.shared(kwargs["lambda"], "lambda")
+    # _lambda = theano.shared(kwargs["lambda"], "lambda")
+    _lambda = theano.shared(0.0, "lambda")
     useAdagrad = kwargs["adagrad"]
     shuffle = kwargs["shuffle"]
     supHiddenLayerSize = kwargs["hidden_size_supervised_part"]
@@ -237,6 +239,13 @@ def main(**kwargs):
 
     if withCharWNN:
         charEmbedding.stopAdd()
+
+    # Printing embedding information
+    dictionarySize = wordEmbedding.getNumberOfEmbeddings()
+    embeddingSize = wordEmbedding.getEmbeddingSize()
+    log.info("Size of  word dictionary and word embedding size: %d and %d" % (dictionarySize, embeddingSize))
+    log.info("Size of  char dictionary and char embedding size: %d and %d" % (
+        charEmbedding.getNumberOfEmbeddings(), charEmbedding.getEmbeddingSize()))
 
 
     #Word Embedding Normalization
@@ -436,8 +445,9 @@ def main(**kwargs):
                               shuffle=False)
 
     callbacks = []
-    log.info("Usando lambda fixo: " + str(_lambda.get_value()))
-    # callbacks.append(ChangeLambda(_lambda, kwargs["alpha"], numEpochs))
+    # log.info("Usando lambda fixo: " + str(_lambda.get_value()))
+    log.info("Usando lambda variado. alpha=" + str(kwargs["alpha"]) + " height=" + str(kwargs["height"]))
+    callbacks.append(ChangeLambda(_lambda, kwargs["alpha"], numEpochs, kwargs["height"]))
 
     if kwargs["additional_dev"]:
         callbacks.append(

@@ -12,13 +12,12 @@ Os índices dos exemplos de teste são fornecidos em um arquivo de entrada (um
 '''
 import sys
 from codecs import open
-from sets import Set
 
 
 def docsFile2Dir(inputFilename, testIndicesFilename):
     print 'Reading test indices...'
     testIndicesFile = open(testIndicesFilename, 'r', 'utf8')
-    testIndices = Set()
+    testIndices = set()
     for l in testIndicesFile:
         testIndices.add(int(l))
     testIndicesFile.close()

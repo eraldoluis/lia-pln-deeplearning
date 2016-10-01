@@ -25,7 +25,6 @@ A saída segue o mesmo formato da entrada.
 '''
 import sys
 from codecs import open
-from sets import Set
 
 
 def flatTree(tree, node):
@@ -67,7 +66,7 @@ def docsFile2Dir(fileName):
 
     print 'Making trees flat...'
     # Flat tree to two levels (root is always 1).
-    roots = Set()
+    roots = set()
     for n in tree.iterkeys():
         flatTree(tree, n)
         roots.add(tree[n])

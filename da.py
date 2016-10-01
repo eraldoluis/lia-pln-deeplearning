@@ -1,31 +1,30 @@
 import importlib
 import logging
+import logging.config
+import numpy
 import os
-
 import sys
 
-import numpy
+from data import WordWindowGenerator
+from args import JsonArgParser
 from theano import tensor as T
 
-from DataOperation.Embedding import EmbeddingFactory, RandomUnknownStrategy
-from DataOperation.InputGenerator.BatchIterator import SyncBatchList, AsyncBatchIterator
-from DataOperation.InputGenerator.WordWindowGenerator import WordWindowGenerator
-from DataOperation.TokenDatasetReader import TokenReader
-from ModelOperation.Model import Model
-from ModelOperation.Objective import MeanSquaredError
-from ModelOperation.SaveModelCallback import ModelWriter, SaveModelCallback
-from NNet import EmbeddingLayer, FlattenLayer, DropoutLayer, LinearLayer, ActivationLayer
-from NNet.ActivationLayer import sigmoid, ActivationLayer, tanh
-from NNet.DropoutLayer import DropoutLayer
-from NNet.EmbeddingLayer import EmbeddingLayer
-from NNet.FlattenLayer import FlattenLayer
-from NNet.LinearLayer import LinearLayer
-from NNet.TiedLayer import TiedLayer
-from NNet.WeightGenerator import SigmoidGlorot, GlorotUniform
-from Optimizers import SGD
-from Optimizers.SGD import SGD
-from Parameters.JsonArgParser import JsonArgParser
-import logging.config
+from data.BatchIterator import SyncBatchIterator, AsyncBatchIterator
+from data.Embedding import EmbeddingFactory, RandomUnknownStrategy
+from data.TokenDatasetReader import TokenReader
+from model.Model import Model
+from model.Objective import MeanSquaredError
+from model.SaveModelCallback import ModelWriter, SaveModelCallback
+from nnet import EmbeddingLayer, FlattenLayer, DropoutLayer, LinearLayer, ActivationLayer
+from nnet.ActivationLayer import ActivationLayer, tanh
+from nnet.DropoutLayer import DropoutLayer
+from nnet.EmbeddingLayer import EmbeddingLayer
+from nnet.FlattenLayer import FlattenLayer
+from nnet.LinearLayer import LinearLayer
+from nnet.TiedLayer import TiedLayer
+from nnet.WeightGenerator import GlorotUniform
+from optim import SGD
+from optim.SGD import SGD
 
 DA_PARAMETERS = {
     "train": {"desc": "Training File Path", "required": True},
@@ -53,8 +52,8 @@ class DAModelWritter(ModelWriter):
         '''
         :param savePath: path where the model will be saved
 
-        :type encodeLayer: NNet.LinearLayer.LinearLayer
-        :type decodeLayer: NNet.TiedLayer.TiedLayer
+        :type encodeLayer: nnet.LinearLayer.LinearLayer
+        :type decodeLayer: nnet.TiedLayer.TiedLayer
         '''
         self.__savePath = savePath
         self.__encodeLayer = encodeLayer

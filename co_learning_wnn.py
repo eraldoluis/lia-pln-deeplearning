@@ -3,34 +3,31 @@
 import importlib
 import logging
 import logging.config
+import numpy as np
 import os
 import random
 import sys
 
-import numpy as np
 import theano
 import theano.tensor as T
-from theano import printing
 
-from DataOperation.Embedding import EmbeddingFactory, RandomUnknownStrategy
-from DataOperation.InputGenerator.BatchIterator import SyncBatchList
-from DataOperation.InputGenerator.LabelGenerator import LabelGenerator
-from DataOperation.InputGenerator.WordWindowGenerator import WordWindowGenerator
-from DataOperation.Lexicon import createLexiconUsingFile
-from DataOperation.TokenDatasetReader import TokenLabelReader, TokenReader
-from ModelOperation.Callback import Callback
-from ModelOperation.CoLearningModel import CoLearningModel
-from ModelOperation.Model import Model, ModelUnit
-from ModelOperation.Objective import NegativeLogLikelihood
-from ModelOperation.Prediction import ArgmaxPrediction, CoLearningWnnPrediction
-from NNet.ActivationLayer import ActivationLayer, softmax, tanh
-from NNet.EmbeddingLayer import EmbeddingLayer
-from NNet.FlattenLayer import FlattenLayer
-from NNet.LinearLayer import LinearLayer
-from NNet.WeightGenerator import ZeroWeightGenerator, GlorotUniform
-from Optimizers.Adagrad import Adagrad
-from Optimizers.SGD import SGD
-from Parameters.JsonArgParser import JsonArgParser
+from args.JsonArgParser import JsonArgParser
+from data.BatchIterator import SyncBatchIterator
+from data.Embedding import EmbeddingFactory, RandomUnknownStrategy
+from data.LabelGenerator import LabelGenerator
+from data.Lexicon import createLexiconUsingFile
+from data.TokenDatasetReader import TokenLabelReader, TokenReader
+from data.WordWindowGenerator import WordWindowGenerator
+from model.Callback import Callback
+from model.CoLearningModel import CoLearningModel
+from model.Objective import NegativeLogLikelihood
+from model.Prediction import ArgmaxPrediction
+from nnet.ActivationLayer import ActivationLayer, softmax, tanh
+from nnet.EmbeddingLayer import EmbeddingLayer
+from nnet.FlattenLayer import FlattenLayer
+from nnet.LinearLayer import LinearLayer
+from nnet.WeightGenerator import ZeroWeightGenerator, GlorotUniform
+from optim.SGD import SGD
 
 CO_LEARNING_PARAMETERS = {
     "token_label_separator": {"required": True,
@@ -330,11 +327,11 @@ def main(**kwargs):
 
     # Reading supervised and unsupervised data sets.
     trainSupervisedDatasetReader = TokenLabelReader(kwargs["train_supervised"], kwargs["token_label_separator"])
-    trainSupervisedDatasetReader = SyncBatchList(trainSupervisedDatasetReader, [inputGenerator1, inputGenerator2],
+    trainSupervisedDatasetReader = SyncBatchIterator(trainSupervisedDatasetReader, [inputGenerator1, inputGenerator2],
                                                  [outputGenerator], batchSize[0])
 
     trainUnsupervisedDataset = TokenReader(kwargs["train_unsupervised"])
-    trainUnsupervisedDatasetReader = SyncBatchList(trainUnsupervisedDataset,
+    trainUnsupervisedDatasetReader = SyncBatchIterator(trainUnsupervisedDataset,
                                                    [inputGenerator1, inputGenerator2],
                                                    None, batchSize[1])
 
@@ -345,7 +342,7 @@ def main(**kwargs):
     # Get dev inputs and output
     log.info("Reading development examples")
     devDatasetReader = TokenLabelReader(kwargs["dev"], kwargs["token_label_separator"])
-    devReader = SyncBatchList(devDatasetReader, [inputGenerator1, inputGenerator2], [outputGenerator], sys.maxint,
+    devReader = SyncBatchIterator(devDatasetReader, [inputGenerator1, inputGenerator2], [outputGenerator], sys.maxint,
                               shuffle=False)
 
     lambdaChange = ChangeLambda(_lambdaShared, kwargs["lambda"], kwargs["loss_uns_epoch"])

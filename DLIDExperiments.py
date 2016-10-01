@@ -1,29 +1,28 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
 
-import sys
 import argparse
-import os
+import calendar
+import datetime
+import importlib
 import logging
 import logging.config
-import codecs
-import calendar
-import time
-import random
 import math
-import datetime
-from TransferRate.WordFeatureGenerator import Word2VecGenerate, \
+import numpy
+import os
+import random
+import sys
+import time
+
+from data.WordVector import WordVector
+
+import Postag
+from crfsuite.WordFeatureGenerator import Word2VecGenerate, \
     InterporlationGenerate, AverageGenerator, RandomWeightGenerator, \
     RandomUnknownStrategy, MeanLessShowedWordsUnknownStrategy, \
     ChosenUnknownStrategy
-from DataOperation.WordVector import WordVector
+from data.Lexicon import Lexicon
 from util.util import getFileNameInPath, removeExtension
-# from TransferRate import CRFSuite
-import Postag
-import importlib
-from DataOperation.Lexicon import Lexicon
-import multiprocessing
-import numpy
 
 
 # import resource
@@ -435,7 +434,7 @@ def doOneExperiment(mainExperimentDir, runNumber, args, w2vStrategy, intermediat
     
     word2VecGenerate = Word2VecGenerate(args.w2vPath, unknownGenerateStrategy, logger)
     
-    filtersArgs = ['DataOperation.TransformLowerCaseFilter', 'TransformLowerCaseFilter']
+    filtersArgs = ['data.TransformLowerCaseFilter', 'TransformLowerCaseFilter']
     
     filtersArgs += args.filters
     

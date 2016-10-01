@@ -2,28 +2,30 @@
 # -*- coding: utf-8 -*-
 
 import argparse
-import time
-import logging.config
-
-from DataOperation.TokenLabelReader import TokenLabelReader
-from DataOperation.WordVector import WordVector
-from Evaluate.EvaluateAccuracy import EvaluateAccuracy
-from WindowModelBySentence import WindowModelBySentence, NeuralNetworkChoiceEnum
-from NNet.EmbeddingConvolutionalLayer import EmbeddingConvolutionalLayer
 import cPickle as pickle
-from DataOperation.Lexicon import Lexicon
-from WindowModelByWord import WindowModelByWord
-import sys
-import numpy
-from WindowModelBasic import WindowModelBasic
-from Evaluate.EvaluateEveryNumEpoch import EvaluateEveryNumEpoch
-from DataOperation.ReaderLexiconAndWordVec import ReaderLexiconAndWordVec
 import importlib
-from NNet.Util import LearningRateUpdDivideByEpochStrategy, \
-    LearningRateUpdNormalStrategy
-from Evaluate.EvaluatePercPredictsCorrectNotInWordSet import EvaluatePercPredictsCorrectNotInWordSet
-import random
+import logging.config
+import numpy
 import os
+import random
+import sys
+import time
+
+from Evaluate.EvaluateAccuracy import EvaluateAccuracy
+from Evaluate.EvaluateEveryNumEpoch import EvaluateEveryNumEpoch
+from Evaluate.EvaluatePercPredictsCorrectNotInWordSet import EvaluatePercPredictsCorrectNotInWordSet
+from WindowModelBasic import WindowModelBasic
+from WindowModelBySentence import WindowModelBySentence, NeuralNetworkChoiceEnum
+from WindowModelByWord import WindowModelByWord
+from data.ReaderLexiconAndWordVec import ReaderLexiconAndWordVec
+from data.TokenLabelReader import TokenLabelReader
+from data.WordVector import WordVector
+
+from data.Lexicon import Lexicon
+from nnet.EmbeddingConvolutionalLayer import EmbeddingConvolutionalLayer
+from nnet.Util import LearningRateUpdDivideByEpochStrategy, \
+    LearningRateUpdNormalStrategy
+
 
 def readVocabAndWord(args):
     # Este if só foi criado para permitir que DLIDPostag possa reusar o run do postag
@@ -43,7 +45,7 @@ def run(args):
     
     filters = []
     a = 0
-    args.filters.append('DataOperation.TransformLowerCaseFilter')
+    args.filters.append('data.TransformLowerCaseFilter')
     args.filters.append('TransformLowerCaseFilter')
     while a < len(args.filters):
         print "Usando o filtro: " + args.filters[a] + " " + args.filters[a + 1]
@@ -133,7 +135,7 @@ def run(args):
             for wv in wvs:
                 if lexicon.getLen() != wv.getLength():
                     raise Exception("O número de palavras no vacabulário é diferente do número de palavras do word Vector")
-            
+
 
             if args.testOOUV:
                 lexiconFindInWV = set([word for word in lexicon.getLexiconDict()])

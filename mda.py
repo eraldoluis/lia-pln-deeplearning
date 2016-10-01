@@ -14,34 +14,33 @@
 
 """
 import importlib
+import logging
+import logging.config
+import numpy
 import os
 import sys
 
-import logging.config
-import logging
-
-import numpy
 import theano.tensor as T
+from data import WordWindowGenerator
 
-from DataOperation.Embedding import EmbeddingFactory, RandomUnknownStrategy
-from DataOperation.InputGenerator.BatchIterator import AsyncBatchIterator, SyncBatchList
-from DataOperation.InputGenerator.WordWindowGenerator import WordWindowGenerator
-from DataOperation.TokenDatasetReader import TokenReader
-from ModelOperation import Model, SaveModelCallback
-from ModelOperation.MDALoss import MDALoss
-from ModelOperation.Model import Model
-from ModelOperation.Objective import MeanSquaredError
-from ModelOperation.SaveModelCallback import ModelWriter, SaveModelCallback
-from NNet import EmbeddingLayer, FlattenLayer, LinearLayer, ActivationLayer
-from NNet.ActivationLayer import ActivationLayer, tanh, softmax, sigmoid
-from NNet.EmbeddingLayer import EmbeddingLayer
-from NNet.FlattenLayer import FlattenLayer
-from NNet.LinearLayer import LinearLayer
-from NNet.TiedLayer import TiedLayer
-from NNet.WeightGenerator import SigmoidGlorot
-from Optimizers import SGD
-from Optimizers.SGD import SGD
-from Parameters.JsonArgParser import JsonArgParser
+from args.JsonArgParser import JsonArgParser
+from data.BatchIterator import AsyncBatchIterator, SyncBatchIterator
+from data.Embedding import EmbeddingFactory, RandomUnknownStrategy
+from data.TokenDatasetReader import TokenReader
+from model import Model, SaveModelCallback
+from model.MDALoss import MDALoss
+from model.Model import Model
+from model.Objective import MeanSquaredError
+from model.SaveModelCallback import ModelWriter, SaveModelCallback
+from nnet import EmbeddingLayer, FlattenLayer, LinearLayer, ActivationLayer
+from nnet.ActivationLayer import ActivationLayer, sigmoid
+from nnet.EmbeddingLayer import EmbeddingLayer
+from nnet.FlattenLayer import FlattenLayer
+from nnet.LinearLayer import LinearLayer
+from nnet.TiedLayer import TiedLayer
+from nnet.WeightGenerator import SigmoidGlorot
+from optim import SGD
+from optim.SGD import SGD
 
 MDA_PARAMETERS = {
     "train": {"desc": "Training File Path", "required": True},
@@ -69,8 +68,8 @@ class MDAModelWritter(ModelWriter):
         '''
         :param savePath: path where the model will be saved
 
-        :type encodeLayer: NNet.LinearLayer.LinearLayer
-        :type decodeLayer: NNet.TiedLayer.TiedLayer
+        :type encodeLayer: nnet.LinearLayer.LinearLayer
+        :type decodeLayer: nnet.TiedLayer.TiedLayer
         '''
         self.__savePath = savePath
         self.__encodeLayer = encodeLayer
@@ -127,7 +126,7 @@ def main(**kwargs):
 
     if sync:
         log.info("Loading e pre-processing train data set")
-        trainBatchGenerator = SyncBatchList(datasetReader, [inputGenerator], None, batchSize)
+        trainBatchGenerator = SyncBatchIterator(datasetReader, [inputGenerator], None, batchSize)
     else:
         trainBatchGenerator = AsyncBatchIterator(datasetReader, [inputGenerator], None, batchSize)
         # We can't stop, because the data set is reading in a asynchronous way

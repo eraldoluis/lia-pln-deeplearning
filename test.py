@@ -2,25 +2,12 @@
 # -*- coding: utf-8 -*-
 
 import numpy
-from itertools import chain
-from timeit import itertools
-from numpy import dtype, ndarray
-import theano
-from theano import tensor as T
-from operator import itemgetter
-from EmbeddingConvolutionalLayer import *
 import numpy as np
+
 import theano
 import theano.tensor as T
-from NNet.HiddenLayer import HiddenLayer
-from NNet.EmbeddingLayer import EmbeddingLayer
-from theano.tensor.nnet.nnet import softmax
-from NNet.SoftmaxLayer import SoftmaxLayer
-from NNet.Util import negative_log_likelihood, regularizationSquareSumParamaters
+from EmbeddingConvolutionalLayer import *
 
-
-
- 
 # O tamanho do batch
 batchSize = theano.shared(1,'batchSize')
 

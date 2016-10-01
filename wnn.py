@@ -5,37 +5,36 @@ import importlib
 import json
 import logging
 import logging.config
+import numpy as np
 import os
 import random
 import sys
 import time
 from time import time
 
-import numpy as np
 import theano.tensor as T
+from data.BatchIterator import SyncBatchIterator
+from data.CharacterWindowGenerator import CharacterWindowGenerator
+from data.WordWindowGenerator import WordWindowGenerator
 
-from DataOperation.Embedding import EmbeddingFactory, RandomUnknownStrategy, ChosenUnknownStrategy
-from DataOperation.InputGenerator import CharacterWindowGenerator
-from DataOperation.InputGenerator.BatchIterator import SyncBatchList
-from DataOperation.InputGenerator.CharacterWindowGenerator import CharacterWindowGenerator
-from DataOperation.InputGenerator.LabelGenerator import LabelGenerator
-from DataOperation.InputGenerator.WordWindowGenerator import WordWindowGenerator
-from DataOperation.Lexicon import Lexicon, createLexiconUsingFile
-from DataOperation.TokenDatasetReader import TokenLabelReader
-from ModelOperation.BasicModel import BasicModel
-from ModelOperation.Objective import NegativeLogLikelihood
-from ModelOperation.Prediction import ArgmaxPrediction
-from ModelOperation.SaveModelCallback import ModelWriter, SaveModelCallback
-from NNet.ActivationLayer import ActivationLayer, softmax, tanh, sigmoid
-from NNet.ConcatenateLayer import ConcatenateLayer
-from NNet.EmbeddingConvolutionalLayer import EmbeddingConvolutionalLayer
-from NNet.EmbeddingLayer import EmbeddingLayer
-from NNet.FlattenLayer import FlattenLayer
-from NNet.LinearLayer import LinearLayer
-from NNet.WeightGenerator import ZeroWeightGenerator, GlorotUniform, SigmoidGlorot
-from Optimizers.Adagrad import Adagrad
-from Optimizers.SGD import SGD
-from Parameters.JsonArgParser import JsonArgParser
+from args.JsonArgParser import JsonArgParser
+from data.Embedding import EmbeddingFactory, RandomUnknownStrategy, ChosenUnknownStrategy
+from data.LabelGenerator import LabelGenerator
+from data.Lexicon import Lexicon, createLexiconUsingFile
+from data.TokenDatasetReader import TokenLabelReader
+from model.BasicModel import BasicModel
+from model.Objective import NegativeLogLikelihood
+from model.Prediction import ArgmaxPrediction
+from model.SaveModelCallback import ModelWriter, SaveModelCallback
+from nnet.ActivationLayer import ActivationLayer, softmax, tanh, sigmoid
+from nnet.ConcatenateLayer import ConcatenateLayer
+from nnet.EmbeddingConvolutionalLayer import EmbeddingConvolutionalLayer
+from nnet.EmbeddingLayer import EmbeddingLayer
+from nnet.FlattenLayer import FlattenLayer
+from nnet.LinearLayer import LinearLayer
+from nnet.WeightGenerator import ZeroWeightGenerator, GlorotUniform, SigmoidGlorot
+from optim.Adagrad import Adagrad
+from optim.SGD import SGD
 
 WNN_PARAMETERS = {
     "token_label_separator": {"required": True,
@@ -77,7 +76,7 @@ WNN_PARAMETERS = {
                                    "desc": "the activation function of the hidden layer. The possible values are: tanh and sigmoid"},
     "shuffle": {"default": True, "desc": "able or disable the shuffle of training examples."},
     "normalization": {"desc": "Choose the normalize method to be applied on  word embeddings. "
-                              "The possible values are: max_min, mean_normalization or none"},
+                              "The possible values are: minmax or mean"},
     "label_file": {"desc": "file with all possible labels"},
     "lambda": {"desc": "Set the value of L2 coefficient"}
 }
@@ -89,10 +88,10 @@ class WNNModelWritter(ModelWriter):
         '''
         :param savePath: path where the model will be saved
 
-        :type embeddingLayer: NNet.EmbeddingLayer.EmbeddingLayer
-        :type linearLayer1: NNet.LinearLayer.LinearLayer
-        :type linearLayer2: NNet.LinearLayer.LinearLayer
-        :type embedding: DataOperation.Embedding.Embedding
+        :type embeddingLayer: nnet.EmbeddingLayer.EmbeddingLayer
+        :type linearLayer1: nnet.LinearLayer.LinearLayer
+        :type linearLayer2: nnet.LinearLayer.LinearLayer
+        :type embedding: data.Embedding.Embedding
         '''
         self.__savePath = savePath
         self.__embeddingLayer = embeddingLayer
@@ -158,7 +157,7 @@ def mainWnn(**kwargs):
     log = logging.getLogger(__name__)
     log.info(kwargs)
 
-    if kwargs["seed"] != None:
+    if kwargs["seed"]:
         random.seed(kwargs["seed"])
         np.random.seed(kwargs["seed"])
 
@@ -278,7 +277,7 @@ def mainWnn(**kwargs):
         log.info("Reading training examples")
 
         trainDatasetReader = TokenLabelReader(kwargs["train"], kwargs["token_label_separator"])
-        trainReader = SyncBatchList(trainDatasetReader, inputGenerators, [outputGenerator], batchSize,
+        trainReader = SyncBatchIterator(trainDatasetReader, inputGenerators, [outputGenerator], batchSize,
                                     shuffle=shuffle)
         wordEmbedding.stopAdd()
 
@@ -293,7 +292,7 @@ def mainWnn(**kwargs):
         if dev:
             log.info("Reading development examples")
             devDatasetReader = TokenLabelReader(kwargs["dev"], kwargs["token_label_separator"])
-            devReader = SyncBatchList(devDatasetReader, inputGenerators, [outputGenerator], sys.maxint,
+            devReader = SyncBatchIterator(devDatasetReader, inputGenerators, [outputGenerator], sys.maxint,
                                       shuffle=False)
         else:
             devReader = None
@@ -303,19 +302,21 @@ def mainWnn(**kwargs):
 
     weightInit = SigmoidGlorot() if hiddenActFunction == sigmoid else GlorotUniform()
 
-    if normalizeMethod == "min_max":
-        log.info("Normalization: min max")
+    if normalizeMethod == "minmax":
+        log.info("Normalization: minmax")
         wordEmbedding.minMaxNormalization()
-
-    elif normalizeMethod == "mean_normalization":
+    elif normalizeMethod == "mean":
         log.info("Normalization: mean normalization")
         wordEmbedding.meanNormalization()
+    else:
+        log.error("Unknown normalization method: %s" % normalizeMethod)
+        sys.exit(1)
 
     if normalizeMethod is not None and loadPath is not None:
         log.warn("The word embedding of model was normalized. This can change the result of test.")
 
     if isSentenceModel:
-        raise NotImplementedError("ModelOperation of sentence window was't implemented yet.")
+        raise NotImplementedError("Sentence model is not implemented!")
     else:
         wordWindow = T.lmatrix("word_window")
         inputModel = [wordWindow]
@@ -403,7 +404,7 @@ def mainWnn(**kwargs):
     if kwargs["test"]:
         log.info("Reading test examples")
         testDatasetReader = TokenLabelReader(kwargs["test"], kwargs["token_label_separator"])
-        testReader = SyncBatchList(testDatasetReader, [inputGenerators], outputGenerator, batchSize, shuffle=False)
+        testReader = SyncBatchIterator(testDatasetReader, [inputGenerators], outputGenerator, batchSize, shuffle=False)
 
         log.info("Testing")
         wnnModel.evaluate(testReader, True)

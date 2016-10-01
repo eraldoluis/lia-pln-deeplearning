@@ -7,7 +7,7 @@ import json
 class JsonArgParser:
 
     def __init__(self, parameterRule):
-        '''
+        """
 
         :type parameterRule: basestring
         :param parameterRule: Its a json string which contains description and default values of some parameters.
@@ -20,7 +20,7 @@ class JsonArgParser:
                     "parameter_name2": {"default": "..."},
                     "parameter_name3": {"required":True}
                 }
-        '''
+        """
 
         if isinstance(parameterRule, (basestring, unicode)):
             self.__parameterRules = json.loads(parameterRule)
@@ -28,11 +28,11 @@ class JsonArgParser:
             self.__parameterRules = parameterRule
 
     def parse(self, f):
-        '''
+        """
         :type f: basestring or Stream
         :param f: Can be the output of codecs.open or open, or the path of a file.
         :return: a dictionary which contains the parsed parameters.
-        '''
+        """
 
         if isinstance(f, basestring):
             f = codecs.open(f, "r", "utf-8")

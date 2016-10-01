@@ -137,14 +137,14 @@ class OfertasReader(DatasetReader):
 class OfertasModelWritter(ModelWriter):
     def __init__(self, savePath, embeddingLayer, linearLayer1, linearLayer2, embedding, lexiconLabel,
                  hiddenActFunction):
-        '''
+        """
         :param savePath: path where the model will be saved
 
         :type embeddingLayer: nnet.EmbeddingLayer.EmbeddingLayer
         :type linearLayer1: nnet.LinearLayer.LinearLayer
         :type linearLayer2: nnet.LinearLayer.LinearLayer
         :type embedding: data.Embedding.Embedding
-        '''
+        """
         self.__savePath = savePath
         self.__embeddingLayer = embeddingLayer
         self.__linear1 = linearLayer1
@@ -206,27 +206,27 @@ class OfertasModelWritter(ModelWriter):
 
 
 class TextLabelGenerator(FeatureGenerator):
-    '''
+    """
     Generates one label per example (in general, the input is a piece of text).
     This label generator is usually used for document (text) classification.
-    '''
+    """
 
     def __init__(self, labelLexicon):
-        '''
+        """
         :type labelLexicon: data.Lexicon.Lexicon
         :param labelLexicon:
-        '''
+        """
         self.__labelLexicon = labelLexicon
 
     def generate(self, label):
-        '''
+        """
         Return the code for the given label.
 
         :type labels: list[basestring]
         :param labels:
 
         :return: li
-        '''
+        """
 
         y = self.__labelLexicon.put(label)
 

@@ -1,8 +1,8 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
-'''
+"""
 Contains a set of classes that read  attributes and/or label of tokens from a data set
-'''
+"""
 
 import codecs
 import logging

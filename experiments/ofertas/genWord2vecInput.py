@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
 
-'''
+"""
 Created on 21/09/2016
 
 @author: eraldo
@@ -12,7 +12,7 @@ por espaço. Na realidade, o único pré-processamento feito por este script
 consiste em:
     - obter somente o texto das ofertas (descartando os demais atributos);
     - subtituir dígitos por 0.
-'''
+"""
 import re
 import sys
 from codecs import open

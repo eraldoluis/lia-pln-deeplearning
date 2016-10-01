@@ -1,9 +1,9 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
 
-'''
+"""
 Filters are classes that change the token, like transform to lower case the letters 
-'''
+"""
 
 import re
 

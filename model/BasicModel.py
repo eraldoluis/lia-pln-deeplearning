@@ -73,7 +73,7 @@ class BasicModel(Model):
         return self.__predictionFunction
 
     def compile(self, allLayers, optimizer, predictionFunction, lossFunction, metrics=[]):
-        '''
+        """
         :type allLayers: [ NNet.Layer.Layer]
         :param allLayers: all model layers
 
@@ -88,7 +88,7 @@ class BasicModel(Model):
 
 
         :param metrics: the names of the metrics to be measured. Nowadays, this classe just accepted "loss" and "acc"(accuracy)
-        '''
+        """
         self.__optimizer = optimizer
         self.__prediction = predictionFunction
 

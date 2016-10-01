@@ -10,9 +10,9 @@ from model.Model import Model, Metric
 
 
 class ConcatenatorDataset(object):
-    '''
+    """
     Treats a set of examples from differents dataset as unique dataset
-    '''
+    """
 
     def __init__(self, listSyncBatchList):
         """

@@ -65,12 +65,12 @@ MDA_PARAMETERS = {
 
 class MDAModelWritter(ModelWriter):
     def __init__(self, savePath, encodeLayer, decodeLayer):
-        '''
+        """
         :param savePath: path where the model will be saved
 
         :type encodeLayer: nnet.LinearLayer.LinearLayer
         :type decodeLayer: nnet.TiedLayer.TiedLayer
-        '''
+        """
         self.__savePath = savePath
         self.__encodeLayer = encodeLayer
         self.__decodeLayer = decodeLayer

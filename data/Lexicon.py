@@ -1,8 +1,8 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
 
-'''
-'''
+"""
+"""
 import codecs
 from zlib import adler32
 
@@ -53,18 +53,18 @@ class Lexicon(object):
         return self.__lexiconDict
 
     def getLen(self):
-        '''
+        """
         Return the number of words in the lexicon.
-        '''
+        """
         return len(self.__lexicon)
 
     def put(self, word):
-        '''
+        """
         Include a new word in the lexicon and return its index. If the word is
         already in the lexicon, then just return its index.
         If a word in new to lexicon and '__readOnly' is true, so this lexicon will return a index which
         is related with all unknown words.
-        '''
+        """
 
         idx = self.__lexiconDict.get(word)
 
@@ -80,16 +80,16 @@ class Lexicon(object):
         return idx
 
     def getLexicon(self, index):
-        '''
+        """
         Return the word in the lexicon that is stored in the given index.
-        '''
+        """
         return self.__lexicon[index]
 
     def getLexiconIndex(self, word):
-        '''
+        """
         Return the index of the given word. If the word is not in the lexicon,
             so returns the unknown index.
-        '''
+        """
         return self.__lexiconDict.get(word, self.unknown_index)
 
     def getUnknownIndex(self):
@@ -146,31 +146,31 @@ class HashLexicon(object):
         return self.__lexiconDict
 
     def getLen(self):
-        '''
+        """
         Return the number of words in the lexicon.
-        '''
+        """
         return self.__size
 
     def put(self, word):
-        '''
+        """
         Include a new word in the lexicon and return its index. If the word is
         already in the lexicon, then just return its index.
         If a word in new to lexicon and '__readOnly' is true, so this lexicon will return a index which
         is related with all unknown words.
-        '''
+        """
         
         return self.getLexiconIndex(word)
 
     def getLexicon(self, index):
-        '''
+        """
         Return the word in the lexicon that is stored in the given index.
-        '''
+        """
         return None
 
     def getLexiconIndex(self, word):
-        '''
+        """
         Return the code of the given word. It is its hash code.
-        '''
+        """
         return adler32(word) % self.__size
 
     def getUnknownIndex(self):

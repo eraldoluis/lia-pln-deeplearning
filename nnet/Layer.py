@@ -1,12 +1,12 @@
-'''
+"""
 Created on Nov 19, 2015
 
 @author: eraldo
-'''
+"""
 
 
 class Layer(object):
-    '''
+    """
     Base class for neural network layers. A layer must have an input, some
     (learnable) parameters and an output. The output must be a function of the
     input and the parameters.
@@ -20,12 +20,12 @@ class Layer(object):
         params = params - learningRate * grad
 
     since just some of its parameters are used in each learning iteration.
-    '''
+    """
 
     def __init__(self, _input, trainable=True):
-        '''
+        """
         Constructor
-        '''
+        """
 
         if isinstance(_input,list):
             self.__input = []
@@ -52,48 +52,48 @@ class Layer(object):
         return _input
 
     def getLayerSet(self):
-        '''
+        """
         :return returns a set with previous layers and this layer.
-        '''
+        """
         return self.__set
 
 
     def getInput(self):
-        '''
+        """
         :return the symbolic variable representing the input of this layer.
-        '''
+        """
         return self.__input
 
     def getOutput(self):
-        '''
+        """
         :return the symbolic variable representing the output of this layer.
-        '''
+        """
         raise NotImplementedError()
 
     def getParameters(self):
-        '''
+        """
         :return a list comprising all parameters (shared variables) of this layer.
-        '''
+        """
         raise NotImplementedError()
 
     def getStructuredParameters(self):
-        '''
+        """
         :return a list of parameters (shared variables) whose gradients and 
             updates are computed in a structured way, like in an embedding layer.
-        '''
+        """
         raise NotImplementedError()
 
     def getDefaultGradParameters(self):
-        '''
+        """
         :return a list of parameters (shared variables) whose gradients and 
             updates can be computed in the ordinary way, i.e.:
                 grad = T.grad(cost, params)
                 params = params - learningRate * grad
-        '''
+        """
         raise NotImplementedError()
 
     def getUpdates(self, cost, learningRate, sumSqGrads=None):
-        '''
+        """
         Some layers can have an efficient ways of computing the gradient w.r.t. 
         their parameters and the corresponding updates. This is usually the case
         for structured layers (not fully connected), like word embeddings.
@@ -110,5 +110,5 @@ class Layer(object):
             parameters. Otherwise, return a list of tuples (var, newValue) that 
             updates this layer parameters w.r.t. the given cost function and 
             learning rate.
-        '''
+        """
         raise NotImplementedError()

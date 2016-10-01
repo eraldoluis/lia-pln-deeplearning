@@ -7,12 +7,12 @@ from model.Objective import MeanSquaredError, Objective
 
 
 class MDALoss(Objective):
-    '''
+    """
     Marginalized Denoising Auto-Encoder Loss.
-    '''
+    """
 
     def __init__(self, objective, useDropout, noiserate, encoderW, encoderOutput, input):
-        '''
+        """
         :type objective: Model.Objective.Objective
         :param objective: can be mean squared error or cross entropy
 
@@ -25,7 +25,7 @@ class MDALoss(Objective):
         :param encoderW: weights of encoder
 
         :param input: theano variable
-        '''
+        """
         self.__obj = objective
         self.__useDropout = useDropout
         self.noiserate = noiserate

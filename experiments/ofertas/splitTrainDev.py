@@ -1,6 +1,6 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
-'''
+"""
 Created on 12/07/2016
 
 @author: eraldo
@@ -9,7 +9,7 @@ A partir de um dataset de ofertas, gera um dataset de treino e outro de
 desenvolvimento. Os exemplos são sorteados aleatoriamente, de acordo com a 
 probabilidade fornecida na linha de comando.
 
-'''
+"""
 import random
 import sys
 from codecs import open

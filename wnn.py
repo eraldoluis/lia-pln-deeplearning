@@ -88,14 +88,14 @@ WNN_PARAMETERS = {
 class WNNModelWritter(ModelWriter):
     def __init__(self, savePath, embeddingLayer, linearLayer1, linearLayer2, embedding, lexiconLabel,
                  hiddenActFunction):
-        '''
+        """
         :param savePath: path where the model will be saved
 
         :type embeddingLayer: nnet.EmbeddingLayer.EmbeddingLayer
         :type linearLayer1: nnet.LinearLayer.LinearLayer
         :type linearLayer2: nnet.LinearLayer.LinearLayer
         :type embedding: data.Embedding.Embedding
-        '''
+        """
         self.__savePath = savePath
         self.__embeddingLayer = embeddingLayer
         self.__linear1 = linearLayer1

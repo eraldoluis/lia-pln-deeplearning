@@ -10,13 +10,13 @@ class ModelWriter:
 
 
 class SaveModelCallback(Callback):
-    '''
+    """
     This class needs that user puts the metric he wants to monitor and when, biggest or lowest value of the metric,
     he wants to save the model.
-    '''
+    """
 
     def __init__(self, modelWritter, metricName, biggest=True):
-        '''
+        """
         :type modelWritter: Model.SaveModelCallback.ModelWriter
         :param modelWritter: this class is responsible to save the model
 
@@ -27,7 +27,7 @@ class SaveModelCallback(Callback):
             if this value is true, so the model will be saved when metric value of one epoch is lower than the
             others epochs.
 
-        '''
+        """
 
         self.__modelWritter = modelWritter
         self.__metricName = metricName

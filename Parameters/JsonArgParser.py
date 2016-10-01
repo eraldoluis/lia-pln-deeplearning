@@ -36,6 +36,7 @@ class JsonArgParser:
 
         if isinstance(f, basestring):
             f = codecs.open(f, "r", "utf-8")
+            # f = open(f, "r")
 
         parameters = json.load(f)
 

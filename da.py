@@ -8,8 +8,8 @@ import numpy
 from theano import tensor as T
 
 from DataOperation.Embedding import EmbeddingFactory, RandomUnknownStrategy
-from DataOperation.InputGenerator.BatchIterator import SyncBatchIterator, AsyncBatchIterator
-from DataOperation.InputGenerator.WindowGenerator import WindowGenerator
+from DataOperation.InputGenerator.BatchIterator import SyncBatchList, AsyncBatchIterator
+from DataOperation.InputGenerator.WordWindowGenerator import WordWindowGenerator
 from DataOperation.TokenDatasetReader import TokenReader
 from ModelOperation.Model import Model
 from ModelOperation.Objective import MeanSquaredError
@@ -107,12 +107,12 @@ def main(**kwargs):
     embedding.meanNormalization()
 
     datasetReader = TokenReader(kwargs["train"])
-    inputGenerator = WindowGenerator(wordWindowSize, embedding, filters,
-                                     startSymbol, endSymbol)
+    inputGenerator = WordWindowGenerator(wordWindowSize, embedding, filters,
+                                         startSymbol, endSymbol)
 
     if sync:
         log.info("Loading e pre-processing train data set")
-        trainBatchGenerator = SyncBatchIterator(datasetReader, [inputGenerator], None, batchSize)
+        trainBatchGenerator = SyncBatchList(datasetReader, [inputGenerator], None, batchSize)
     else:
         trainBatchGenerator = AsyncBatchIterator(datasetReader, [inputGenerator], None, batchSize)
         # We can't stop, because the data set is reading in a asynchronous way

@@ -45,7 +45,7 @@ class WindowGenerator(FeatureGenerator):
 
         for token in tokens:
             for f in self.__filters:
-                token = f.filter(token)
+                token = f.filter(token,rawData)
 
             tknIdxs.append(self.__embedding.put(token))
 

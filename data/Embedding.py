@@ -141,9 +141,9 @@ class Embedding(object):
         self.__readOnly = False
 
     def stopAdd(self):
-        '''        
-        Stop  to add new objects and generate the unknown embedding
-        '''
+        """
+        Stop to add new objects and generate the unknown embedding.
+        """
         if self.isReadOnly():
             return
 
@@ -155,14 +155,14 @@ class Embedding(object):
         
         self.convertToNumPy()
 
-    def convertToNumPy(self):
-        self.__vectors = np.asarray(self.__vectors, dtype=theano.config.floatX)
-
     def isReadOnly(self):
         '''
         return if the class is not adding more new objects
         '''
         return self.__readOnly
+
+    def convertToNumPy(self):
+        self.__vectors = np.asarray(self.__vectors, dtype=theano.config.floatX)
 
     def put(self, obj, vec=None):
         """
@@ -230,7 +230,7 @@ class Embedding(object):
         σ is the standard deviation of the population.
         :return: None
         '''
-        if not self.isStopped():
+        if not self.isReadOnly():
             raise Exception("To normalize the word embedding is necessary to stop it from accepting new words. ")
 
         self.__vectors = np.asarray(self.__vectors, dtype=theano.config.floatX)
@@ -245,7 +245,7 @@ class Embedding(object):
         :return:None
         '''
 
-        if not self.isStopped():
+        if not self.isReadOnly():
             raise Exception("To normalize the word embedding is necessary to stop it from accepting new words. ")
 
         self.__vectors = np.asarray(self.__vectors, dtype=theano.config.floatX)
@@ -260,7 +260,7 @@ class Embedding(object):
         :return:None
         '''
 
-        if not self.isStopped():
+        if not self.isReadOnly():
             raise Exception("To normalize the word embedding is necessary to stop it from accepting new words. ")
 
         self.__vectors = np.asarray(self.__vectors, dtype=theano.config.floatX)

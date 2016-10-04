@@ -1,11 +1,11 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
 
-'''
+"""
 Created on 24 de set de 2016
 
 @author: eraldo
-'''
+"""
 
 import json
 from collections import namedtuple

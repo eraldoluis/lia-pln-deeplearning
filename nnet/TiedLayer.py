@@ -10,9 +10,9 @@ from nnet.Layer import Layer
 
 
 class TiedLayer(Layer):
-    '''
+    """
     This represents a layer which your W is equal a transpose of W from the previous layer.
-    '''
+    """
 
     def __init__(self, _input, W, lenOut, b=None):
         """

@@ -2,26 +2,26 @@ from data.FeatureGenerator import FeatureGenerator
 
 
 class ConstantLabel(FeatureGenerator):
-    '''
+    """
         This class gives always the same label for a input.
-    '''
+    """
 
     def __init__(self, labelLexicon, label):
-        '''
+        """
         :type labelLexicon: DataOperation.Lexicon.Lexicon
         :param labelLexicon:
-        '''
+        """
         self.__labelId = labelLexicon.put(label)
 
     def generate(self, labels):
-        '''
+        """
         Returns a list of integers which represent these labels or tags.
 
         :type labels: list[basestring]
         :param labels:
 
         :return: li
-        '''
+        """
 
         y = []
 

@@ -3,14 +3,14 @@ from data.FeatureGenerator import FeatureGenerator
 
 
 class WordWindowGenerator(FeatureGenerator):
-    '''
+    """
     Generate window of words from each word of a list.
     This list can be a line.
-    '''
+    """
 
     def __init__(self, windowSize, embedding, filters,
                  startPadding, endPadding=None):
-        '''
+        """
         :type windowSize: int
         :param windowSize: the size of window
 
@@ -24,34 +24,23 @@ class WordWindowGenerator(FeatureGenerator):
 
         :param endPadding: Object that will be place when the end limit a list is exceeded.
             If this parameter is None, so the endPadding has the same value of startPadding
-        '''
-        self.__window = Window(windowSize)
+        """
+        self.__window = Window(embedding, windowSize, startPadding, endPadding)
         self.__embedding = embedding
         self.__filters = filters
 
-        self.__startPaddingIdx, self.__endPaddingIdx = Window.checkPadding(startPadding, endPadding, embedding)
+    def generate(self, sequence):
+        """
+        Receives a sequence of tokens and returns a sequence of token windows.
 
-    def generate(self, rawData):
-        '''
-        Receives a list of tokens and returns window of words.
-
-        :type rawData: list[basestring]
-        :param rawData: a list of tokens
-        :return:
-        '''
-        tokens = rawData
+        :type sequence: list[basestring]
+        :param sequence: sequence of tokens
+        :return: a sequence of token windows.
+        """
         tknIdxs = []
-
-        for token in tokens:
+        for token in sequence:
             for f in self.__filters:
-                token = f.filter(token,rawData)
-
+                token = f.filter(token, sequence)
             tknIdxs.append(self.__embedding.put(token))
 
-        x = []
-        windowGen = self.__window.buildWindows(tknIdxs, self.__startPaddingIdx, self.__endPaddingIdx)
-
-        for window in windowGen:
-            x.append(window)
-
-        return x
+        return self.__window.buildWindows(tknIdxs)

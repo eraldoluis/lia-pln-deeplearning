@@ -1,9 +1,9 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
 
-'''
+"""
 Classes and functions that operate on distributed representations
-'''
+"""
 
 import codecs
 import logging
@@ -20,9 +20,9 @@ from nnet.Util import FeatureVectorsGenerator
 ##################################################
 
 class UnknownGenerateStrategy:
-    '''
+    """
     Abstract class
-    '''
+    """
 
     unknownNameDefault = u'UUUNKKK'
 
@@ -30,25 +30,25 @@ class UnknownGenerateStrategy:
         return UnknownGenerateStrategy.unknownNameDefault
 
     def generateUnkown(self, embedding):
-        '''
+        """
         :type embedding: Embedding
-        '''
+        """
         pass
 
 
 class RandomUnknownStrategy(UnknownGenerateStrategy):
-    '''
+    """
     Randomly Generate the embedding which represents the unknown object     
-    '''
+    """
 
     def generateUnkown(self, embedding):
         return FeatureVectorsGenerator().generateVector(embedding.getEmbeddingSize())
 
 
 class ChosenUnknownStrategy(UnknownGenerateStrategy):
-    '''
+    """
     Get a object from lexicon to represent the unknown objects
-    '''
+    """
 
     def __init__(self, unknownName):
         self.__unknownName = unknownName
@@ -69,17 +69,17 @@ class ChosenUnknownStrategy(UnknownGenerateStrategy):
 ####################################################################
 
 class EmbeddingFactory(object):
-    '''
+    """
     Creates embeddings
-    '''
+    """
 
     def __init__(self):
         self.__log = logging.getLogger(__name__)
 
     def createFromW2V(self, w2vFile, unknownGenerateStrategy):
-        '''
+        """
         Create a embedding from word2vec output
-        '''
+        """
         fVec = codecs.open(w2vFile, 'r', 'utf-8')
 
         # Read the number of words in the dictionary and the embedding size
@@ -106,9 +106,9 @@ class EmbeddingFactory(object):
         return embedding
 
     def createRandomEmbedding(self, embeddingSize):
-        '''
+        """
         Create a embedding which give for each object a random vector
-        '''
+        """
         return RandomEmbedding(embeddingSize, RandomUnknownStrategy())
 
 
@@ -117,10 +117,10 @@ class EmbeddingFactory(object):
 ####################################################################
 
 class Embedding(object):
-    '''
+    """
     Represents an object distributed representation.
     This class has a matrix with all vectors and lexicon.
-    '''
+    """
 
     def __init__(self, embeddingSize, unknownGenerateStrategy):
         """
@@ -141,9 +141,9 @@ class Embedding(object):
         self.__readOnly = False
 
     def stopAdd(self):
-        '''        
-        Stop  to add new objects and generate the unknown embedding
-        '''
+        """
+        Stop to add new objects and generate the unknown embedding.
+        """
         if self.isReadOnly():
             return
 
@@ -155,14 +155,14 @@ class Embedding(object):
         
         self.convertToNumPy()
 
+    def isReadOnly(self):
+        """
+        return if the class is not adding more new objects
+        """
+        return self.__readOnly
+
     def convertToNumPy(self):
         self.__vectors = np.asarray(self.__vectors, dtype=theano.config.floatX)
-
-    def isReadOnly(self):
-        '''
-        return if the class is not adding more new objects
-        '''
-        return self.__readOnly
 
     def put(self, obj, vec=None):
         """
@@ -216,21 +216,21 @@ class Embedding(object):
         return self.__embeddingSize
 
     def getLexicon(self):
-        '''
+        """
         :return data_operation.lexicon.Lexicon
-        '''
+        """
         return self.__lexicon
 
     def zscoreNormalization(self, norm_coef=1.0):
-        '''
+        """
         Normalize all the embeddings using the following equation:
         z = (x − μ)/ σ
 
         μ is the mean of the population.
         σ is the standard deviation of the population.
         :return: None
-        '''
-        if not self.isStopped():
+        """
+        if not self.isReadOnly():
             raise Exception("To normalize the word embedding is necessary to stop it from accepting new words. ")
 
         self.__vectors = np.asarray(self.__vectors, dtype=theano.config.floatX)
@@ -239,13 +239,13 @@ class Embedding(object):
         self.__vectors *= (norm_coef / np.std(self.__vectors, axis=0))
 
     def minMaxNormalization(self, norm_coef=1.0):
-        '''
+        """
         Normalize all the embeddings to a range [0,1].
         zi= (xi − min) / (max(x)−min(x))
         :return:None
-        '''
+        """
 
-        if not self.isStopped():
+        if not self.isReadOnly():
             raise Exception("To normalize the word embedding is necessary to stop it from accepting new words. ")
 
         self.__vectors = np.asarray(self.__vectors, dtype=theano.config.floatX)
@@ -254,13 +254,13 @@ class Embedding(object):
         self.__vectors *= (norm_coef / np.ptp(self.__vectors, axis=0))
 
     def meanNormalization(self, norm_coef=1.0):
-        '''
+        """
         Normalize all the embeddings to a range [-1,1].
         zi= (xi−mean(x)) / (max(x)−min(x))
         :return:None
-        '''
+        """
 
-        if not self.isStopped():
+        if not self.isReadOnly():
             raise Exception("To normalize the word embedding is necessary to stop it from accepting new words. ")
 
         self.__vectors = np.asarray(self.__vectors, dtype=theano.config.floatX)
@@ -270,9 +270,9 @@ class Embedding(object):
 
 
 class RandomEmbedding(Embedding):
-    '''
+    """
     In this embedding each new added object  receive a random vector
-    '''
+    """
 
     def __init__(self, embeddingSize, unknownGenerateStrategy, lexicon=None):
         Embedding.__init__(self, embeddingSize, unknownGenerateStrategy)

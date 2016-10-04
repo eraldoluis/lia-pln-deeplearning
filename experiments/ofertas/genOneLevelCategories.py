@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
 
-'''
+"""
 Created on 12/07/2016
 
 @author: eraldo
@@ -22,16 +22,15 @@ anunciante, e <price> é o preço do produto.
 
 A saída segue o mesmo formato da entrada.
 
-'''
+"""
 import sys
 from codecs import open
-from sets import Set
 
 
 def flatTree(tree, node):
-    '''
+    """
     Compress the given forest so that every node points to the root of its tree.
-    '''
+    """
     parent = tree[node]
     if (parent not in tree) or (parent == node):
         # Found a root node. Return it.
@@ -67,7 +66,7 @@ def docsFile2Dir(fileName):
 
     print 'Making trees flat...'
     # Flat tree to two levels (root is always 1).
-    roots = Set()
+    roots = set()
     for n in tree.iterkeys():
         flatTree(tree, n)
         roots.add(tree[n])

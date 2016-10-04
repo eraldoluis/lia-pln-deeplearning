@@ -9,8 +9,8 @@ from optim.Optimizer import Optimizer
 
 
 class Adagrad(Optimizer):
-    '''Adagrad optimizer
-    '''
+    """Adagrad optimizer
+    """
 
     def __init__(self, lr=0.01, decay=1.0):
         super(Adagrad, self).__init__()
@@ -28,10 +28,10 @@ class Adagrad(Optimizer):
         return [self.lr]
 
     def getInputValues(self, nrEpochsDone):
-        '''
+        """
         :param nmEpochDone:
         :return: new value of learning rate.
-        '''
+        """
         lrValue = self.lrValue * (1 / (1 + self.decay * nrEpochsDone))
 
         return [lrValue]

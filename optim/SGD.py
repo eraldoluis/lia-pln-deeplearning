@@ -6,7 +6,7 @@ from optim.Optimizer import Optimizer
 
 
 class SGD(Optimizer):
-    '''Stochastic gradient descent, with support for momentum,
+    """Stochastic gradient descent, with support for momentum,
     learning rate decay, and Nesterov momentum.
 
     # Arguments
@@ -14,7 +14,7 @@ class SGD(Optimizer):
         momentum: float >= 0. Parameter updates momentum.
         decay: float >= 0. Learning rate decay over each update.
         nesterov: boolean. Whether to apply Nesterov momentum.
-    '''
+    """
 
     def __init__(self, lr=0.01, decay=0.0):
         super(SGD, self).__init__()

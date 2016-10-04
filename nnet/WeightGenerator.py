@@ -12,12 +12,12 @@ def generateRandomNumberUniformly(low, high, n_in, n_out):
 
 class WeightGenerator(object):
     def generateWeight(self, shape):
-        '''
+        """
         :type shape: tuple
         :param shape: a tuple like numpy
 
         :return: matrix with the weights
-        '''
+        """
         raise NotImplementedError()
 
 

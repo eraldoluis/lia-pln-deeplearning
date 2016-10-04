@@ -5,7 +5,7 @@ from time import time
 
 
 class Callback(object):
-    '''Abstract base class used to build new callbacks.
+    """Abstract base class used to build new callbacks.
 
     # Properties
         params: dict. Training parameters
@@ -29,7 +29,7 @@ class Callback(object):
             the number of samples in the current batch.
         on_batch_end: logs include `loss`, and optionally `acc`
             (if accuracy monitoring is enabled).
-    '''
+    """
 
     def __init__(self):
         pass
@@ -54,12 +54,12 @@ class Callback(object):
 
 
 class BaseLogger(Callback):
-    '''Callback that accumulates epoch averages of
+    """Callback that accumulates epoch averages of
     the metrics being monitored.
 
     This callback is automatically applied to
     every model.
-    '''
+    """
 
     def __init__(self, metrics, verbose=True):
         self.__metrics = metrics

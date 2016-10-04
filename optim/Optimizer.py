@@ -6,7 +6,7 @@ import theano.tensor as T
 
 
 class Optimizer(object):
-    '''Abstract optimizer base class.'''
+    """Abstract optimizer base class."""
 
 
     def getUpdates(self, cost, layers):

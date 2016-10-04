@@ -4,9 +4,9 @@ from data.FeatureGenerator import FeatureGenerator
 
 from data.WordWindowGenerator import WordWindowGenerator
 
-'''
+"""
 Contains classes that format the data to can be read by the supervised algorithms
-'''
+"""
 
 
 class HiddenLayerFeatureGenerator(FeatureGenerator):

@@ -1,6 +1,6 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
-'''
+"""
 Created on 12/07/2016
 
 @author: eraldo
@@ -9,16 +9,15 @@ A partir de um dataset de ofertas, gera um dataset de treino e outro de teste.
 Os índices dos exemplos de teste são fornecidos em um arquivo de entrada (um
 índice em cada linha) e os demais exemplos são considerados de treino.
 
-'''
+"""
 import sys
 from codecs import open
-from sets import Set
 
 
 def docsFile2Dir(inputFilename, testIndicesFilename):
     print 'Reading test indices...'
     testIndicesFile = open(testIndicesFilename, 'r', 'utf8')
-    testIndices = Set()
+    testIndices = set()
     for l in testIndicesFile:
         testIndices.add(int(l))
     testIndicesFile.close()

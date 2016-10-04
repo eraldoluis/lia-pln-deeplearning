@@ -69,7 +69,7 @@ class RepeatedPunctuationFilter:
     """
 
     def filter(self, token, sentence):
-        token = re.sub(r"^[,:;><!?_\//]{2,}$", token[0], token)
+        token = re.sub(r"^([,:;><!?=_\\\/])\1{1,}$", '\\1', token)
         token = re.sub(r"^[.]{4,}$", "...", token)
         token = re.sub(r"^[.]{2,2}$", ".", token)
         token = re.sub(r"^[--]{3,}$", "--", token)
@@ -83,6 +83,7 @@ class LeftRightBracketsFilter:
     """
 
     def filter(self, token, sentence):
+        #TODO this expression is matching with |--------+----------------------->
         token = re.sub('[<{[]', '-LRB-', token)
         token = re.sub('[]>}]', '-RRB-', token)
 
@@ -107,8 +108,8 @@ class WordWithDigitsFilter:
     """
 
     def filter(self, token, sentence):
-        if re.search("[0-9]+", token) and re.search("[^\s.,/:0-9-]", token):
-            return "#DIG"
+        if token[0].isalpha() or token[len(token) - 1].isalpha():
+            return re.sub("[0-9]+", "#DIG", token)
 
         return token
 
@@ -119,7 +120,15 @@ class LowerCaseSANCLFilter:
     """
 
     def filter(self, token, sentence):
-        if re.search("^(-RRB-)|(-LRB-)|(#DIG)|(#URL)$", token):
+        if re.search("^(-RRB-|-LRB-|#URL)$", token):
             return token
+        elif token.find("#DIG") != -1:
+            x = token.count("#DIG")
+            token = token.lower()
+
+            if x != token.count("#dig"):
+                raise "The word contains one variant of the symbol #DIG"
+
+            token.replace("#dig", "#DIG")
 
         return token.lower()

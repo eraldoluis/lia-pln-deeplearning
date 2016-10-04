@@ -81,7 +81,6 @@ WNN_PARAMETERS = {
     "lambda": {"desc": "Set the value of L2 coefficient"},
     "charwnn_filters": {"default": [], "desc": "list contains the filters that will be used by charwnn. "
                                                "Each filter is describe by your module name + . + class name"},
-
 }
 
 

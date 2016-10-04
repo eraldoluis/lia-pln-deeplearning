@@ -6,7 +6,6 @@ import numpy
 import random
 import threading
 import time
-from datetime import time
 
 
 class BatchAssembler:
@@ -240,10 +239,10 @@ class AsyncBatchIterator(object):
                             generator_output = self.__generatorObj.next()
 
                             if self.__shuffle:
-                                # Run a coin to decide if the batch will be put in queue or not.
-                                c = random.randint(0, 1)
+                                # Flip a coin to decide if the batch will be put in queue or not.
+                                c = (random.randint(0, 1) == 1)
                             else:
-                                c = 1
+                                c = True
 
                             if c:
                                 # If coin is true, so this batch will be put in the queue

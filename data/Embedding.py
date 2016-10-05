@@ -224,10 +224,7 @@ class Embedding(object):
     def zscoreNormalization(self, norm_coef=1.0):
         """
         Normalize all the embeddings using the following equation:
-        z = (x − μ)/ σ
-
-        μ is the mean of the population.
-        σ is the standard deviation of the population.
+        x = (x − mean(x)) / stddev(x)
         :return: None
         """
         if not self.isReadOnly():
@@ -241,7 +238,7 @@ class Embedding(object):
     def minMaxNormalization(self, norm_coef=1.0):
         """
         Normalize all the embeddings to a range [0,1].
-        zi= (xi − min) / (max(x)−min(x))
+        x = (x − min(x)) / (max(x) − min(x))
         :return:None
         """
 
@@ -256,7 +253,7 @@ class Embedding(object):
     def meanNormalization(self, norm_coef=1.0):
         """
         Normalize all the embeddings to a range [-1,1].
-        zi= (xi−mean(x)) / (max(x)−min(x))
+        x = (x − mean(x)) / (max(x) − min(x))
         :return:None
         """
 
@@ -271,7 +268,7 @@ class Embedding(object):
 
 class RandomEmbedding(Embedding):
     """
-    In this embedding each new added object  receive a random vector
+    In this embedding each new added object receives a random vector
     """
 
     def __init__(self, embeddingSize, unknownGenerateStrategy, lexicon=None):

@@ -72,7 +72,7 @@ PARAMETERS = {
     "shuffle": {"default": True,
                 "desc": "Enable or disable shuffling of the training examples."},
     "normalization": {"desc": "Choose the normalization method to be applied on  word embeddings. " +
-                              "The possible values are: 'none', 'minmax', 'mean'."},
+                              "The possible values are: 'minmax', 'mean', 'zscore'."},
     "labels": {"desc": "File containing the list of possible labels."},
     "conv_size": {"required": True,
                   "desc": "Size of the convolution layer (number of filters)."},
@@ -387,6 +387,9 @@ def main(args):
     elif normalizeMethod == "mean":
         log.info("Normalization: mean normalization")
         wordEmbedding.meanNormalization()
+    elif normalizeMethod == "zscore":
+        log.info("Normalization: zscore normalization")
+        wordEmbedding.zscoreNormalization()
     elif normalizeMethod:
         log.error("Normalization: unexpected value %s" % normalizeMethod)
         sys.exit(1)

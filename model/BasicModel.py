@@ -128,17 +128,16 @@ class BasicModel(Model):
         self.evaluateFunction = theano.function(inputs=inputsOutputs, outputs=_outputFunc)
         self.__predictionFunction = theano.function(inputs=self.__x, outputs=self.__prediction)
 
-    def doEpoch(self, trainBatchGenerators, epoch, callbacks):
+    def doEpoch(self, trainBatchGenerators, epoch, iteration, callbacks):
         lr = self.__optimizer.getInputValues(epoch)
 
         self.log.info("Lr: %f" % lr[0])
 
         # For per-iteration evaluation.
-        iter = 0
         devBatchIterator = self.__devBatchIterator
 
         for x, y in trainBatchGenerators:
-            iter += 1
+            iteration += 1
 
             batchSize = len(x[0])
 
@@ -146,7 +145,7 @@ class BasicModel(Model):
             inputs += x
 
             if self.evaluateFuncUseY():
-                # Theano function receives 'y' as an input
+                # Theano function receives 'y' as an input.
                 inputs += y
 
             inputs += lr
@@ -161,7 +160,7 @@ class BasicModel(Model):
             self.callbackBatchEnd(inputs, callbacks)
 
             # Development per-iteration evaluation
-            if devBatchIterator and (iter % self.__evalPerIteration) == 0:
+            if devBatchIterator and (iteration % self.__evalPerIteration) == 0:
                 evaluationStopWatch = StopWatch()
                 evaluationStopWatch.start()
 
@@ -173,9 +172,11 @@ class BasicModel(Model):
                 evalDuration = evaluationStopWatch.lap()
 
                 # Print information
-                info = "iteration %d" % iter
+                info = "iteration %d" % iteration
                 info += " [eval: %ds]" % evalDuration
                 for k, v in results:
                     info += ' - %s:' % k
                     info += ' %.6f' % v
                 self.log.info(info)
+
+        return iteration

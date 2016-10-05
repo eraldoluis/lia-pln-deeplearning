@@ -113,7 +113,7 @@ class Model(object):
 
         # One iteration corresponds to one call to the training procedure.
         # Thus, it corresponds to the process of one mini-batch of examples.
-        iter = 0
+        iteration = 0
 
         for epoch in xrange(numEpochs):
             for cb in callbacks:
@@ -124,7 +124,7 @@ class Model(object):
             self.callBatchBegin = False
             self.callBatchEnd = False
 
-            self.doEpoch(trainBatchGenerators, epoch, callbacks)
+            iteration = self.doEpoch(trainBatchGenerators, epoch, iteration, callbacks)
 
             if not self.callBatchBegin:
                 self.log.warning("You didn't call the callbackBatchBegin function in doEpoch function")

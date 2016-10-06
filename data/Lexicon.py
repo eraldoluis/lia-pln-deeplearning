@@ -6,6 +6,9 @@
 import codecs
 from zlib import adler32
 
+from persistence.PersistentObject import PersistentObject
+
+
 def createLexiconUsingFile(lexiconFilePath):
     lexicon = Lexicon()
 
@@ -17,7 +20,7 @@ def createLexiconUsingFile(lexiconFilePath):
     return lexicon
 
 
-class Lexicon(object):
+class Lexicon(PersistentObject):
     """
     Represents a lexicon of words.
     Each added word in this lexicon will be represented by a integer.
@@ -27,11 +30,17 @@ class Lexicon(object):
     This special index need to be set with setUnknownIndex.
     """
 
-    def __init__(self):
+    def __init__(self, name=None):
+        """
+
+        :param name: the name of the object. This parameter will be used when you save this object.
+            If this parameter is None, so it won't be possible to save it.
+        """
         self.__lexicon = []
         self.__lexiconDict = {}
         self.unknown_index = -1
         self.__readOnly = False
+        self.__name = name
 
     def isReadOnly(self):
         """
@@ -112,6 +121,28 @@ class Lexicon(object):
         """
         self.__readOnly = True
 
+    def getName(self):
+        return self.__name
+
+    def getAttributes(self):
+        return {
+            "lexicon": [word.encode("unicode_escape") for word in self.__lexicon],
+            "unknownIndex": self.unknown_index
+        }
+
+    def load(self, attributes):
+        lexicon = attributes["lexicon"]
+        self.unknown_index = attributes["unknownIndex"]
+        self.__lexicon = []
+        self.__lexiconDict = {}
+        self.__readOnly = False
+
+        for word in lexicon:
+            word = word.decode("unicode_escape")
+            self.put(word)
+
+        self.__readOnly = True
+
 
 class HashLexicon(object):
     """
@@ -158,7 +189,7 @@ class HashLexicon(object):
         If a word in new to lexicon and '__readOnly' is true, so this lexicon will return a index which
         is related with all unknown words.
         """
-        
+
         return self.getLexiconIndex(word)
 
     def getLexicon(self, index):

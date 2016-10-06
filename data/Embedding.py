@@ -76,7 +76,7 @@ class EmbeddingFactory(object):
     def __init__(self):
         self.__log = logging.getLogger(__name__)
 
-    def createFromW2V(self, w2vFile, unknownGenerateStrategy):
+    def createFromW2V(self, w2vFile, unknownGenerateStrategy, name=None):
         """
         Create a embedding from word2vec output
         """
@@ -86,7 +86,7 @@ class EmbeddingFactory(object):
         nmWords, embeddingSizeStr = fVec.readline().strip().split(" ")
         embeddingSize = int(embeddingSizeStr)
 
-        embedding = Embedding(embeddingSize, unknownGenerateStrategy)
+        embedding = Embedding(embeddingSize, unknownGenerateStrategy, name)
 
         for line in fVec:
             splitLine = line.rstrip().split(u' ')
@@ -105,11 +105,11 @@ class EmbeddingFactory(object):
 
         return embedding
 
-    def createRandomEmbedding(self, embeddingSize):
+    def createRandomEmbedding(self, embeddingSize, name=None):
         """
         Create a embedding which give for each object a random vector
         """
-        return RandomEmbedding(embeddingSize, RandomUnknownStrategy())
+        return RandomEmbedding(embeddingSize, RandomUnknownStrategy(), name)
 
 
 #####################################################################
@@ -122,7 +122,7 @@ class Embedding(object):
     This class has a matrix with all vectors and lexicon.
     """
 
-    def __init__(self, embeddingSize, unknownGenerateStrategy):
+    def __init__(self, embeddingSize, unknownGenerateStrategy, name=None):
         """
         :type embeddingSize: int
         :params embeddingSize: the vectors length that represent the objects
@@ -132,7 +132,7 @@ class Embedding(object):
         
         """
 
-        self.__lexicon = Lexicon()
+        self.__lexicon = Lexicon(name)
         self.__vectors = []
         self.__embeddingSize = embeddingSize
         self.__unknownGenerateStrategy = unknownGenerateStrategy
@@ -152,7 +152,7 @@ class Embedding(object):
         self.__lexicon.setUnknownIndex(self.getLexiconIndex(self.__unknownGenerateStrategy.getUnknownStr()))
 
         self.__readOnly = True
-        
+
         self.convertToNumPy()
 
     def isReadOnly(self):
@@ -274,8 +274,8 @@ class RandomEmbedding(Embedding):
     In this embedding each new added object  receive a random vector
     """
 
-    def __init__(self, embeddingSize, unknownGenerateStrategy, lexicon=None):
-        Embedding.__init__(self, embeddingSize, unknownGenerateStrategy)
+    def __init__(self, embeddingSize, unknownGenerateStrategy, lexicon=None, name=None):
+        Embedding.__init__(self, embeddingSize, unknownGenerateStrategy, name)
 
         # Generator that going to generate values for vectors 
         self.__generatorWeight = FeatureVectorsGenerator()

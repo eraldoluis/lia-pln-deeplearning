@@ -20,7 +20,7 @@ class EmbeddingLayer(Layer):
     These vectors comprise the learnable parameters of this layer.
     """
 
-    def __init__(self, _input, embedding, structGrad=True, trainable=True):
+    def __init__(self, _input, embedding, structGrad=True, trainable=True, name=None):
         """
         :param _input: _input need be a matrix with 2 dimensions
 
@@ -41,6 +41,8 @@ class EmbeddingLayer(Layer):
             most (or all of the) word vectors are used on each iteration.
 
         :param trainable: set if the layer is trainable or not
+
+        :param name: unique name of the layer. This is use to save the attributes of this object.
 
         Considering that:
         
@@ -172,3 +174,11 @@ class EmbeddingLayer(Layer):
             return []
 
         return [self.__embedding]
+
+    def getAttibutes(self):
+        return {
+            "emb": self.__embedding.get_value()
+        }
+
+    def load(self, attributes):
+        self.__embedding.set_value(attributes["emb"])

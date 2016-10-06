@@ -37,7 +37,38 @@ class EmbeddingConvolutionalLayer(Layer):
     """
 
     def __init__(self, input, charEmbedding, numMaxCh, convSize, charWindowSize, charEmbSize, charAct=tanh,
-                 structGrad=True, trainable=True):
+                 structGrad=True, trainable=True, name=None):
+        """
+
+        :param input: a layer or theano variable
+
+        :param charEmbedding: numpy.array or python list that contains the character vectors
+
+        :param numMaxCh: the number of characters that will be used in a word.
+            If the word size is greater than this parameter, so it'll be used the numMaxCh end characters of the word.
+            If the word size is lesser than this parameter, so it'll be filled (numMaxCh - word_size) characters at the
+                word end.
+
+        :param convSize: number of convolution filters
+
+        :param charWindowSize: the size of the character window
+
+        :param charEmbSize:  the size of the character embedding
+
+        :param charAct: the activation function. If this paramater is None, so no activation function will be used.
+
+        :param structGrad: whether to use structured gradients or not.
+            When using small batches (online gradient descent, in the limit),
+            the structured gradient is much more efficient because a small
+            fraction of word vectors are used on each iteration.
+            However, when using large batches (ordinary gradient descent, in the
+            limit), ordinary gradients and updates are more efficient because
+            most (or all of the) word vectors are used on each iteration.
+
+        :param trainable: set if the layer is trainable or not
+
+        :param name:unique name of the layer. This is use to save the attributes of this object.
+        """
 
         # Input variable for this layer. Its shape is (numExs, szWrdWin, numMaxCh, szChWin)
         # where numExs is the number of examples in the training batch,
@@ -45,7 +76,7 @@ class EmbeddingConvolutionalLayer(Layer):
         #       numMaxCh is the number of characters used to represent words, and
         #       szChWin is the size of the character window.
         self.input = input
-        super(EmbeddingConvolutionalLayer, self).__init__(self.input, trainable)
+        super(EmbeddingConvolutionalLayer, self).__init__(self.input, trainable, name)
 
         self.__output = None
         self.__charWindowSize = charWindowSize
@@ -69,8 +100,6 @@ class EmbeddingConvolutionalLayer(Layer):
         # Character embedding layer.
         self.__embedLayer = EmbeddingLayer(self.input.flatten(2), charEmbedding, structGrad=structGrad,
                                            trainable=self.isTrainable())
-
-
 
         # It chooses, based in the activation function, the way that the weights of liner layer will be initialized.
         if charAct is tanh:
@@ -131,3 +160,19 @@ class EmbeddingConvolutionalLayer(Layer):
 
     def getOutput(self):
         return self.__output
+
+    def getAttibutes(self):
+        keyValueList = self.__embedLayer.getAttibutes().items()
+        keyValueList += self.__linearLayer.getAttibutes().items()
+
+        dict = {}
+
+        for key,value in keyValueList:
+            dict[key] = value
+
+        return dict
+
+    def load(self, attributes):
+        self.__embedLayer.load(attributes)
+        self.__linearLayer.load(attributes)
+

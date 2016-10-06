@@ -9,7 +9,8 @@ from nnet.WeightGenerator import GlorotUniform
 
 
 class LinearLayer(Layer):
-    def __init__(self, _input, lenIn, lenOut, W=None, b=None, weightInitialization=GlorotUniform(), trainable=True):
+    def __init__(self, _input, lenIn, lenOut, W=None, b=None, weightInitialization=GlorotUniform(), trainable=True,
+                 name=None):
         """
         Typical linear layer of a MLP: units are fully-connected.
         Weight matrix W is of shape (lenIn,lenOut) 
@@ -26,8 +27,12 @@ class LinearLayer(Layer):
         :param lenOut: number of hidden units
 
         :type weightInitialization: nnet.WeightGenerator.WeightGenerator
+
+        :param trainable: set if the layer is trainable or not
+
+        :param name: unique name of the layer. This is use to save the attributes of this object.
         """
-        super(LinearLayer, self).__init__(_input, trainable)
+        super(LinearLayer, self).__init__(_input, trainable, name)
 
         if not isinstance(W, TensorSharedVariable):
             if isinstance(W, (numpy.ndarray, list)):
@@ -70,3 +75,16 @@ class LinearLayer(Layer):
 
     def getUpdates(self, cost, lr, sumSqGrads=None):
         return []
+
+    def getAttibutes(self):
+        return  {
+            "w": self.W.get_value(),
+            "b": self.b.get_value()
+        }
+
+    def load(self,attributes):
+        self.W.set_value(attributes["w"])
+        self.b.set_value(attributes["b"])
+
+
+

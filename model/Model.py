@@ -62,7 +62,7 @@ class Model(object):
     def getPredictionFunction(self):
         raise NotImplementedError()
 
-    def doEpoch(self, epoch, trainBatchGenerators, callbacks):
+    def doEpoch(self, trainBatchGenerators, epoch, iteration, callbacks):
         raise NotImplementedError()
 
     def prediction(self,inputs):

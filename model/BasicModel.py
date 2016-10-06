@@ -139,7 +139,7 @@ class BasicModel(Model):
 
         for x, y in trainBatchGenerators:
             iteration += 1
-            
+
             # TODO: debug
             batchSize = 1
             # batchSize = len(x[0])

@@ -187,7 +187,7 @@ class Model(object):
             # TODO: acho perigoso calcular acurácia da validação (ou do teste) desta forma. Acho que deveria ser feito
             # de uma maneira mais clara e simples. Por exemplo, construir dois arrays y e ŷ para todos os exemplos e
             # daí calcular a acurácia (ou qualquer outra métrica).
-            
+
             # Alterei o cálculo do batchSize para ser feito pelo tamanho do y, ao invés do tamanho do x. Acho isto mais
             # geral pois funciona, por exemplo, para classificação de documentos também, onde o x de um exemplo é maior
             # do que 1 (várias palavras).

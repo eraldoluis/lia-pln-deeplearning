@@ -15,20 +15,24 @@ import sys
 from codecs import open
 
 
-def docsFile2Dir(inputFilename, devProb):
+def docsFile2Dir(inputFilename, devProb, suffix):
     # Open input dataset file.
-    inFile = open(inputFilename, 'r', 'utf8')
+    inFile = open(inputFilename, "r", "utf8")
     header = inFile.readline()
 
     # Output files: train and test.
-    fTrain = open(inputFilename + '.train', 'w', 'utf8')
-    fDev = open(inputFilename + '.dev', 'w', 'utf8')
+    fTrain = open(inputFilename + suffix + ".train", "w", "utf8")
+    fDev = open(inputFilename + suffix + ".dev", "w", "utf8")
 
-    # Write header.    
+    print "Train file:", fTrain.name
+    print "Dev.  file:", fDev.name
+
+    # Write header.
     fTrain.write(header)
     fDev.write(header)
 
-    idx = 0
+    sys.stdout.write("Generating")
+    numExs = 0
     numDevExs = 0
     numTrainExs = 0
     for l in inFile:
@@ -38,24 +42,32 @@ def docsFile2Dir(inputFilename, devProb):
         else:
             fTrain.write(l)
             numTrainExs += 1
-        idx += 1
+        numExs += 1
+        if numExs % 100000 == 0:
+            sys.stdout.write(".")
+            sys.stdout.flush()
 
-    print '# input examples:', idx
-    print '# train examples:', numTrainExs
-    print '# dev   examples:', numDevExs
+    sys.stdout.write(" done!\n")
+
+    print "# input examples:", numExs
+    print "# train examples:", numTrainExs
+    print "# dev   examples:", numDevExs
 
     # Close files.
     inFile.close()
     fDev.close()
     fTrain.close()
 
-    print 'Done!'
+    print "Done!"
 
 
-if __name__ == '__main__':
-    if len(sys.argv) < 3:
-        sys.stderr.write('Erro de sintaxe. Sintaxe esperada:\n')
-        sys.stderr.write('\t<dataset de entrada> <probabilidade do dev>\n')
+if __name__ == "__main__":
+    if len(sys.argv) not in (3,4):
+        sys.stderr.write("Erro de sintaxe. Sintaxe esperada:\n")
+        sys.stderr.write("\t<dataset de entrada> <probabilidade do dev> [suffix]\n")
         sys.exit(1)
 
-    docsFile2Dir(sys.argv[1], float(sys.argv[2]))
+    suffix = ""
+    if len(sys.argv) == 4:
+        suffix = sys.argv[3]
+    docsFile2Dir(sys.argv[1], float(sys.argv[2]), suffix)

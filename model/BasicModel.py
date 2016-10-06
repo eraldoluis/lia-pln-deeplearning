@@ -86,7 +86,6 @@ class BasicModel(Model):
         :type lossFunction: T.var.TensorVariable
         :param lossFunction: It's the function which will calculate the loss
 
-
         :param metrics: the names of the metrics to be measured. Nowadays, this classe just accepted "loss" and "acc"(accuracy)
         """
         self.__optimizer = optimizer

@@ -140,9 +140,10 @@ class BasicModel(Model):
         for x, y in trainBatchGenerators:
             iteration += 1
 
-            # TODO: debug
-            batchSize = 1
-            # batchSize = len(x[0])
+            if y[0].ndim > 0:
+                batchSize = len(y[0])
+            else:
+                batchSize = 1
 
             inputs = []
             inputs += x

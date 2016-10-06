@@ -12,6 +12,7 @@ import random
 import sys
 import time
 from time import time
+import theano
 
 import theano.tensor as T
 from data.BatchIterator import SyncBatchIterator, AsyncBatchIterator
@@ -412,9 +413,9 @@ def main(args):
 
     # TODO: debug
     # theano.config.compute_test_value = 'warn'
-    # ex = trainReader.next()
-    # _input.tag.test_value = ex[0]
-    # y.tag.test_value = ex[1]
+    # ex = trainIterator.next()
+    # inWords.tag.test_value = ex[0][0]
+    # outLabel.tag.test_value = ex[1][0]
 
     # Lookup table.
     embeddingLayer = EmbeddingLayer(inWords,
@@ -470,7 +471,7 @@ def main(args):
         sys.exit(1)
 
     # TODO: debug
-    # opt.lr.tag.test_value = 0.01
+    # opt.lr.tag.test_value = 0.05
 
     # Printing embedding information.
     dictionarySize = wordEmbedding.getNumberOfVectors()
@@ -488,8 +489,9 @@ def main(args):
     #         loss += _lambda * (T.sum(T.square(hiddenLinear.getParameters()[0])))
 
     # TODO: debug
-    # model = Model(mode=compile.debugmode.DebugMode(optimizer=None))
-    model = BasicModel([inWords], [outLabel], evalPerIteration=evalPerIteration, devBatchIterator=devIterator)
+    # mode = theano.compile.debugmode.DebugMode(optimizer=None)
+    mode = None
+    model = BasicModel([inWords], [outLabel], evalPerIteration=evalPerIteration, devBatchIterator=devIterator, mode=mode)
     model.compile(softmaxAct.getLayerSet(), opt, prediction, loss, ["loss", "acc"])
 
     # Training

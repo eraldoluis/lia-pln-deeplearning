@@ -10,7 +10,7 @@ from model.Model import Metric, Model, StopWatch
 
 
 class BasicModel(Model):
-    def __init__(self, x, y, yExist=False, evalPerIteration=0, devBatchIterator=None):
+    def __init__(self, x, y, yExist=False, evalPerIteration=0, devBatchIterator=None, mode=None):
         """
         :param x: list of tensors that represent the inputs.
 
@@ -26,7 +26,7 @@ class BasicModel(Model):
 
         :param devBatchIterator: iterator over development examples for per-iteration evaluation.
         """
-        super(BasicModel, self).__init__()
+        super(BasicModel, self).__init__(mode)
 
         self.__theanoFunction = None
         self.log = logging.getLogger(__name__)
@@ -124,9 +124,10 @@ class BasicModel(Model):
 
         # Create the theano functions
         self.__trainFunction = theano.function(inputs=funInputs, outputs=_outputFunc,
-                                               updates=optimizer.getUpdates(self.__loss, trainableLayers))
-        self.evaluateFunction = theano.function(inputs=inputsOutputs, outputs=_outputFunc)
-        self.__predictionFunction = theano.function(inputs=self.__x, outputs=self.__prediction)
+                                               updates=optimizer.getUpdates(self.__loss, trainableLayers),
+                                               mode=self.mode)
+        self.evaluateFunction = theano.function(inputs=inputsOutputs, outputs=_outputFunc, mode=self.mode)
+        self.__predictionFunction = theano.function(inputs=self.__x, outputs=self.__prediction, mode=self.mode)
 
     def doEpoch(self, trainBatchGenerators, epoch, iteration, callbacks):
         lr = self.__optimizer.getInputValues(epoch)
@@ -138,8 +139,10 @@ class BasicModel(Model):
 
         for x, y in trainBatchGenerators:
             iteration += 1
-
-            batchSize = len(x[0])
+            
+            # TODO: debug
+            batchSize = 1
+            # batchSize = len(x[0])
 
             inputs = []
             inputs += x

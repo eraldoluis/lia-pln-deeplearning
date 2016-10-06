@@ -44,10 +44,11 @@ class StopWatch(object):
 
 
 class Model(object):
-    def __init__(self):
+    def __init__(self, mode=None):
         self.log = logging.getLogger(__name__)
         self.callBatchBegin = False
         self.callBatchEnd = False
+        self.mode = mode
 
     def compile(self):
         raise NotImplementedError()
@@ -183,7 +184,9 @@ class Model(object):
         resetAllMetrics(evaluateMetrics)
 
         for x, y in testBatchInterator:
-            batchSize = len(x[0])
+            # TODO: debug
+            batchSize = 1
+            # batchSize = len(x[0])
 
             inputs = []
             inputs += x

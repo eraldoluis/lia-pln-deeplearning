@@ -50,7 +50,7 @@ class Model(object):
         self.callBatchEnd = False
         self.mode = mode
 
-    def compile(self):
+    def compile(self, allLayers, optimizer, predictionFunction, lossFunction, metrics=[]):
         raise NotImplementedError()
 
     def getTrainingMetrics(self):

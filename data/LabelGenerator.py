@@ -28,7 +28,7 @@ class LabelGenerator(FeatureGenerator):
         for label in labels:
             i = self.__labelLexicon.put(label)
 
-            if i == -1:
+            if i == self.__labelLexicon.getUnknownIndex():
                 raise Exception("Label doesn't exist: %s" % label)
 
             y.append(i)

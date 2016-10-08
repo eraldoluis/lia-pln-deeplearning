@@ -8,14 +8,14 @@ class WordWindowGenerator(FeatureGenerator):
     This list can be a line.
     """
 
-    def __init__(self, windowSize, embedding, filters,
+    def __init__(self, windowSize, lexicon, filters,
                  startPadding, endPadding=None):
         """
         :type windowSize: int
         :param windowSize: the size of window
 
-        :type embedding: DataOperation.Embedding.Embedding
-        :param embedding:
+        :type lexicon: data.Lexicon.Lexicon
+        :param lexicon:
 
         :type filters: list[DataOperation.Filters.Filter]
         :param filters:
@@ -25,8 +25,8 @@ class WordWindowGenerator(FeatureGenerator):
         :param endPadding: Object that will be place when the end limit a list is exceeded.
             If this parameter is None, so the endPadding has the same value of startPadding
         """
-        self.__window = Window(embedding, windowSize, startPadding, endPadding)
-        self.__embedding = embedding
+        self.__window = Window(lexicon, windowSize, startPadding, endPadding)
+        self.__lexicon = lexicon
         self.__filters = filters
 
     def generate(self, sequence):
@@ -41,6 +41,6 @@ class WordWindowGenerator(FeatureGenerator):
         for token in sequence:
             for f in self.__filters:
                 token = f.filter(token, sequence)
-            tknIdxs.append(self.__embedding.put(token))
+            tknIdxs.append(self.__lexicon.put(token))
 
         return self.__window.buildWindows(tknIdxs)

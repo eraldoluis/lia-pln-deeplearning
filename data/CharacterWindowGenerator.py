@@ -17,14 +17,14 @@ class CharacterWindowGenerator(FeatureGenerator):
     last characters (suffix).
     """
 
-    def __init__(self, embedding, numMaxChar, charWindowSize, wrdWindowSize, artificialChar, startPadding,
+    def __init__(self, lexicon, numMaxChar, charWindowSize, wrdWindowSize, artificialChar, startPadding,
                  endPadding=None, startPaddingWrd=None, endPaddingWrd=None, filters=[]):
         """
         Create a character window feature generator.
 
         TODO: Irving, comentar cada parâmetro.
 
-        :param embedding:
+        :param lexicon:
         :param numMaxChar:
         :param charWindowSize:
         :param wrdWindowSize:
@@ -36,13 +36,13 @@ class CharacterWindowGenerator(FeatureGenerator):
         :param filters:
         """
         self.__charWindowSize = charWindowSize
-        self.__charWindow = Window(embedding, charWindowSize, startPadding, endPadding)
-        self.__wordWindow = Window(embedding, wrdWindowSize, startPaddingWrd, endPaddingWrd)
-        self.__embedding = embedding
+        self.__charWindow = Window(lexicon, charWindowSize, startPadding, endPadding)
+        self.__wordWindow = Window(lexicon, wrdWindowSize, startPaddingWrd, endPaddingWrd)
+        self.__lexicon = lexicon
         self.__numMaxChar = numMaxChar
         self.__wrdWindowSize = wrdWindowSize
         self.__filters = filters
-        self.__artificialCharWindow = [embedding.getLexiconIndex(artificialChar)] * charWindowSize
+        self.__artificialCharWindow = [lexicon.getLexiconIndex(artificialChar)] * charWindowSize
 
     def generate(self, sequence):
         """
@@ -75,7 +75,7 @@ class CharacterWindowGenerator(FeatureGenerator):
                     chardIdxs = []
 
                     for c in allCharacters:
-                        chardIdxs.append(self.__embedding.put(c))
+                        chardIdxs.append(self.__lexicon.put(c))
 
                     charWindowList = list(self.__charWindow.buildWindows(chardIdxs))
 

@@ -161,9 +161,9 @@ class EmbeddingConvolutionalLayer(Layer):
     def getOutput(self):
         return self.__output
 
-    def getAttibutes(self):
-        keyValueList = self.__embedLayer.getAttibutes().items()
-        keyValueList += self.__linearLayer.getAttibutes().items()
+    def getAttributes(self):
+        keyValueList = self.__embedLayer.getAttributes().items()
+        keyValueList += self.__linearLayer.getAttributes().items()
 
         dict = {}
 
@@ -175,4 +175,18 @@ class EmbeddingConvolutionalLayer(Layer):
     def load(self, attributes):
         self.__embedLayer.load(attributes)
         self.__linearLayer.load(attributes)
+
+    @staticmethod
+    def getEmbeddingFromPersistenceManager(persistenceManager, name):
+        """
+        Return the embedding vector from the database
+
+        :type persistenceManager: persistence.PersistentManager.PersistentManager
+        :param persistenceManager:
+
+        :param name: name of object which the embedding was saved as attribute
+
+        :return:
+        """
+        return EmbeddingLayer.getEmbeddingFromPersistenceManager(persistenceManager,name)
 

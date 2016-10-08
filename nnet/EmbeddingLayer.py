@@ -65,7 +65,7 @@ class EmbeddingLayer(Layer):
             embedding.shape = (numVectors, szEmb)
 
         """
-        super(EmbeddingLayer, self).__init__(_input, trainable)
+        super(EmbeddingLayer, self).__init__(_input, trainable, name)
 
         if not isinstance(embedding, TensorSharedVariable):
             if isinstance(embedding, list):
@@ -175,10 +175,26 @@ class EmbeddingLayer(Layer):
 
         return [self.__embedding]
 
-    def getAttibutes(self):
+    def getAttributes(self):
         return {
             "emb": self.__embedding.get_value()
         }
 
     def load(self, attributes):
-        self.__embedding.set_value(attributes["emb"])
+        self.__embedding.set_value(numpy.array(attributes["emb"]))
+
+    @staticmethod
+    def getEmbeddingFromPersistenceManager(persistenceManager, name):
+        """
+        Return the embedding vector from the database
+
+        :type persistenceManager: persistence.PersistentManager.PersistentManager
+        :param persistenceManager:
+
+        :param name: name of object which the embedding was saved as attribute
+
+        :return:
+        """
+        attrs = persistenceManager.getAttributesByObjName(name)
+
+        return attrs["emb"]

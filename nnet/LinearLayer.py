@@ -76,15 +76,15 @@ class LinearLayer(Layer):
     def getUpdates(self, cost, lr, sumSqGrads=None):
         return []
 
-    def getAttibutes(self):
+    def getAttributes(self):
         return  {
             "w": self.W.get_value(),
             "b": self.b.get_value()
         }
 
     def load(self,attributes):
-        self.W.set_value(attributes["w"])
-        self.b.set_value(attributes["b"])
+        self.W.set_value(numpy.array(attributes["w"]))
+        self.b.set_value(numpy.array(attributes["b"]))
 
 
 

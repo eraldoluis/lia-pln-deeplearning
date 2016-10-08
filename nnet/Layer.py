@@ -4,9 +4,9 @@ Created on Nov 19, 2015
 @author: eraldo
 """
 import logging
-from abc import ABCMeta, abstractmethod
+from abc import abstractmethod
 
-from persistence import PersistentObject
+from persistence.PersistentObject import PersistentObject
 
 
 class Layer(PersistentObject):
@@ -30,8 +30,6 @@ class Layer(PersistentObject):
     However, these methods don't do nothing and it isn't possible to save a subclasse Layer that doesn't overwrite them.
     Besides that, it's important give a unique name to the layer with want to save it.
     """
-    __metaclass__ = ABCMeta
-
     def __init__(self, _input, trainable=True, name=None):
         """
         Constructor
@@ -52,9 +50,9 @@ class Layer(PersistentObject):
         self.log = logging.getLogger(__name__)
 
         if name is None:
-            self.log.info("The layer object doesn't have a name. It won't be possible to save this object.")
+            self.log.debug("The layer object doesn't have a name. It won't be possible to save this object.")
 
-        self._name = name
+        self.__name = name
 
     def isTrainable(self):
         return self.__trainable
@@ -136,7 +134,7 @@ class Layer(PersistentObject):
     def getName(self):
         return self.__name
 
-    def getAttibutes(self):
+    def getAttributes(self):
         return None
 
     def load(self,attributes):

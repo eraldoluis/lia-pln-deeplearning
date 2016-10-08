@@ -14,6 +14,12 @@ class H5py(PersistentManager):
     def __init__(self, filePath):
         self.__f = h5py.File(filePath, "a")
 
+    def getAttributesByObjName(self, objName):
+        if not objName:
+            raise Exception("Object Name is None")
+
+        return self.__f[objName]
+
     def save(self, persistentObject):
         objName = persistentObject.getName()
         objAttributes = persistentObject.getAttributes()
@@ -26,18 +32,16 @@ class H5py(PersistentManager):
 
         # Create datasets for each object attribute
         for attrName, attrValue in objAttributes.iteritems():
-            if not attrName in attrGrp:
-                self.__f.create_dataset(attrName, data=attrValue)
+            if  attrName not in attrGrp:
+                attrGrp.create_dataset(attrName, data=attrValue)
             else:
-                self.__f[attrName] = attrValue
+                attrGrp[attrName][...] = attrValue
+
 
     def load(self, persistentObject):
         objName = persistentObject.getName()
 
-        if not objName:
-            raise Exception("Object Name is None")
-
-        persistentObject.load(self.__f[objName])
+        persistentObject.load(self.getAttributesByObjName(objName))
 
     def close(self):
         self.__f.flush()

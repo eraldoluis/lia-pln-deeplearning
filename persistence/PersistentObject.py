@@ -4,7 +4,10 @@
 
 """
 This class represents a object that can be persisted.
-The objects of this class has a name, which needs to be unique in the persistence environment.
+The objects of this class has a name that needs to be unique in the persistence environment.
+
+This class has the responsibility to return a dictionary with the attribute names and values which it wants to save and
+load the attributes by itself.
 """
 from abc import ABCMeta, abstractmethod
 

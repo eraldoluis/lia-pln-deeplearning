@@ -3,13 +3,26 @@
 
 
 """
-This class saves and load the persistent objects.
+This class responsible to save and load the attributes of object in a certain database.
+Each object will have a unique name, because this manager will use that to search for attributes of the object.
+You can create and retrieve metadata for data in a dataset. This metadata are called attributes.
+As the objects, the metadata name needs to be unique.
 """
 from abc import ABCMeta, abstractmethod
 
 
 class PersistentManager(object):
     __metaclass__ = ABCMeta
+
+    @abstractmethod
+    def getAttributesByObjName(self, objName):
+        """
+        Return the attributes of object with a certain name
+
+        :param objName: name of the object
+        :return: a dictionary with keys and values are, respectively, the names and values of attributes.
+        """
+        raise NotImplementedError()
 
     @abstractmethod
     def save(self,persistentObject):

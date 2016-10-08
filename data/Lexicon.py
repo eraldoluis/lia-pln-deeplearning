@@ -4,20 +4,11 @@
 """
 """
 import codecs
+import logging
+import numpy
 from zlib import adler32
 
 from persistence.PersistentObject import PersistentObject
-
-
-def createLexiconUsingFile(lexiconFilePath):
-    lexicon = Lexicon()
-
-    for l in codecs.open(lexiconFilePath, "r", encoding="utf-8"):
-        lexicon.put(l.strip())
-
-    lexicon.stopAdd()
-
-    return lexicon
 
 
 class Lexicon(PersistentObject):
@@ -27,20 +18,34 @@ class Lexicon(PersistentObject):
     This class has a variable '__readOnly' that control if the lexicon will or not insert new words.
     If a word in new to lexicon and '__readOnly' is true, so this lexicon will return a index which
         is related with all unknown words.
-    This special index need to be set with setUnknownIndex.
+    This special index is always 0.
     """
 
-    def __init__(self, name=None):
+    defaultUnknown = "5E03B540596634A1AEC9A6F97AB869D8"
+
+    def __init__(self, unknownSymbol, name=None):
         """
+        :param unknownSymbol: the string which represents all unknown words.
+            If this parameter is none, so a warning message will be showed and a default unknown symbol is generated.
 
         :param name: the name of the object. This parameter will be used when you save this object.
             If this parameter is None, so it won't be possible to save it.
         """
         self.__lexicon = []
         self.__lexiconDict = {}
-        self.unknown_index = -1
         self.__readOnly = False
         self.__name = name
+
+        # Keep how many times a word was insert in the lexicon
+        self.__countInsWord = []
+
+        if unknownSymbol is None:
+            name = name if name is not None else ""
+            logging.getLogger(__name__).warning(
+                "The unknown symbol of the lexicon " + name + " was generated automatically.")
+            unknownSymbol = Lexicon.defaultUnknown
+
+        self.unknown_index = self.put(unknownSymbol)
 
     def isReadOnly(self):
         """
@@ -86,6 +91,13 @@ class Lexicon(PersistentObject):
             self.__lexicon.append(word)
             self.__lexiconDict[word] = idx
 
+            self.__countInsWord.append(0)
+
+        if not self.isReadOnly():
+            # Count how many times a word was insert in the lexicon
+            # Stop to count when the lexicon is only read
+            self.__countInsWord[idx] += 1
+
         return idx
 
     def getLexicon(self, index):
@@ -121,6 +133,68 @@ class Lexicon(PersistentObject):
         """
         self.__readOnly = True
 
+    def prune(self, minCount):
+        """
+        Remove the words that weren't inserted lesser than minCount.
+        The lexicon can't be pruned when it's read only.
+
+        :param minCount: Minimum number of times a word most have been inserted to don't be removed
+        :return:
+        """
+        newLexicon = []
+        newLexiconDict = {}
+        newCountInsWord = []
+
+        if self.isReadOnly():
+            return
+
+        for idx, nm in enumerate(self.__countInsWord):
+            word = self.__lexicon[idx]
+
+            if nm >= minCount or idx is self.getUnknownIndex():
+                newIdx = len(newLexicon)
+                newLexicon.append(word)
+                newLexiconDict[word] = newIdx
+                newCountInsWord.append(nm)
+
+        self.__lexicon = newLexicon
+        self.__lexiconDict = newLexiconDict
+        self.__countInsWord = newCountInsWord
+
+    @staticmethod
+    def fromTextFile(filePath, lexiconName=None):
+        """
+        Create lexicon object from a text file
+
+        :param filePath: path of the file with the words
+        :param lexiconName: name of lexicon
+
+        :return: Lexicon
+        """
+        f = codecs.open(filePath, "r", encoding="utf-8")
+        unknownSym =  f.readline().strip("\n")
+        lexicon = Lexicon(unknownSym, lexiconName)
+
+        for l in f:
+            lexicon.put(l.rstrip("\n"))
+
+        lexicon.stopAdd()
+
+        return lexicon
+
+    def save(self, filePath):
+        """
+        Save a lexicon in a text file
+
+        :return: None
+        """
+        f = codecs.open(filePath, "w", encoding="utf-8")
+
+        for word in self.__lexicon:
+            f.write(word)
+            f.write("\n")
+
+
     def getName(self):
         return self.__name
 
@@ -129,10 +203,27 @@ class Lexicon(PersistentObject):
             "lexicon": [word.encode("unicode_escape") for word in self.__lexicon],
             "unknownIndex": self.unknown_index
         }
+    @staticmethod
+    def fromPersistentManager(persistentManager, name):
+        """
+        Return a lexicon from a PersistentManager
+
+        :type persistentManager: persistence.PersistentManager.PersistentManager
+        :param persistentManager: this object is a bridge between the database and PersistentObject
+
+        :type name: basestring
+        :param name: name of the object in database
+
+        :return: Lexicon
+        """
+        newLexicon = Lexicon(None,name)
+        persistentManager.load(newLexicon)
+
+        return newLexicon
 
     def load(self, attributes):
         lexicon = attributes["lexicon"]
-        self.unknown_index = attributes["unknownIndex"]
+        self.unknown_index = numpy.asarray(attributes["unknownIndex"])
         self.__lexicon = []
         self.__lexiconDict = {}
         self.__readOnly = False

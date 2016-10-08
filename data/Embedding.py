@@ -15,103 +15,6 @@ from data.Lexicon import Lexicon
 from nnet.Util import FeatureVectorsGenerator
 
 
-######################################################
-# Strategy to Generate the embedding, which represents the unknown object, randomly
-##################################################
-
-class UnknownGenerateStrategy:
-    """
-    Abstract class
-    """
-
-    unknownNameDefault = u'UUUNKKK'
-
-    def getUnknownStr(self):
-        return UnknownGenerateStrategy.unknownNameDefault
-
-    def generateUnkown(self, embedding):
-        """
-        :type embedding: Embedding
-        """
-        pass
-
-
-class RandomUnknownStrategy(UnknownGenerateStrategy):
-    """
-    Randomly Generate the embedding which represents the unknown object     
-    """
-
-    def generateUnkown(self, embedding):
-        return FeatureVectorsGenerator().generateVector(embedding.getEmbeddingSize())
-
-
-class ChosenUnknownStrategy(UnknownGenerateStrategy):
-    """
-    Get a object from lexicon to represent the unknown objects
-    """
-
-    def __init__(self, unknownName):
-        self.__unknownName = unknownName
-        self.__randomUnknownStrategy = RandomUnknownStrategy()
-
-    def getUnknownStr(self):
-        return self.__unknownName
-
-    def generateUnkown(self, embedding):
-        if embedding.exist(self.__unknownName):
-            return embedding.getEmbedding(self.__unknownName)
-
-        return self.__randomUnknownStrategy.generateUnkown(embedding)
-
-
-#####################################################################
-# EmbeddingFactory
-####################################################################
-
-class EmbeddingFactory(object):
-    """
-    Creates embeddings
-    """
-
-    def __init__(self):
-        self.__log = logging.getLogger(__name__)
-
-    def createFromW2V(self, w2vFile, unknownGenerateStrategy, name=None):
-        """
-        Create a embedding from word2vec output
-        """
-        fVec = codecs.open(w2vFile, 'r', 'utf-8')
-
-        # Read the number of words in the dictionary and the embedding size
-        nmWords, embeddingSizeStr = fVec.readline().strip().split(" ")
-        embeddingSize = int(embeddingSizeStr)
-
-        embedding = Embedding(embeddingSize, unknownGenerateStrategy, name)
-
-        for line in fVec:
-            splitLine = line.rstrip().split(u' ')
-
-            word = splitLine[0]
-
-            if len(word) == 0:
-                self.__log.warning("Insert in the embedding a empty string")
-
-            vec = [float(num) for num in splitLine[1:]]
-
-            embedding.put(word, vec)
-
-        embedding.stopAdd()
-        fVec.close()
-
-        return embedding
-
-    def createRandomEmbedding(self, embeddingSize, name=None):
-        """
-        Create a embedding which give for each object a random vector
-        """
-        return RandomEmbedding(embeddingSize, RandomUnknownStrategy(), name)
-
-
 #####################################################################
 # Embedding classes
 ####################################################################
@@ -122,76 +25,41 @@ class Embedding(object):
     This class has a matrix with all vectors and lexicon.
     """
 
-    def __init__(self, embeddingSize, unknownGenerateStrategy, name=None):
+    def __init__(self, lexicon, vectors, embeddingSize=None):
         """
-        :type embeddingSize: int
-        :params embeddingSize: the vectors length that represent the objects
+        Creates a embedding object from lexicon and vectors.
+        If vectors is none, so each word in the lexicon will be represented by a random vector with embeddingSize dimensions.
+
+        :type lexicon: data.Lexicon.Lexicon
+        :params lexicon: a Lexicon object
         
-        :type unknownGenerateStrategy: UnknownGenerateStrategy
-        :params unknownGenerateStrategy: the object that will generate the unknown embedding
-        
+        :type vectors: [[int]] | numpy.array | None
+        :params vectors: embedding list
+
+        :params embeddingSize: the number of dimensions of vectors. This only will be used when the vectors is none
         """
+        self.__lexicon = lexicon
 
-        self.__lexicon = Lexicon(name)
-        self.__vectors = []
-        self.__embeddingSize = embeddingSize
-        self.__unknownGenerateStrategy = unknownGenerateStrategy
+        if not vectors:
+            generatorWeight = FeatureVectorsGenerator()
+            numVectors = lexicon.getLen()
+            vectors = []
 
-        # Stop to add new objects
-        self.__readOnly = False
+            for _ in xrange(numVectors):
+                vec = generatorWeight.generateVector(embeddingSize)
+                vectors.append(vec)
 
-    def stopAdd(self):
-        """
-        Stop to add new objects and generate the unknown embedding.
-        """
-        if self.isReadOnly():
-            return
+        self.__vectors = np.asarray(vectors, dtype=theano.config.floatX)
+        self.__embeddingSize = self.__vectors.shape[1]
 
-        Embedding.put(self, self.__unknownGenerateStrategy.getUnknownStr(),
-                      self.__unknownGenerateStrategy.generateUnkown(self))
-        self.__lexicon.setUnknownIndex(self.getLexiconIndex(self.__unknownGenerateStrategy.getUnknownStr()))
+        if lexicon.getLen() != self.__vectors.shape[0]:
+            raise Exception("The number of embeddings is different of lexicon size ")
 
-        self.__readOnly = True
+        lexicon.stopAdd()
 
-        self.convertToNumPy()
-
-    def isReadOnly(self):
-        """
-        return if the class is not adding more new objects
-        """
-        return self.__readOnly
-
-    def convertToNumPy(self):
-        self.__vectors = np.asarray(self.__vectors, dtype=theano.config.floatX)
-
-    def put(self, obj, vec=None):
-        """
-        Add a new object to the embedding. 
-        If the attribute self.__readOnly is False, vec is not none or object 
-        exists in lexicon, so the object index is returned.
-
-        :type obj:str
-        :params obj: object to be added
-        
-        :type vec: list of double
-        :params vec: vector which represents obj
-        
-        :return embedding of the object
-        """
-        if vec is None or self.isReadOnly() or self.__lexicon.exist(obj):
-            return self.getLexiconIndex(obj)
-
-        if len(vec) != self.__embeddingSize:
-            raise Exception("the added vector has a different size of " + str(self.__embeddingSize))
-
-        idx = self.__lexicon.put(obj)
-
-        if len(self.__vectors) != idx:
-            raise Exception("Exist more or less lexicon than vectors")
-
-        self.__vectors.append(vec)
-
-        return idx
+        if not lexicon.isReadOnly():
+            raise Exception(
+                "It's possible to insert in the lexicon. Please, transform the lexicon to only read.")
 
     def exist(self, obj):
         return self.__lexicon.exist(obj)
@@ -268,27 +136,55 @@ class Embedding(object):
         self.__vectors -= np.mean(self.__vectors, axis=0)
         self.__vectors *= (norm_coef / np.ptp(self.__vectors, axis=0))
 
+    @staticmethod
+    def fromWord2Vec(w2vFile, unknownSymbol, lexiconName=None):
+        """
+        Creates  a lexicon and a embedding from word2vec file.
 
-class RandomEmbedding(Embedding):
-    """
-    In this embedding each new added object  receive a random vector
-    """
+        :param w2vFile: path of file
+        :param unknownSymbol: the string that represents the unknown words.
 
-    def __init__(self, embeddingSize, unknownGenerateStrategy, lexicon=None, name=None):
-        Embedding.__init__(self, embeddingSize, unknownGenerateStrategy, name)
+        :return: (data.Lexicon.Lexicon, Embedding)
+        """
+        log = logging.getLogger(__name__)
+        fVec = codecs.open(w2vFile, 'r', 'utf-8')
 
-        # Generator that going to generate values for vectors 
-        self.__generatorWeight = FeatureVectorsGenerator()
+        # Read the number of words in the dictionary and the embedding size
+        nmWords, embeddingSizeStr = fVec.readline().strip().split(" ")
+        embeddingSize = int(embeddingSizeStr)
+        lexicon = Lexicon(unknownSymbol, lexiconName)
 
-        if lexicon:
-            # TODO: @eraldo: adicionei este código para o HashLexicon
-            self._Embedding__lexicon = lexicon
-            numVectors = lexicon.getLen()
-            szVectors = self.getEmbeddingSize()
-            for _ in xrange(numVectors):
-                vec = self.__generatorWeight.generateVector(szVectors)
-                self._Embedding__vectors.append(vec)
+        # The empty array represents the array of unknown
+        # At end, this array will be replaced by one array that exist in the  w2vFile or a random array.
+        vectors = [[]]
+        nmEmptyWords = 0
 
-    def put(self, obj):
-        vec = self.__generatorWeight.generateVector(self.getEmbeddingSize())
-        return Embedding.put(self, obj, vec)
+        for line in fVec:
+            splitLine = line.rstrip().split(u' ')
+            word = splitLine[0]
+
+            if len(word) == 0:
+                log.warning("Insert in the embedding a empty string. This embeddings will be thrown out.")
+                nmEmptyWords += 1
+                continue
+
+            vec = [float(num) for num in splitLine[1:]]
+
+            if word == unknownSymbol:
+                if len(vectors[0]) != 0:
+                    raise Exception("A unknown symbol was already inserted.")
+
+                vectors[0] = vec
+            else:
+                lexicon.put(word)
+                vectors.append(vec)
+
+        if len(vectors[0]) == 0:
+            vectors[0] = FeatureVectorsGenerator().generateVector(embeddingSize)
+
+        if nmWords != lexicon.getLen() - 1 + nmEmptyWords:
+            raise Exception("The size of lexicon is different of number of vectors")
+
+        fVec.close()
+
+        return lexicon, Embedding(lexicon, vectors)

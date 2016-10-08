@@ -1,27 +1,25 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
-import codecs
 import importlib
-import json
 import logging
 import logging.config
-import numpy as np
 import os
 import random
 import sys
 import time
 from time import time
 
+import numpy as np
 import theano.tensor as T
-from data.BatchIterator import SyncBatchIterator
-from data.CharacterWindowGenerator import CharacterWindowGenerator
-from data.WordWindowGenerator import WordWindowGenerator
 
 from args.JsonArgParser import JsonArgParser
-from data.Embedding import EmbeddingFactory, RandomUnknownStrategy, ChosenUnknownStrategy
+from data.BatchIterator import SyncBatchIterator
+from data.CharacterWindowGenerator import CharacterWindowGenerator
+from data.Embedding import Embedding
 from data.LabelGenerator import LabelGenerator
-from data.Lexicon import Lexicon, createLexiconUsingFile
+from data.Lexicon import Lexicon
 from data.TokenDatasetReader import TokenLabelReader
+from data.WordWindowGenerator import WordWindowGenerator
 from model.BasicModel import BasicModel
 from model.Objective import NegativeLogLikelihood
 from model.Prediction import ArgmaxPrediction
@@ -43,6 +41,10 @@ WNN_PARAMETERS = {
                               "desc": "specify the character that is being used to separate the token from the label in the dataset."},
     "filters": {"required": True,
                 "desc": "list contains the filters. Each filter is describe by your module name + . + class name"},
+
+    "label_file": {"desc": "file with all possible labels"},
+    "word_lexicon": {"desc": ""},
+    "char_lexicon": {"desc": ""},
 
     "train": {"desc": "Training File Path"},
     "num_epochs": {"desc": "Number of epochs: how many iterations over the training set."},
@@ -79,15 +81,18 @@ WNN_PARAMETERS = {
     "shuffle": {"default": True, "desc": "able or disable the shuffle of training examples."},
     "normalization": {"desc": "Choose the normalize method to be applied on  word embeddings. "
                               "The possible values are: minmax or mean"},
-    "label_file": {"desc": "file with all possible labels"},
     "lambda_L2": {"desc": "Set the value of L2 coefficient"},
     "charwnn_filters": {"default": [], "desc": "list contains the filters that will be used by charwnn. "
                                                "Each filter is describe by your module name + . + class name"},
+
+    "create_only_lexicon": {
+        "desc": "When this parameter is true, the script creates the lexicons and doesn't train the model."
+                "If file exists in the system, so this file won't be overwritten.", "default": False},
 }
 
 
 class WNNModelWritter(ModelWriter):
-    def __init__(self, savePath, listOfPersistentObjs):
+    def __init__(self, savePath, listOfPersistentObjs, hiddenActFunctionName):
         """
         :param savePath: path where the model will be save
 
@@ -95,54 +100,69 @@ class WNNModelWritter(ModelWriter):
         """
         self.__h5py = H5py(savePath)
         self.__listOfPersistentObjs = listOfPersistentObjs
+        self.__log = logging.getLogger(__name__)
+
+        self.__h5py["hidden_activation_function"] = hiddenActFunctionName
 
     def save(self):
         begin = int(time())
 
         for obj in self.__listOfPersistentObjs:
-            self.__h5py.save(obj)
+            if obj.getName():
+                self.__h5py.save(obj)
 
-        self.__logging.info("Model Saved in %d", int(time()) - begin)
+        self.__log.info("Model Saved in %d", int(time()) - begin)
 
 
-def mainWnn(**kwargs):
+def mainWnn(args):
+    ################################################
+    # Read parameters
+    ##############################################
+
     log = logging.getLogger(__name__)
-    log.info(kwargs)
+    log.info(args)
 
-    if kwargs.seed:
-        random.seed(kwargs.seed)
-        np.random.seed(kwargs.seed)
+    if args.seed:
+        random.seed(args.seed)
+        np.random.seed(args.seed)
 
-    lr = kwargs.lr
-    startSymbol = kwargs.start_symbol
-    endSymbol = kwargs.end_symbol
-    numEpochs = kwargs.num_epochs
-    shuffle = kwargs.shuffle
-    normalizeMethod = kwargs.normalization.lower() if kwargs.normalization is not None else None
-    wordWindowSize = kwargs.word_window_size
-    hiddenLayerSize = kwargs.hidden_size
-    hiddenActFunction = kwargs.hidden_activation_function
+    lr = args.lr
+    startSymbol = args.start_symbol
+    endSymbol = args.end_symbol
+    numEpochs = args.num_epochs
+    shuffle = args.shuffle
+    normalizeMethod = args.normalization.lower() if args.normalization is not None else None
+    wordWindowSize = args.word_window_size
+    hiddenLayerSize = args.hidden_size
+    hiddenActFunctionName = args.hidden_activation_function
+    embeddingSize = args.word_emb_size
 
-    withCharWNN = kwargs.with_charwnn
-    charEmbeddingSize = kwargs.char_emb_size
-    charWindowSize = kwargs.char_window_size
+    withCharWNN = args.with_charwnn
+    charEmbeddingSize = args.char_emb_size
+    charWindowSize = args.char_window_size
+    startSymbolChar = "</s>"
+
+    # Insert the character that will be used to fill the matrix
+    # with a dimension lesser than chosen dimension.This enables that the convolution is performed by a matrix multiplication.
+    artificialChar = "ART_CHAR"
 
     # TODO: the maximum number of characters of word is fixed in 20.
     numMaxChar = 20
 
-    if kwargs.alg == "window_stn":
+    if args.alg == "window_stn":
         isSentenceModel = True
-    elif kwargs.alg == "window_word":
+    elif args.alg == "window_word":
         isSentenceModel = False
     else:
         raise Exception("The value of model_type isn't valid.")
 
-    batchSize = -1 if isSentenceModel else kwargs.batch_size
+    batchSize = -1 if isSentenceModel else args.batch_size
     filters = []
 
+    # Lendo Filtros do wnn
     log.info("Lendo filtros básicos")
 
-    for filterName in kwargs.filters:
+    for filterName in args.filters:
         moduleName, className = filterName.rsplit('.', 1)
         log.info("Usando o filtro: " + moduleName + " " + className)
 
@@ -151,45 +171,129 @@ def mainWnn(**kwargs):
 
     filterCharwnn = []
 
+    # Lendo Filtros do charwnn
     log.info("Lendo filtros do charwnn")
 
-    for filterName in kwargs.charwnn_filters:
+    for filterName in args.charwnn_filters:
         moduleName, className = filterName.rsplit('.', 1)
         log.info("Usando o filtro: " + moduleName + " " + className)
 
         module_ = importlib.import_module(moduleName)
         filterCharwnn.append(getattr(module_, className)())
 
-    if kwargs.load_model:
-        persistentManager = H5py(kwargs.load_model)
-        hiddenActFunction = persistentManager["hidden_activation_function"]
+    ################################################
+    # Create the lexicon and go out after this
+    ################################################
+    if args.create_only_lexicon:
+        inputGenerators = []
+        lexiconsToSave = []
 
-    # Creating embeddings
-    if kwargs.word_embedding and not kwargs.load_model:
-        log.info("Reading W2v File")
-        wordEmbedding = EmbeddingFactory().createFromW2V(kwargs.word_embedding, RandomUnknownStrategy(), "word_lexicon")
+        if args.word_lexicon and not os.path.exists(args.word_lexicon):
+            wordLexicon = Lexicon("UUUNKKK", "labelLexicon")
+
+            inputGenerators.append(WordWindowGenerator(wordWindowSize, wordLexicon, filters, startSymbol, endSymbol))
+            lexiconsToSave.append((wordLexicon, args.word_lexicon))
+
+        if not os.path.exists(args.label_file):
+            labelLexicon = Lexicon(None, "labelLexicon")
+            outputGenerator = [LabelGenerator(labelLexicon)]
+            lexiconsToSave.append((labelLexicon, args.label_file))
+        else:
+            outputGenerator = None
+
+        if args.char_lexicon and not os.path.exists(args.char_lexicon):
+            charLexicon = Lexicon("UUUNKKK", "labelLexicon")
+
+            charLexicon.put(startSymbolChar)
+            charLexicon.put(artificialChar)
+
+            inputGenerators.append(
+                CharacterWindowGenerator(charLexicon, numMaxChar, charWindowSize, wordWindowSize, artificialChar,
+                                         startSymbolChar, startPaddingWrd=startSymbol, endPaddingWrd=endSymbol,
+                                         filters=filterCharwnn))
+
+            lexiconsToSave.append((charLexicon, args.char_lexicon))
+
+        if len(inputGenerators) == 0:
+            inputGenerators = None
+
+        if not (inputGenerators or outputGenerator):
+            log.info("The script didn't generate any lexicon.")
+            return
+
+        trainDatasetReader = TokenLabelReader(args.train, args.token_label_separator)
+        trainReader = SyncBatchIterator(trainDatasetReader, inputGenerators, outputGenerator, batchSize,
+                                        shuffle=shuffle)
+
+        for lexicon, pathToSave in lexiconsToSave:
+            lexicon.save(pathToSave)
+
+        log.info("Lexicons were generated with success!")
+
+        return
+
+    ################################################
+    # Starting training
+    ###########################################
+    if args.load_model:
+        persistentManager = H5py(args.load_model)
+        hiddenActFunctionName = persistentManager["hidden_activation_function"]
+
+    # Read word lexicon and create word embeddings
+    if args.load_model:
+        wordLexicon = Lexicon.fromPersistentManager(persistentManager, "word_lexicon")
+        vectors = EmbeddingLayer.getEmbeddingFromPersistenceManager(persistentManager, "word_embedding_layer")
+
+        wordEmbedding = Embedding(wordLexicon, vectors)
+
+    elif args.word_embedding:
+        wordLexicon, wordEmbedding = Embedding.fromWord2Vec(args.word_embedding, "UUUNKKK", "word_lexicon")
+    elif args.word_lexicon:
+        wordLexicon = Lexicon.fromTextFile(args.word_lexicon, "word_lexicon")
+        wordEmbedding = Embedding(wordLexicon, vectors=None, embeddingSize=embeddingSize)
     else:
-        wordEmbedding = EmbeddingFactory().createRandomEmbedding(kwargs.word_emb_size, "word_lexicon")
+        log.error("You need to set one of these parameters: load_model, word_embedding or word_lexicon")
+        return
 
-    if withCharWNN
-        startSymbolChar = "</s>"
+    # Read char lexicon and create char embeddings
+    if withCharWNN:
+        if args.load_model:
+            charLexicon = Lexicon.fromPersistentManager(persistentManager, "char_lexicon")
+            vectors = EmbeddingConvolutionalLayer.getEmbeddingFromPersistenceManager(persistentManager,
+                                                                                     "char_convolution_layer")
 
-        # Create the character embedding
-        charEmbedding = EmbeddingFactory().createRandomEmbedding(charEmbeddingSize, "char_lexicon")
+            charEmbedding = Embedding(charLexicon, vectors)
+        elif args.char_lexicon:
+            charLexicon = Lexicon.fromTextFile(args.char_lexicon, "char_lexicon")
+            charEmbedding = Embedding(charLexicon, vectors=None, embeddingSize=charEmbeddingSize)
+        else:
+            log.error("You need to set one of these parameters: load_model or char_lexicon")
+            return
 
-        # Insert the padding of the character window
-        charEmbedding.put(startSymbolChar)
-
-        # Insert the character that will be used to fill the matrix
-        # with a dimension lesser than chosen dimension.This enables that the convolution is performed by a matrix multiplication.
-        artificialChar = "ART_CHAR"
-        charEmbedding.put(artificialChar)
-
-    # Get the inputs and output
-    if kwargs.label_file:
-        labelLexicon = createLexiconUsingFile(kwargs.label_file)
+    # Read labels
+    if args.load_model:
+        labelLexicon = Lexicon.fromPersistentManager(persistentManager, "label_lexicon")
+    elif args.label_file:
+        labelLexicon = Lexicon.fromTextFile(args.label_file, lexiconName="label_lexicon")
     else:
-        labelLexicon = Lexicon()
+        log.error("You need to set one of these parameters: load_model, word_embedding or word_lexicon")
+        return
+
+    # Normalize the word embedding
+    if not normalizeMethod:
+        pass
+    elif normalizeMethod == "minmax":
+        log.info("Normalization: minmax")
+        wordEmbedding.minMaxNormalization()
+    elif normalizeMethod == "mean":
+        log.info("Normalization: mean normalization")
+        wordEmbedding.meanNormalization()
+    else:
+        log.error("Unknown normalization method: %s" % normalizeMethod)
+        sys.exit(1)
+
+    if normalizeMethod is not None and args.load_model is not None:
+        log.warn("The word embedding of model was normalized. This can change the result of test.")
 
     # Build neural network
     if isSentenceModel:
@@ -204,9 +308,9 @@ def mainWnn(**kwargs):
 
         if withCharWNN:
             log.info("Using charwnn")
-            convSize = kwargs.conv_size
+            convSize = args.conv_size
 
-            if kwargs.charwnn_with_act:
+            if args.charwnn_with_act:
                 charAct = tanh
             else:
                 charAct = None
@@ -216,69 +320,58 @@ def mainWnn(**kwargs):
 
             charEmbeddingConvLayer = EmbeddingConvolutionalLayer(charWindowIdxs, charEmbedding.getEmbeddingMatrix(),
                                                                  numMaxChar, convSize, charWindowSize,
-                                                                 charEmbeddingSize, charAct,name="char_convolution_layer")
+                                                                 charEmbeddingSize, charAct,
+                                                                    name="char_convolution_layer")
             layerBeforeLinear = ConcatenateLayer([flatten, charEmbeddingConvLayer])
             sizeLayerBeforeLinear = wordWindowSize * (wordEmbedding.getEmbeddingSize() + convSize)
         else:
             layerBeforeLinear = flatten
             sizeLayerBeforeLinear = wordWindowSize * wordEmbedding.getEmbeddingSize()
 
-        hiddenActFunctionName = kwargs.hiddenActFunction
         hiddenActFunction = method_name(hiddenActFunctionName)
 
         weightInit = SigmoidGlorot() if hiddenActFunction == sigmoid else GlorotUniform()
 
         linear1 = LinearLayer(layerBeforeLinear, sizeLayerBeforeLinear, hiddenLayerSize,
-                              weightInitialization=weightInit,name="linear1")
+                              weightInitialization=weightInit, name="linear1")
         act1 = ActivationLayer(linear1, hiddenActFunction)
 
-        linear2 = LinearLayer(act1, hiddenLayerSize, labelLexicon.getLen(), weightInitialization=ZeroWeightGenerator(),name="linear_softmax")
+        linear2 = LinearLayer(act1, hiddenLayerSize, labelLexicon.getLen(), weightInitialization=ZeroWeightGenerator(),
+                              name="linear_softmax")
         act2 = ActivationLayer(linear2, softmax)
         prediction = ArgmaxPrediction(1).predict(act2.getOutput())
 
+    if args.load_model:
+        # Load the model
+        alreadyLoaded = set([wordEmbeddingLayer])
 
-    if kwargs.load_model:
-        objs = list(act2.getLayerSet())
-        objs.append(wordEmbedding)
-
-        if withCharWNN:
-            objs.append(charEmbedding)
-
-        # Load the model and lexicon
-        for o in objs:
+        for o in (act2.getLayerSet() - alreadyLoaded):
             if o.getName():
                 persistentManager.load(o)
 
-
-    inputGenerators = [WordWindowGenerator(wordWindowSize, wordEmbedding, filters, startSymbol, endSymbol)]
+    inputGenerators = [WordWindowGenerator(wordWindowSize, wordLexicon, filters, startSymbol, endSymbol)]
 
     if withCharWNN:
         inputGenerators.append(
-            CharacterWindowGenerator(charEmbedding, numMaxChar, charWindowSize, wordWindowSize, artificialChar,
+            CharacterWindowGenerator(charLexicon, numMaxChar, charWindowSize, wordWindowSize, artificialChar,
                                      startSymbolChar, startPaddingWrd=startSymbol, endPaddingWrd=endSymbol,
                                      filters=filterCharwnn))
 
     outputGenerator = LabelGenerator(labelLexicon)
 
-    if kwargs.train:
+    if args.train:
         log.info("Reading training examples")
 
-        trainDatasetReader = TokenLabelReader(kwargs.train, kwargs.token_label_separator)
+        trainDatasetReader = TokenLabelReader(args.train, args.token_label_separator)
         trainReader = SyncBatchIterator(trainDatasetReader, inputGenerators, [outputGenerator], batchSize,
                                         shuffle=shuffle)
-        wordEmbedding.stopAdd()
-
-        if withCharWNN:
-            charEmbedding.stopAdd()
-
-        labelLexicon.stopAdd()
 
         # Get dev inputs and output
-        dev = kwargs.dev
+        dev = args.dev
 
         if dev:
             log.info("Reading development examples")
-            devDatasetReader = TokenLabelReader(kwargs.dev, kwargs.token_label_separator)
+            devDatasetReader = TokenLabelReader(args.dev, args.token_label_separator)
             devReader = SyncBatchIterator(devDatasetReader, inputGenerators, [outputGenerator], sys.maxint,
                                           shuffle=False)
         else:
@@ -287,29 +380,14 @@ def mainWnn(**kwargs):
         trainReader = None
         devReader = None
 
-    if not normalizeMethod:
-        pass
-    elif normalizeMethod == "minmax":
-        log.info("Normalization: minmax")
-        wordEmbedding.minMaxNormalization()
-    elif normalizeMethod == "mean":
-        log.info("Normalization: mean normalization")
-        wordEmbedding.meanNormalization()
-    else:
-        log.error("Unknown normalization method: %s" % normalizeMethod)
-        sys.exit(1)
-
-    if normalizeMethod is not None and loadPath is not None:
-        log.warn("The word embedding of model was normalized. This can change the result of test.")
-
     y = T.lvector("y")
 
-    if kwargs.decay.lower() == "normal":
+    if args.decay.lower() == "normal":
         decay = 0.0
-    elif kwargs.decay.lower() == "divide_epoch":
+    elif args.decay.lower() == "divide_epoch":
         decay = 1.0
 
-    if kwargs.adagrad:
+    if args.adagrad:
         log.info("Using Adagrad")
         opt = Adagrad(lr=lr, decay=decay)
     else:
@@ -318,8 +396,9 @@ def mainWnn(**kwargs):
 
     # Printing embedding information
     dictionarySize = wordEmbedding.getNumberOfVectors()
-    embeddingSize = wordEmbedding.getEmbeddingSize()
+
     log.info("Size of  word dictionary and word embedding size: %d and %d" % (dictionarySize, embeddingSize))
+
     if withCharWNN:
         log.info("Size of  char dictionary and char embedding size: %d and %d" % (
             charEmbedding.getNumberOfVectors(), charEmbedding.getEmbeddingSize()))
@@ -327,34 +406,36 @@ def mainWnn(**kwargs):
     # Compiling
     loss = NegativeLogLikelihood().calculateError(act2.getOutput(), prediction, y)
 
-    if kwargs.lambda_L2:
-        _lambda = kwargs.lambda_L2
+    if args.lambda_L2:
+        _lambda = args.lambda_L2
         log.info("Using L2 with lambda= %.2f", _lambda)
         loss += _lambda * (T.sum(T.square(linear1.getParameters()[0])))
 
     wnnModel = BasicModel(inputModel, [y])
 
-    wnnModel.compile(act2.getLayerSet(), opt, prediction, loss,.loss
-    ", "
-    acc)
+    wnnModel.compile(act2.getLayerSet(), opt, prediction, loss, ["loss", "acc"])
 
     # Training
     if trainReader:
         callback = []
 
-        if kwargs.save_model:
-            savePath = kwargs.save_model
-            modelWriter = WNNModelWritter(savePath, wordEmbeddingLayer, linear1, linear2, wordEmbedding, labelLexicon,
-                                          hiddenActFunctionName)
+        if args.save_model:
+            savePath = args.save_model
+            objsToSave = list(act2.getLayerSet()) + [wordLexicon, labelLexicon]
+
+            if withCharWNN:
+                objsToSave.append(charLexicon)
+
+            modelWriter = WNNModelWritter(savePath, objsToSave, hiddenActFunctionName)
             callback.append(SaveModelCallback(modelWriter, "eval_acc", True))
 
         log.info("Training")
         wnnModel.train(trainReader, numEpochs, devReader, callbacks=callback)
 
     # Testing
-    if kwargs.test:
+    if args.test:
         log.info("Reading test examples")
-        testDatasetReader = TokenLabelReader(kwargs.test, kwargs.token_label_separator)
+        testDatasetReader = TokenLabelReader(args.test, args.token_label_separator)
         testReader = SyncBatchIterator(testDatasetReader, [inputGenerators], outputGenerator, batchSize, shuffle=False)
 
         log.info("Testing")
@@ -377,4 +458,4 @@ if __name__ == '__main__':
     logging.config.fileConfig(os.path.join(path, 'logging.conf'))
 
     parameters = dict2obj(JsonArgParser(WNN_PARAMETERS).parse(sys.argv[1]))
-    mainWnn(**parameters)
+    mainWnn(parameters)

@@ -182,7 +182,7 @@ class Embedding(object):
         if len(vectors[0]) == 0:
             vectors[0] = FeatureVectorsGenerator().generateVector(embeddingSize)
 
-        if nmWords != lexicon.getLen() - 1 + nmEmptyWords:
+        if int(nmWords) != lexicon.getLen() - 1 + nmEmptyWords:
             raise Exception("The size of lexicon is different of number of vectors")
 
         fVec.close()

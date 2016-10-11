@@ -2,8 +2,8 @@
 # -*- coding: utf-8 -*-
 
 
-from data.Window import Window
 from data.FeatureGenerator import FeatureGenerator
+from data.Window import Window
 
 
 class CharacterWindowGenerator(FeatureGenerator):

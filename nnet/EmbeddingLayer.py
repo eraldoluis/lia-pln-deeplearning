@@ -195,6 +195,6 @@ class EmbeddingLayer(Layer):
 
         :return:
         """
-        attrs = persistenceManager.getAttributesByObjName(name)
+        attrs = persistenceManager.getObjAttributesByObjName(name)
 
         return attrs["emb"]

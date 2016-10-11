@@ -11,8 +11,8 @@ class ModelWriter:
 
 class SaveModelCallback(Callback):
     """
-    This class needs that user puts the metric he wants to monitor and when, biggest or lowest value of the metric,
-    he wants to save the model.
+    This class gets the name of the metric to be monitored and if the model will be saved when this metric value has
+    the biggest or lowest value until that time.
     """
 
     def __init__(self, modelWritter, metricName, biggest=True):

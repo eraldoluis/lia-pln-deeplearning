@@ -14,7 +14,7 @@ class H5py(PersistentManager):
     def __init__(self, filePath):
         self.__f = h5py.File(filePath, "a")
 
-    def getAttributesByObjName(self, objName):
+    def getObjAttributesByObjName(self, objName):
         if not objName:
             raise Exception("Object Name is None")
 
@@ -41,7 +41,7 @@ class H5py(PersistentManager):
     def load(self, persistentObject):
         objName = persistentObject.getName()
 
-        persistentObject.load(self.getAttributesByObjName(objName))
+        persistentObject.load(self.getObjAttributesByObjName(objName))
 
     def close(self):
         self.__f.flush()

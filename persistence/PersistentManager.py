@@ -15,7 +15,7 @@ class PersistentManager(object):
     __metaclass__ = ABCMeta
 
     @abstractmethod
-    def getAttributesByObjName(self, objName):
+    def getObjAttributesByObjName(self, objName):
         """
         Return the attributes of object with a certain name
 

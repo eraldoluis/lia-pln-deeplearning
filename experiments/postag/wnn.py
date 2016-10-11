@@ -1,6 +1,7 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
 import importlib
+import json
 import logging
 import logging.config
 import os
@@ -14,10 +15,12 @@ import theano.tensor as T
 
 from args.JsonArgParser import JsonArgParser
 from data.BatchIterator import SyncBatchIterator
+from data.CapitalizationFeatureGenerator import CapitalizationFeatureGenerator
 from data.CharacterWindowGenerator import CharacterWindowGenerator
 from data.Embedding import Embedding
 from data.LabelGenerator import LabelGenerator
 from data.Lexicon import Lexicon
+from data.SuffixFeatureGenerator import SuffixFeatureGenerator
 from data.TokenDatasetReader import TokenLabelReader
 from data.WordWindowGenerator import WordWindowGenerator
 from model.BasicModel import BasicModel
@@ -37,24 +40,71 @@ from persistence.H5py import H5py
 from util.jsontools import dict2obj
 
 WNN_PARAMETERS = {
+    # Required
     "token_label_separator": {"required": True,
                               "desc": "specify the character that is being used to separate the token from the label in the dataset."},
-    "filters": {"required": True,
-                "desc": "list contains the filters. Each filter is describe by your module name + . + class name"},
+    "word_filters": {"required": True,
+                     "desc": "a list which contains the filters. Each filter is describe by your module name + . + class name"},
 
+    # Filters
+    "suffix_filters": {"default": [],
+                       "desc": "a list which contains the filters that will be used to process the suffix."
+                               "These filters will be applied in tokens and after that the program will get suffix of each token."
+                               "Each filter is describe by your module name + . + class name"},
+    "cap_filters": {"default": [],
+                    "desc": "a list which contains the filters that will be used to process the capitalization. "
+                            "These filters will be applied in tokens and after that the program will get capitalization of each token."
+                            "Each filter is describe by your module name + . + class name"},
+    "charwnn_filters": {"default": [], "desc": "list contains the filters that will be used in character embedding. "
+                                               "These filters will be applied in tokens and after that the program will get the characters of each token ."
+                                               "Each filter is describe by your module name + . + class name"},
+
+    # Lexicons
+    'cap_lexicon': {"desc": "Lexicon with 5 types of capitalization"},
+    "char_lexicon": {"desc": "character lexicon"},
+    "create_only_lexicon": {
+        "desc": "When this parameter is true, the script creates the lexicons and doesn't train the model."
+                "If file exists in the system, so this file won't be overwritten.", "default": False},
     "label_file": {"desc": "file with all possible labels"},
-    "word_lexicon": {"desc": ""},
-    "char_lexicon": {"desc": ""},
+    "suffix_lexicon": {"desc": "suffix lexicon"},
+    "word_lexicon": {"desc": "word lexicon"},
 
+    # Dataset
     "train": {"desc": "Training File Path"},
-    "num_epochs": {"desc": "Number of epochs: how many iterations over the training set."},
-    "lr": {"desc": "learning rate value"},
+    "dev": {"desc": "Development File Path"},
+    "test": {"desc": "Test File Path"},
+
+    # Save and load
+    "load_hidden_layer": {"desc": "the file which contains weights and bias of pre-trainned hidden layer"},
+    "load_model": {"desc": "Path + basename that will be used to save the weights and embeddings to be loaded."},
+    "save_by_acc": {"default": True,
+                    "desc": "If this parameter is true, so the script will save the model with the best acc in dev."
+                            "However, if its value is false, so the script will save the model at the end of training."},
     "save_model": {"desc": "Path + basename that will be used to save the weights and embeddings to be saved."},
 
-    "test": {"desc": "Test File Path"},
-    "dev": {"desc": "Development File Path"},
-    "load_model": {"desc": "Path + basename that will be used to save the weights and embeddings to be loaded."},
+    # Training parameters
+    "adagrad": {"desc": "Activate AdaGrad updates.", "default": True},
+    "alg": {"default": "window_word",
+            "desc": "The type of algorithm to train and test. The posible inputs are: window_word or window_stn"},
+    "batch_size": {"default": 1},
+    "decay": {"default": "DIVIDE_EPOCH",
+              "desc": "Set the learning rate update strategy. NORMAL and DIVIDE_EPOCH are the options available"},
+    "hidden_activation_function": {"default": "tanh",
+                                   "desc": "the activation function of the hidden layer. The possible values are: tanh and sigmoid"},
+    "lambda_L2": {"desc": "Set the value of L2 coefficient"},
+    "lr": {"desc": "learning rate value"},
+    "num_epochs": {"desc": "Number of epochs: how many iterations over the training set."},
+    "shuffle": {"default": True, "desc": "able or disable the shuffle of training examples."},
 
+    # Basic NN parameters
+    "normalization": {"desc": "Choose the normalize method to be applied on  word embeddings. "
+                              "The possible values are: minmax or mean"},
+    "hidden_size": {"default": 300, "desc": "The number of neurons in the hidden layer"},
+    "word_emb_size": {"default": 100, "desc": "size of word embedding"},
+    "word_embedding": {"desc": "word embedding File Path"},
+    "word_window_size": {"default": 5, "desc": "The size of words for the wordsWindow"},
+
+    # Charwnn parameters
     "with_charwnn": {"default": False, "desc": "Enable or disable the charwnn of the model"},
     "conv_size": {"default": 50, "desc": "The number of neurons in the convolutional layer"},
     "char_emb_size": {"default": 10, "desc": "The size of char embedding"},
@@ -62,47 +112,41 @@ WNN_PARAMETERS = {
     "charwnn_with_act": {"default": True,
                          "desc": "Enable or disable the use of a activation function in the convolution. "
                                  "When this parameter is true, we use tanh as activation function"},
-    "alg": {"default": "window_word",
-            "desc": "The type of algorithm to train and test. The posible inputs are: window_word or window_stn"},
-    "hidden_size": {"default": 300, "desc": "The number of neurons in the hidden layer"},
-    "word_window_size": {"default": 5, "desc": "The size of words for the wordsWindow"},
-    "batch_size": {"default": 16},
-    "word_emb_size": {"default": 100, "desc": "size of word embedding"},
-    "word_embedding": {"desc": "word embedding File Path"},
+
+    # Hand-crafted features
+    "cap_emb_size": {"default": 5, "desc": ""},
+    "suffix_emb_size": {"default": 5, "desc": ""},
+    "suffix_size": {"default": 0, "desc": ""},
+    "use_capitalization": {"default": False, "desc": ""},
+
+    # Other parameter
     "start_symbol": {"default": "</s>", "desc": "Object that will be place when the initial limit of list is exceeded"},
     "end_symbol": {"default": "</s>", "desc": "Object that will be place when the end limit of list is exceeded"},
     "seed": {"desc": ""},
-    "adagrad": {"desc": "Activate AdaGrad updates.", "default": True},
-    "decay": {"default": "DIVIDE_EPOCH",
-              "desc": "Set the learning rate update strategy. NORMAL and DIVIDE_EPOCH are the options available"},
-    "load_hidden_layer": {"desc": "the file which contains weights and bias of pre-trainned hidden layer"},
-    "hidden_activation_function": {"default": "tanh",
-                                   "desc": "the activation function of the hidden layer. The possible values are: tanh and sigmoid"},
-    "shuffle": {"default": True, "desc": "able or disable the shuffle of training examples."},
-    "normalization": {"desc": "Choose the normalize method to be applied on  word embeddings. "
-                              "The possible values are: minmax or mean"},
-    "lambda_L2": {"desc": "Set the value of L2 coefficient"},
-    "charwnn_filters": {"default": [], "desc": "list contains the filters that will be used by charwnn. "
-                                               "Each filter is describe by your module name + . + class name"},
-
-    "create_only_lexicon": {
-        "desc": "When this parameter is true, the script creates the lexicons and doesn't train the model."
-                "If file exists in the system, so this file won't be overwritten.", "default": False},
 }
 
 
 class WNNModelWritter(ModelWriter):
-    def __init__(self, savePath, listOfPersistentObjs, hiddenActFunctionName):
+    def __init__(self, savePath, listOfPersistentObjs, args, parametersToSave):
         """
         :param savePath: path where the model will be save
 
         :param listOfPersistentObjs: list of PersistentObject. These objects represents the  necessary data to be saved.
+
+        :param args: object with all parameters
+
+        :param parametersToSave: a list with the name of parameters which need to be saved.
         """
         self.__h5py = H5py(savePath)
         self.__listOfPersistentObjs = listOfPersistentObjs
         self.__log = logging.getLogger(__name__)
 
-        self.__h5py["hidden_activation_function"] = hiddenActFunctionName
+        parameters = {}
+
+        for parameterName in parametersToSave:
+            parameters[parameterName] = getattr(args, parameterName)
+
+        self.__h5py.addAttribute("parameters", json.dumps(parameters))
 
     def save(self):
         begin = int(time())
@@ -116,16 +160,31 @@ class WNNModelWritter(ModelWriter):
 
 def mainWnn(args):
     ################################################
-    # Read parameters
+    # Initializing parameters
     ##############################################
-
     log = logging.getLogger(__name__)
-    log.info(args)
 
     if args.seed:
         random.seed(args.seed)
         np.random.seed(args.seed)
 
+    parametersToSaveOrLoad = {"word_filters", "suffix_filters", "charwnn_filters", "cap_filters",
+                              "alg", "hidden_activation_function", "word_window_size",
+                              "with_charwnn", "conv_size", "charwnn_with_act", "suffix_size", "use_capitalization",
+                              "start_symbol", "end_symbol"}
+
+    # Load parameters of the saving model
+    if args.load_model:
+        persistentManager = H5py(args.load_model)
+        savedParameters = json.loads(persistentManager.getAttribute("parameters"))
+
+        log.info("Loading parameters of the model")
+        args = args._replace(**savedParameters)
+
+
+    log.info(args)
+
+    # Read the parameters
     lr = args.lr
     startSymbol = args.start_symbol
     endSymbol = args.end_symbol
@@ -142,6 +201,12 @@ def mainWnn(args):
     charWindowSize = args.char_window_size
     startSymbolChar = "</s>"
 
+    suffixEmbSize = args.suffix_emb_size
+    capEmbSize = args.cap_emb_size
+
+    useSuffixFeatures = args.suffix_size > 0
+    useCapFeatures = args.use_capitalization
+
     # Insert the character that will be used to fill the matrix
     # with a dimension lesser than chosen dimension.This enables that the convolution is performed by a matrix multiplication.
     artificialChar = "ART_CHAR"
@@ -157,29 +222,23 @@ def mainWnn(args):
         raise Exception("The value of model_type isn't valid.")
 
     batchSize = -1 if isSentenceModel else args.batch_size
-    filters = []
+    wordFilters = []
 
     # Lendo Filtros do wnn
     log.info("Lendo filtros básicos")
-
-    for filterName in args.filters:
-        moduleName, className = filterName.rsplit('.', 1)
-        log.info("Usando o filtro: " + moduleName + " " + className)
-
-        module_ = importlib.import_module(moduleName)
-        filters.append(getattr(module_, className)())
-
-    filterCharwnn = []
+    wordFilters = getFilters(args.word_filters, log)
 
     # Lendo Filtros do charwnn
     log.info("Lendo filtros do charwnn")
+    charFilters = getFilters(args.charwnn_filters, log)
 
-    for filterName in args.charwnn_filters:
-        moduleName, className = filterName.rsplit('.', 1)
-        log.info("Usando o filtro: " + moduleName + " " + className)
+    # Lendo Filtros do suffix
+    log.info("Lendo filtros do sufixo")
+    suffixFilters = getFilters(args.suffix_filters, log)
 
-        module_ = importlib.import_module(moduleName)
-        filterCharwnn.append(getattr(module_, className)())
+    # Lendo Filtros da capitalização
+    log.info("Lendo filtros da capitalização")
+    capFilters = getFilters(args.cap_filters, log)
 
     ################################################
     # Create the lexicon and go out after this
@@ -191,7 +250,8 @@ def mainWnn(args):
         if args.word_lexicon and not os.path.exists(args.word_lexicon):
             wordLexicon = Lexicon("UUUNKKK", "labelLexicon")
 
-            inputGenerators.append(WordWindowGenerator(wordWindowSize, wordLexicon, filters, startSymbol, endSymbol))
+            inputGenerators.append(
+                WordWindowGenerator(wordWindowSize, wordLexicon, wordFilters, startSymbol, endSymbol))
             lexiconsToSave.append((wordLexicon, args.word_lexicon))
 
         if not os.path.exists(args.label_file):
@@ -202,7 +262,7 @@ def mainWnn(args):
             outputGenerator = None
 
         if args.char_lexicon and not os.path.exists(args.char_lexicon):
-            charLexicon = Lexicon("UUUNKKK", "labelLexicon")
+            charLexicon = Lexicon("UUUNKKK", "charLexicon")
 
             charLexicon.put(startSymbolChar)
             charLexicon.put(artificialChar)
@@ -210,15 +270,34 @@ def mainWnn(args):
             inputGenerators.append(
                 CharacterWindowGenerator(charLexicon, numMaxChar, charWindowSize, wordWindowSize, artificialChar,
                                          startSymbolChar, startPaddingWrd=startSymbol, endPaddingWrd=endSymbol,
-                                         filters=filterCharwnn))
+                                         filters=charFilters))
 
             lexiconsToSave.append((charLexicon, args.char_lexicon))
+
+        if args.suffix_lexicon and not os.path.exists(args.suffix_lexicon):
+            suffixLexicon = Lexicon("UUUNKKK", "suffixLexicon")
+
+            if args.suffix_size <= 0:
+                raise Exception(
+                    "Unable to generate the suffix lexicon because the suffix is less than or equal to 0.")
+
+            inputGenerators.append(
+                SuffixFeatureGenerator(args.suffix_size, wordWindowSize, suffixLexicon, suffixFilters))
+
+            lexiconsToSave.append((suffixLexicon, args.suffix_lexicon))
+
+        if args.cap_lexicon and not os.path.exists(args.cap_lexicon):
+            capLexicon = Lexicon("UUUNKKK", "capitalizationLexicon")
+
+            inputGenerators.append(CapitalizationFeatureGenerator(wordWindowSize, capLexicon, capFilters))
+
+            lexiconsToSave.append((capLexicon, args.cap_lexicon))
 
         if len(inputGenerators) == 0:
             inputGenerators = None
 
         if not (inputGenerators or outputGenerator):
-            log.info("The script didn't generate any lexicon.")
+            log.info("All lexicons have been generated.")
             return
 
         trainDatasetReader = TokenLabelReader(args.train, args.token_label_separator)
@@ -235,9 +314,9 @@ def mainWnn(args):
     ################################################
     # Starting training
     ###########################################
-    if args.load_model:
-        persistentManager = H5py(args.load_model)
-        hiddenActFunctionName = persistentManager["hidden_activation_function"]
+
+    if withCharWNN and (useSuffixFeatures or useCapFeatures):
+        raise Exception("It's impossible to use hand-crafted features with Charwnn.")
 
     # Read word lexicon and create word embeddings
     if args.load_model:
@@ -269,6 +348,36 @@ def mainWnn(args):
         else:
             log.error("You need to set one of these parameters: load_model or char_lexicon")
             return
+    else:
+        # Read suffix lexicon if suffix size is greater than 0
+        if useSuffixFeatures:
+            if args.load_model:
+                suffixLexicon = Lexicon.fromPersistentManager(persistentManager, "suffix_lexicon")
+                vectors = EmbeddingConvolutionalLayer.getEmbeddingFromPersistenceManager(persistentManager,
+                                                                                         "suffix_embedding")
+
+                suffixEmbedding = Embedding(suffixLexicon, vectors)
+            elif args.char_lexicon:
+                suffixLexicon = Lexicon.fromTextFile(args.suffix_lexicon, "suffix_lexicon")
+                suffixEmbedding = Embedding(suffixLexicon, vectors=None, embeddingSize=suffixEmbSize)
+            else:
+                log.error("You need to set one of these parameters: load_model or suffix_lexicon")
+                return
+
+        # Read capitalization lexicon
+        if useCapFeatures:
+            if args.load_model:
+                capLexicon = Lexicon.fromPersistentManager(persistentManager, "cap_lexicon")
+                vectors = EmbeddingConvolutionalLayer.getEmbeddingFromPersistenceManager(persistentManager,
+                                                                                         "cap_embedding")
+
+                capEmbedding = Embedding(capLexicon, vectors)
+            elif args.char_lexicon:
+                capLexicon = Lexicon.fromTextFile(args.cap_lexicon, "cap_lexicon")
+                capEmbedding = Embedding(capLexicon, vectors=None, embeddingSize=capEmbSize)
+            else:
+                log.error("You need to set one of these parameters: load_model or cap_lexicon")
+                return
 
     # Read labels
     if args.load_model:
@@ -307,6 +416,7 @@ def mainWnn(args):
         flatten = FlattenLayer(wordEmbeddingLayer)
 
         if withCharWNN:
+            # Use the convolution
             log.info("Using charwnn")
             convSize = args.conv_size
 
@@ -321,13 +431,46 @@ def mainWnn(args):
             charEmbeddingConvLayer = EmbeddingConvolutionalLayer(charWindowIdxs, charEmbedding.getEmbeddingMatrix(),
                                                                  numMaxChar, convSize, charWindowSize,
                                                                  charEmbeddingSize, charAct,
-                                                                    name="char_convolution_layer")
+                                                                 name="char_convolution_layer")
             layerBeforeLinear = ConcatenateLayer([flatten, charEmbeddingConvLayer])
             sizeLayerBeforeLinear = wordWindowSize * (wordEmbedding.getEmbeddingSize() + convSize)
+        elif useSuffixFeatures or useCapFeatures:
+            # Use hand-crafted features
+            concatenateInputs = [flatten]
+            nmFetauresByWord = wordEmbedding.getEmbeddingSize()
+
+            if useSuffixFeatures:
+                log.info("Using suffix features")
+
+                suffixInput = T.lmatrix("suffix_input")
+                suffixEmbLayer = EmbeddingLayer(suffixInput, suffixEmbedding.getEmbeddingMatrix(),
+                                                name="suffix_embedding")
+                suffixFlatten = FlattenLayer(suffixEmbLayer)
+                concatenateInputs.append(suffixFlatten)
+
+                nmFetauresByWord += suffixEmbedding.getEmbeddingSize()
+                inputModel.append(suffixInput)
+
+            if useCapFeatures:
+                log.info("Using capitalization features")
+
+                capInput = T.lmatrix("capitalization_input")
+                capEmbLayer = EmbeddingLayer(capInput, capEmbedding.getEmbeddingMatrix(),
+                                             name="cap_embedding")
+                capFlatten = FlattenLayer(capEmbLayer)
+                concatenateInputs.append(capFlatten)
+
+                nmFetauresByWord += capEmbedding.getEmbeddingSize()
+                inputModel.append(capInput)
+
+            layerBeforeLinear = ConcatenateLayer(concatenateInputs)
+            sizeLayerBeforeLinear = wordWindowSize * nmFetauresByWord
         else:
+            # Use only the word embeddings
             layerBeforeLinear = flatten
             sizeLayerBeforeLinear = wordWindowSize * wordEmbedding.getEmbeddingSize()
 
+        # The rest of the NN
         hiddenActFunction = method_name(hiddenActFunctionName)
 
         weightInit = SigmoidGlorot() if hiddenActFunction == sigmoid else GlorotUniform()
@@ -341,21 +484,29 @@ def mainWnn(args):
         act2 = ActivationLayer(linear2, softmax)
         prediction = ArgmaxPrediction(1).predict(act2.getOutput())
 
+    # Load the model
     if args.load_model:
-        # Load the model
         alreadyLoaded = set([wordEmbeddingLayer])
 
         for o in (act2.getLayerSet() - alreadyLoaded):
             if o.getName():
                 persistentManager.load(o)
 
-    inputGenerators = [WordWindowGenerator(wordWindowSize, wordLexicon, filters, startSymbol, endSymbol)]
+    # Set the input and output
+    inputGenerators = [WordWindowGenerator(wordWindowSize, wordLexicon, wordFilters, startSymbol, endSymbol)]
 
     if withCharWNN:
         inputGenerators.append(
             CharacterWindowGenerator(charLexicon, numMaxChar, charWindowSize, wordWindowSize, artificialChar,
                                      startSymbolChar, startPaddingWrd=startSymbol, endPaddingWrd=endSymbol,
-                                     filters=filterCharwnn))
+                                     filters=charFilters))
+    else:
+        if useSuffixFeatures:
+            inputGenerators.append(
+                SuffixFeatureGenerator(args.suffix_size, wordWindowSize, suffixLexicon, suffixFilters))
+
+        if useCapFeatures:
+            inputGenerators.append(CapitalizationFeatureGenerator(wordWindowSize, capLexicon, capFilters))
 
     outputGenerator = LabelGenerator(labelLexicon)
 
@@ -426,11 +577,24 @@ def mainWnn(args):
             if withCharWNN:
                 objsToSave.append(charLexicon)
 
-            modelWriter = WNNModelWritter(savePath, objsToSave, hiddenActFunctionName)
-            callback.append(SaveModelCallback(modelWriter, "eval_acc", True))
+            if useSuffixFeatures:
+                objsToSave.append(suffixLexicon)
+
+            if useCapFeatures:
+                objsToSave.append(capLexicon)
+
+            modelWriter = WNNModelWritter(savePath, objsToSave, args, parametersToSaveOrLoad)
+
+            # Save the model with best acc in dev
+            if args.save_by_acc:
+                callback.append(SaveModelCallback(modelWriter, "eval_acc", True))
 
         log.info("Training")
         wnnModel.train(trainReader, numEpochs, devReader, callbacks=callback)
+
+        # Save the model at the end of training
+        if args.save_model and not args.save_by_acc:
+            modelWriter.save()
 
     # Testing
     if args.test:
@@ -440,6 +604,19 @@ def mainWnn(args):
 
         log.info("Testing")
         wnnModel.evaluate(testReader, True)
+
+
+def getFilters(param, log):
+    filters = []
+
+    for filterName in param:
+        moduleName, className = filterName.rsplit('.', 1)
+        log.info("Usando o filtro: " + moduleName + " " + className)
+
+        module_ = importlib.import_module(moduleName)
+        filters.append(getattr(module_, className)())
+
+    return filters
 
 
 def method_name(hiddenActFunction):

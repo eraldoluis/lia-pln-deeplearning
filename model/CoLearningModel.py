@@ -127,7 +127,7 @@ class CoLearningModel(Model):
     def getEvaluateFunction(self):
         return self.__evaluateFunction
 
-    def doEpoch(self, trainBatchGenerators, epoch, callbacks):
+    def doEpoch(self, trainIterator, epoch, callbacks):
         lr = []
 
         for optimizer in self.__optimizers:
@@ -135,7 +135,7 @@ class CoLearningModel(Model):
 
         self.log.info("Lr: %s" % str(lr))
 
-        trainBatchGeneratorsCp = list(trainBatchGenerators)
+        trainBatchGeneratorsCp = list(trainIterator)
         t = {}
 
         if epoch < self.__lossUnsupervisedEpoch:

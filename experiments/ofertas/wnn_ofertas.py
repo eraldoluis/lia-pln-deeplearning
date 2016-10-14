@@ -418,8 +418,7 @@ def main(args):
     # outLabel.tag.test_value = ex[1][0]
 
     # Lookup table.
-    embeddingLayer = EmbeddingLayer(inWords,
-                                    wordEmbedding.getEmbeddingMatrix())
+    embeddingLayer = EmbeddingLayer(inWords, wordEmbedding.getEmbeddingMatrix())
 
     # A saída da lookup table possui 3 dimensões (numTokens, szWindow, szEmbedding).
     # Esta camada dá um flat nas duas últimas dimensões, produzindo uma saída
@@ -489,23 +488,36 @@ def main(args):
     #         loss += _lambda * (T.sum(T.square(hiddenLinear.getParameters()[0])))
 
     # Train metrics.
-    trainMetrics = [
-        LossMetric("TrainLoss", loss),
-        AccuracyMetric("TrainAccuracy", outLabel, prediction)
-    ]
+    trainMetrics = None
+    if trainIterator:
+        trainMetrics = [
+            LossMetric("TrainLoss", loss),
+            AccuracyMetric("TrainAccuracy", outLabel, prediction)
+        ]
 
     # Evaluation metrics.
-    evalMetrics = [
-        LossMetric("EvalLoss", loss),
-        AccuracyMetric("EvalAccuracy", outLabel, prediction),
-        FMetric("EvalFMetric", outLabel, prediction)
-    ]
+    evalMetrics = None
+    if devIterator:
+        evalMetrics = [
+            LossMetric("EvalLoss", loss),
+            AccuracyMetric("EvalAccuracy", outLabel, prediction),
+            FMetric("EvalFMetric", outLabel, prediction)
+        ]
+
+    # Test metrics.
+    testMetrics = None
+    if args.test:
+        testMetrics = [
+            LossMetric("TestLoss", loss),
+            AccuracyMetric("TestAccuracy", outLabel, prediction),
+            FMetric("TestFMetric", outLabel, prediction)
+        ]
 
     # TODO: debug
     # mode = theano.compile.debugmode.DebugMode(optimizer=None)
     mode = None
     model = Model(x=[inWords], y=[outLabel], allLayers=softmaxAct.getLayerSet(), optimizer=opt, prediction=prediction,
-                  loss=loss, trainMetrics=trainMetrics, evalMetrics=evalMetrics, mode=mode)
+                  loss=loss, trainMetrics=trainMetrics, evalMetrics=evalMetrics, testMetrics=testMetrics, mode=mode)
 
     # Training
     if trainIterator:
@@ -533,7 +545,7 @@ def main(args):
                                          shuffle=False)
 
         log.info("Testing")
-        model.evaluate(testIterator, -1, -1)
+        model.test(testIterator)
 
 
 def method_name(hiddenActFunction):

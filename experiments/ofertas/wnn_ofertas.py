@@ -11,6 +11,7 @@ import os
 import random
 import sys
 import time
+from logging import Formatter
 from time import time
 
 import theano.tensor as T
@@ -240,8 +241,6 @@ class TextLabelGenerator(FeatureGenerator):
 
 def main(args):
     log = logging.getLogger(__name__)
-
-    log.info(args)
 
     if args.seed:
         random.seed(args.seed)
@@ -550,7 +549,10 @@ if __name__ == '__main__':
     full_path = os.path.realpath(__file__)
     path, filename = os.path.split(full_path)
 
-    logging.config.fileConfig(os.path.join(path, 'logging.conf'))
+    logging.config.fileConfig(os.path.join(path, 'logging.conf'), defaults={})
 
-    args = dict2obj(JsonArgParser(PARAMETERS).parse(sys.argv[1]), 'OfertaArguments')
+    argsDict = JsonArgParser(PARAMETERS).parse(sys.argv[1])
+    args = dict2obj(argsDict, 'OfertaArguments')
+    logging.getLogger(__name__).info(argsDict)
+
     main(args)

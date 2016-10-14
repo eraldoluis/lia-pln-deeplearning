@@ -191,27 +191,27 @@ class Model(object):
 
             # Dump training metrics results.
             for m in self.__trainMetrics:
-                log.info(json.dumps({
+                log.info({
                     "type": "metric",
                     "subtype": "evaluation",
                     "epoch": epoch,
                     "iteration": iteration,
                     "name": m.getName(),
                     "values": m.getValues()
-                }))
+                })
 
             # Evaluate model after each epoch.
             if devBatchIterator and not evalPerIteration:
                 self.evaluate(devBatchIterator, epoch, iteration)
 
             # Dump training duration.
-            log.info(json.dumps({
+            log.info({
                 "type": "duration",
                 "subtype": "evaluation",
                 "epoch": epoch,
                 "iteration": iteration,
                 "duration": trainingDuration
-            }))
+            })
 
             # Callbacks.
             for cb in callbacks:
@@ -223,11 +223,11 @@ class Model(object):
     def doEpoch(self, trainBatchGenerators, epoch, iteration, devBatchIterator, evalPerIteration, callbacks):
         lr = self.__optimizer.getInputValues(epoch)
 
-        self.log.info(json.dumps({
+        self.log.info({
             "epoch": epoch,
             "iteration": iteration,
             "learn_rate": lr
-        }))
+        })
 
         for x, y in trainBatchGenerators:
             iteration += 1
@@ -323,20 +323,20 @@ class Model(object):
 
         # Dump metrics results.
         for m in evalMetrics:
-            log.info(json.dumps({
+            log.info({
                 "type": "metric",
                 "subtype": "evaluation",
                 "epoch": epoch,
                 "iteration": iteration,
                 "name": m.getName(),
                 "values": m.getValues()
-            }))
+            })
 
         # Dump evaluation duration.
-        log.info(json.dumps({
+        log.info({
             "type": "duration",
             "subtype": "evaluation",
             "epoch": epoch,
             "iteration": iteration,
             "duration": duration
-        }))
+        })

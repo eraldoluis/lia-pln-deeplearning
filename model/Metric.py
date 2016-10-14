@@ -108,13 +108,14 @@ class FMetric(Metric):
     Compute precision and recall values for each class and summarize them using (macro and micro) F-measure.
     """
 
-    def __init__(self, name, correct, prediction, beta=1.0):
+    def __init__(self, name, correct, prediction, labels=None, beta=1.0):
         """
         Create a F-measure metric object. It needs two variables: the correct and the predicted tensors. These can be
         1-D arrays (in case of (mini-) batch processing) or scalars (in case of online training).
 
         :param correct: tensor variable representing the correct outputs.
         :param prediction: tensor variable representing the predicted outputs.
+        :param labels: list of labels. When not given, it is assumed to be the list of seen labels.
         :param beta: F-measure parameter that balances between precision (values lower than one) and recall (values
             higher than one).
         """
@@ -124,6 +125,10 @@ class FMetric(Metric):
         # Required values to compute this metric (correct and predicted labels).
         self.__correct = correct
         self.__prediction = prediction
+
+        # List of labels.
+        self.__labels = labels
+
         # F-measure beta argument.
         self.beta = beta
 
@@ -139,6 +144,12 @@ class FMetric(Metric):
         self.fp = {}
         # False negative counts (per label).
         self.fn = {}
+
+        if self.__labels:
+            for l in self.__labels:
+                self.tp[l] = 0
+                self.fp[l] = 0
+                self.fn[l] = 0
 
     def getRequiredVariables(self):
         return [self.__correct, self.__prediction]

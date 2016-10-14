@@ -501,7 +501,7 @@ def main(args):
         evalMetrics = [
             LossMetric("EvalLoss", loss),
             AccuracyMetric("EvalAccuracy", outLabel, prediction),
-            FMetric("EvalFMetric", outLabel, prediction)
+            FMetric("EvalFMetric", outLabel, prediction, labels=labelLexicon.getLexiconDict().values())
         ]
 
     # Test metrics.
@@ -510,7 +510,7 @@ def main(args):
         testMetrics = [
             LossMetric("TestLoss", loss),
             AccuracyMetric("TestAccuracy", outLabel, prediction),
-            FMetric("TestFMetric", outLabel, prediction)
+            FMetric("TestFMetric", outLabel, prediction, labels=labelLexicon.getLexiconDict().values())
         ]
 
     # TODO: debug

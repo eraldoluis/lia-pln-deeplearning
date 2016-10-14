@@ -136,7 +136,7 @@ class Model(object):
         self.callBatchEnd = False
 
     def prediction(self, inputs):
-        return self.getPredictionFunction()(*inputs)
+        return self.__predictionFunction(*inputs)
 
     def callbackBatchBegin(self, inputs, callbacks):
         for cb in callbacks:

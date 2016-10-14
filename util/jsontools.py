@@ -34,6 +34,10 @@ class JsonLogFormatter(Formatter):
     """
 
     def __init__(self, fmt=None, datefmt=None):
+        if not fmt:
+            fmt = '{"timestamp": "%(asctime)s", "module": "%(name)s", "level": "%(levelname)s", "message": %(message)s}'
+        if not datefmt:
+            datefmt = '%Y/%m/%d %H:%M:%S'
         super(JsonLogFormatter, self).__init__(fmt, datefmt)
 
     def format(self, record):

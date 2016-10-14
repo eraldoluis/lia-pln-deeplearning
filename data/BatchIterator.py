@@ -42,14 +42,12 @@ class BatchAssembler:
         :return: yield-based generator that generates training batches from the data set.
         """
         inputs = [[] for _ in xrange(len(self.__inputGenerators))]
-        generatedOutputs = None
-        nmExamples = 0
-
         if self.__outputGenerators:
             outputs = [[] for _ in xrange(len(self.__outputGenerators))]
         else:
             outputs = []
 
+        nmExamples = 0
         for attributes, label in self.__reader.read():
             generatedInputs = []
             generatedOutputs = []
@@ -84,10 +82,7 @@ class BatchAssembler:
 
             else:
                 # Batch don't have fixed size
-                inputs = generatedInputs
-                outputs = generatedOutputs
-
-                yield self.__formatToNumpy(inputs, outputs)
+                yield self.__formatToNumpy(generatedInputs, generatedOutputs)
 
         # The remaining batches are returned
         if len(inputs[0]):

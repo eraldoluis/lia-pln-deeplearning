@@ -12,7 +12,6 @@ import random
 import sys
 import time
 from time import time
-import theano
 
 import theano.tensor as T
 from data.BatchIterator import SyncBatchIterator, AsyncBatchIterator
@@ -24,7 +23,8 @@ from data.DatasetReader import DatasetReader
 from data.Embedding import EmbeddingFactory, RandomUnknownStrategy, ChosenUnknownStrategy, \
     RandomEmbedding
 from data.Lexicon import Lexicon, createLexiconUsingFile, HashLexicon
-from model.BasicModel import BasicModel
+from model.Model import Model
+
 from model.Objective import NegativeLogLikelihoodOneExample
 from model.Prediction import ArgmaxPrediction
 from model.SaveModelCallback import ModelWriter, SaveModelCallback
@@ -37,6 +37,7 @@ from nnet.WeightGenerator import ZeroWeightGenerator, GlorotUniform, SigmoidGlor
 from optim.Adagrad import Adagrad
 from optim.SGD import SGD
 from util.jsontools import dict2obj
+from model.Metric import LossMetric, AccuracyMetric, FMetric
 
 PARAMETERS = {
     "filters": {"default": ['data.Filters.TransformLowerCaseFilter',
@@ -341,19 +342,19 @@ def main(args):
         trainDatasetReader = OfertasReader(args.train)
         if args.load_method == "sync":
             trainIterator = SyncBatchIterator(trainDatasetReader,
-                                            [wordWindowFeatureGenerator],
-                                            [labelGenerator],
-                                            - 1,
-                                            shuffle=shuffle)
+                                              [wordWindowFeatureGenerator],
+                                              [labelGenerator],
+                                              - 1,
+                                              shuffle=shuffle)
         elif args.load_method == "async":
             trainIterator = AsyncBatchIterator(trainDatasetReader,
-                                             [wordWindowFeatureGenerator],
-                                             [labelGenerator],
-                                             - 1,
-                                             shuffle=shuffle,
-                                             maxqSize=1000)
+                                               [wordWindowFeatureGenerator],
+                                               [labelGenerator],
+                                               - 1,
+                                               shuffle=shuffle,
+                                               maxqSize=1000)
         else:
-            log.error("The option 'load_method' has an invalid value (%s)." % args.load_method)
+            log.error("The argument 'load_method' has an invalid value: %s." % args.load_method)
             sys.exit(1)
 
         wordEmbedding.stopAdd()
@@ -480,7 +481,7 @@ def main(args):
     log.info("Embedding size: %d" % embeddingSize)
     log.info("Number of categories: %d" % labelLexicon.getLen())
 
-    # Compiling
+    # Loss function.
     loss = NegativeLogLikelihoodOneExample().calculateError(softmaxAct.getOutput()[0], prediction, outLabel)
 
     #     if kwargs["lambda"]:
@@ -488,11 +489,24 @@ def main(args):
     #         log.info("Using L2 with lambda= %.2f", _lambda)
     #         loss += _lambda * (T.sum(T.square(hiddenLinear.getParameters()[0])))
 
+    # Train metrics.
+    trainMetrics = [
+        LossMetric("TrainLoss", loss),
+        AccuracyMetric("TrainAccuracy", outLabel, prediction)
+    ]
+
+    # Evaluation metrics.
+    evalMetrics = [
+        LossMetric("EvalLoss", loss),
+        AccuracyMetric("EvalAccuracy", outLabel, prediction),
+        FMetric("EvalFMetric", outLabel, prediction)
+    ]
+
     # TODO: debug
     # mode = theano.compile.debugmode.DebugMode(optimizer=None)
     mode = None
-    model = BasicModel([inWords], [outLabel], evalPerIteration=evalPerIteration, devBatchIterator=devIterator, mode=mode)
-    model.compile(softmaxAct.getLayerSet(), opt, prediction, loss, ["loss", "acc"])
+    model = Model(x=[inWords], y=[outLabel], allLayers=softmaxAct.getLayerSet(), optimizer=opt, prediction=prediction,
+                  loss=loss, trainMetrics=trainMetrics, evalMetrics=evalMetrics, mode=mode)
 
     # Training
     if trainIterator:
@@ -507,7 +521,7 @@ def main(args):
             callback.append(SaveModelCallback(modelWriter, "eval_acc", True))
 
         log.info("Training")
-        model.train(trainIterator, numEpochs, devIterator, callbacks=callback)
+        model.train(trainIterator, numEpochs, devIterator, evalPerIteration=evalPerIteration, callbacks=callback)
 
     # Testing
     if args.test:
@@ -520,7 +534,7 @@ def main(args):
                                          shuffle=False)
 
         log.info("Testing")
-        model.evaluate(testIterator, True)
+        model.evaluate(testIterator, -1, -1)
 
 
 def method_name(hiddenActFunction):

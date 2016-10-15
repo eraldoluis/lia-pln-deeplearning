@@ -14,6 +14,9 @@ import sys
 from codecs import open
 
 
+# Input file includes a header?
+hasHeader = False
+
 def docsFile2Dir(inputFilename, testIndicesFilename):
     print 'Reading test indices...'
     testIndicesFile = open(testIndicesFilename, 'r', 'utf8')
@@ -25,15 +28,19 @@ def docsFile2Dir(inputFilename, testIndicesFilename):
 
     # Open input dataset file.
     inFile = open(inputFilename, 'r', 'utf8')
-    header = inFile.readline()
+
+    # Read header.
+    if hasHeader:
+        header = inFile.readline()
 
     # Output files: train and test.
     fTrain = open(inputFilename + '.train', 'w', 'utf8')
     fTest = open(inputFilename + '.test', 'w', 'utf8')
 
-    # Write header.    
-    fTrain.write(header)
-    fTest.write(header)
+    # Write header.
+    if hasHeader:
+        fTrain.write(header)
+        fTest.write(header)
 
     idx = 0
     numTestExs = 0
@@ -47,7 +54,14 @@ def docsFile2Dir(inputFilename, testIndicesFilename):
             numTrainExs += 1
         idx += 1
 
-    print '# input examples:', idx
+    numExs = idx
+
+    # Verify range of test indices.
+    for idx in testIndices:
+        if idx < 0 or idx >= numExs:
+            print "Error! Index %d is invalid!" % idx
+
+    print '# input examples:', numExs
     print '# test  examples:', numTestExs
     print '# train examples:', numTrainExs
 
@@ -60,7 +74,7 @@ def docsFile2Dir(inputFilename, testIndicesFilename):
 
 
 if __name__ == '__main__':
-    if len(sys.argv) < 3:
+    if len(sys.argv) != 3:
         sys.stderr.write('Erro de sintaxe. Sintaxe esperada:\n')
         sys.stderr.write('\t<dataset de entrada> <arquivo de indices do teste>\n')
         sys.exit(1)

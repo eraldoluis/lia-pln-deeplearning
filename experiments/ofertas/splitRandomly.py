@@ -15,10 +15,16 @@ import sys
 from codecs import open
 
 
+# Input file includes a header?
+hasHeader = False
+
 def docsFile2Dir(inputFilename, devProb, suffix):
     # Open input dataset file.
     inFile = open(inputFilename, "r", "utf8")
-    header = inFile.readline()
+
+    # Read header.
+    if hasHeader:
+        header = inFile.readline()
 
     # Output files: train and test.
     fTrain = open(inputFilename + suffix + ".train", "w", "utf8")
@@ -28,8 +34,9 @@ def docsFile2Dir(inputFilename, devProb, suffix):
     print "Dev.  file:", fDev.name
 
     # Write header.
-    fTrain.write(header)
-    fDev.write(header)
+    if hasHeader:
+        fTrain.write(header)
+        fDev.write(header)
 
     sys.stdout.write("Generating")
     numExs = 0

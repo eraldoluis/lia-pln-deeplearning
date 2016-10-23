@@ -94,7 +94,7 @@ class EmbeddingConvolutionalLayer(Layer):
         else:
             layerBeforePolling = self.__linearLayer
 
-        # 3-D tensor with shape (numExs * szWrdWin, numMaxCh, numChFltrs).
+        # 3-D tensor with shape (numExs * szWrdWin, numMaxCh, convSize).
         # This tensor is used to perform the max pooling along its 2nd dimension.
         o = ReshapeLayer(layerBeforePolling, (numExs * szWrdWin, numMaxCh, convSize))
 
@@ -102,7 +102,7 @@ class EmbeddingConvolutionalLayer(Layer):
         # The shape of the output is equal to (numExs*szWrdWin, convSize).
         m = T.max(o.getOutput(), axis=1)
 
-        # The output is a 2-D tensor with shape (numExs, szWrdWin * numChFltrs).
+        # The output is a 2-D tensor with shape (numExs, szWrdWin * convSize).
         self.__output = m.reshape((numExs, szWrdWin * convSize))
 
     def updateAllCharIndexes(self, charIdxWord):

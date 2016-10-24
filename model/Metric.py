@@ -8,8 +8,8 @@ import theano.tensor as T
 class Metric(object):
     """
     A metric specifies some tensors (Theano's variables) to be watched. The update method is called for every batch
-    seen during training or for every validation batch (usually the whole dataset, in this case). The metric must keep
-    track of how many examples have been seen in order to compute necessary averages or any more complex value.
+    seen during training or for every validation batch. The metric must keep track of how many examples have been seen
+    in order to compute necessary averages or any more complex value.
     """
 
     def __init__(self, name):

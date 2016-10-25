@@ -89,6 +89,11 @@ PARAMETERS = {
         "desc": "A dictionary (or @filename where filename is the name of a file containing a dictionary)" +
                 " of probabilities containing an entry for each label." +
                 " Each example is then weighted by the inverse of its label probability."},
+    "labels_weights_log": {
+        "desc": "Use the log of the inverse probabilities as label weights." +
+                "This has the effect of attenuating highly unbalanced distributions.",
+        "default": False
+    },
     "hash_lex_size": {"desc": "Activate the hash lexicon by specifying the hash table size."}
 }
 
@@ -486,9 +491,17 @@ def main(args):
         else:
             # The argument value is already a JSON.
             labelDistribution = json.loads(args.labels_probs)
+
         for k, v in labelDistribution.items():
             # The weight of a class is inversely-proportional to its frequency.
             labelWeights[labelLexicon.getLexiconIndex(k)] = 1.0 / v
+
+        if args.labels_weights_log:
+            # Attenuate weights for highly unbalanced classes.
+            labelWeights = np.log(labelWeights)
+
+        log.info("Label weights: " + str(labelWeights))
+
 
     # Loss function.
     loss = NegativeLogLikelihoodOneExample(labelWeights).calculateError(softmaxAct.getOutput()[0], prediction, outLabel)

@@ -131,7 +131,7 @@ class EmbeddingConvolutionalLayer(Layer):
         # The shape of the output is equal to (numExs*szWrdWin, convSize).
         m = T.max(o.getOutput(), axis=1)
 
-        # The output is a 2-D tensor with shape (numExs, szWrdWin * numChFltrs).
+        # The output is a 2-D tensor with shape (numExs, szWrdWin * convSize).
         self.__output = m.reshape((numExs, szWrdWin * convSize))
 
     def updateAllCharIndexes(self, charIdxWord):

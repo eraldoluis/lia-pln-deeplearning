@@ -1,5 +1,6 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
+import codecs
 import importlib
 import json
 import logging
@@ -55,9 +56,9 @@ WNN_PARAMETERS = {
                     "desc": "a list which contains the filters that will be used to process the capitalization. "
                             "These filters will be applied in tokens and after that the program will get capitalization of each token."
                             "Each filter is describe by your module name + . + class name"},
-    "charwnn_filters": {"default": [], "desc": "list contains the filters that will be used in character embedding. "
-                                               "These filters will be applied in tokens and after that the program will get the characters of each token ."
-                                               "Each filter is describe by your module name + . + class name"},
+    "char_filters": {"default": [], "desc": "list contains the filters that will be used in character embedding. "
+                                            "These filters will be applied in tokens and after that the program will get the characters of each token ."
+                                            "Each filter is describe by your module name + . + class name"},
 
     # Lexicons
     'cap_lexicon': {"desc": "Lexicon with 5 types of capitalization"},
@@ -103,6 +104,7 @@ WNN_PARAMETERS = {
     "word_emb_size": {"default": 100, "desc": "size of word embedding"},
     "word_embedding": {"desc": "word embedding File Path"},
     "word_window_size": {"default": 5, "desc": "The size of words for the wordsWindow"},
+    "with_hidden": {"default": True , "desc": "If this parameter is False, so the hidden before the softmax layer is removed from NN."},
 
     # Charwnn parameters
     "with_charwnn": {"default": False, "desc": "Enable or disable the charwnn of the model"},
@@ -123,6 +125,7 @@ WNN_PARAMETERS = {
     "start_symbol": {"default": "</s>", "desc": "Object that will be place when the initial limit of list is exceeded"},
     "end_symbol": {"default": "</s>", "desc": "Object that will be place when the end limit of list is exceeded"},
     "seed": {"desc": ""},
+    "print_prediction": {"desc": "file where the prediction will be writed."}
 }
 
 
@@ -168,19 +171,23 @@ def mainWnn(args):
         random.seed(args.seed)
         np.random.seed(args.seed)
 
-    parametersToSaveOrLoad = {"word_filters", "suffix_filters", "charwnn_filters", "cap_filters",
-                              "alg", "hidden_activation_function", "word_window_size",
-                              "with_charwnn", "conv_size", "charwnn_with_act", "suffix_size", "use_capitalization",
-                              "start_symbol", "end_symbol"}
+    parametersToSaveOrLoad = {"word_filters", "suffix_filters", "char_filters", "cap_filters",
+                              "alg", "hidden_activation_function", "word_window_size", "char_window_size",
+                              "hidden_size", "with_charwnn", "conv_size", "charwnn_with_act", "suffix_size",
+                              "use_capitalization", "start_symbol", "end_symbol","with_hidden"}
 
     # Load parameters of the saving model
     if args.load_model:
         persistentManager = H5py(args.load_model)
         savedParameters = json.loads(persistentManager.getAttribute("parameters"))
 
+        if savedParameters.get("charwnn_filters", None) != None:
+            savedParameters["char_filters"] = savedParameters["charwnn_filters"]
+            savedParameters.pop("charwnn_filters")
+            print savedParameters
+
         log.info("Loading parameters of the model")
         args = args._replace(**savedParameters)
-
 
     log.info(args)
 
@@ -230,7 +237,7 @@ def mainWnn(args):
 
     # Lendo Filtros do charwnn
     log.info("Lendo filtros do charwnn")
-    charFilters = getFilters(args.charwnn_filters, log)
+    charFilters = getFilters(args.char_filters, log)
 
     # Lendo Filtros do suffix
     log.info("Lendo filtros do sufixo")
@@ -357,7 +364,7 @@ def mainWnn(args):
                                                                                          "suffix_embedding")
 
                 suffixEmbedding = Embedding(suffixLexicon, vectors)
-            elif args.char_lexicon:
+            elif args.suffix_lexicon:
                 suffixLexicon = Lexicon.fromTextFile(args.suffix_lexicon, "suffix_lexicon")
                 suffixEmbedding = Embedding(suffixLexicon, vectors=None, embeddingSize=suffixEmbSize)
             else:
@@ -372,7 +379,7 @@ def mainWnn(args):
                                                                                          "cap_embedding")
 
                 capEmbedding = Embedding(capLexicon, vectors)
-            elif args.char_lexicon:
+            elif args.cap_lexicon:
                 capLexicon = Lexicon.fromTextFile(args.cap_lexicon, "cap_lexicon")
                 capEmbedding = Embedding(capLexicon, vectors=None, embeddingSize=capEmbSize)
             else:
@@ -471,15 +478,22 @@ def mainWnn(args):
             sizeLayerBeforeLinear = wordWindowSize * wordEmbedding.getEmbeddingSize()
 
         # The rest of the NN
-        hiddenActFunction = method_name(hiddenActFunctionName)
+        if args.with_hidden:
+            hiddenActFunction = method_name(hiddenActFunctionName)
+            weightInit = SigmoidGlorot() if hiddenActFunction == sigmoid else GlorotUniform()
 
-        weightInit = SigmoidGlorot() if hiddenActFunction == sigmoid else GlorotUniform()
+            linear1 = LinearLayer(layerBeforeLinear, sizeLayerBeforeLinear, hiddenLayerSize,
+                                  weightInitialization=weightInit, name="linear1")
+            act1 = ActivationLayer(linear1, hiddenActFunction)
 
-        linear1 = LinearLayer(layerBeforeLinear, sizeLayerBeforeLinear, hiddenLayerSize,
-                              weightInitialization=weightInit, name="linear1")
-        act1 = ActivationLayer(linear1, hiddenActFunction)
+            layerBeforeSoftmax = act1
+            sizeLayerBeforeSoftmax = hiddenLayerSize
+        else:
+            layerBeforeSoftmax = layerBeforeLinear
+            sizeLayerBeforeSoftmax = sizeLayerBeforeLinear
 
-        linear2 = LinearLayer(act1, hiddenLayerSize, labelLexicon.getLen(), weightInitialization=ZeroWeightGenerator(),
+
+        linear2 = LinearLayer(layerBeforeSoftmax, sizeLayerBeforeSoftmax, labelLexicon.getLen(), weightInitialization=ZeroWeightGenerator(),
                               name="linear_softmax")
         act2 = ActivationLayer(linear2, softmax)
         prediction = ArgmaxPrediction(1).predict(act2.getOutput())
@@ -554,6 +568,14 @@ def mainWnn(args):
         log.info("Size of  char dictionary and char embedding size: %d and %d" % (
             charEmbedding.getNumberOfVectors(), charEmbedding.getEmbeddingSize()))
 
+    if useSuffixFeatures:
+        log.info("Size of  suffix dictionary and suffix embedding size: %d and %d" % (
+            suffixEmbedding.getNumberOfVectors(), suffixEmbedding.getEmbeddingSize()))
+
+    if useCapFeatures:
+        log.info("Size of  capitalization dictionary and capitalization embedding size: %d and %d" % (
+            capEmbedding.getNumberOfVectors(), capEmbedding.getEmbeddingSize()))
+
     # Compiling
     loss = NegativeLogLikelihood().calculateError(act2.getOutput(), prediction, y)
 
@@ -600,10 +622,22 @@ def mainWnn(args):
     if args.test:
         log.info("Reading test examples")
         testDatasetReader = TokenLabelReader(args.test, args.token_label_separator)
-        testReader = SyncBatchIterator(testDatasetReader, [inputGenerators], outputGenerator, batchSize, shuffle=False)
+        testReader = SyncBatchIterator(testDatasetReader, inputGenerators, [outputGenerator], sys.maxint, shuffle=False)
 
         log.info("Testing")
         wnnModel.evaluate(testReader, True)
+
+        if args.print_prediction:
+            f = codecs.open(args.print_prediction, "w", encoding="utf-8")
+
+            for x, labels in testReader:
+                inputs = x
+
+                predictions = wnnModel.prediction(inputs)
+
+                for prediction in predictions:
+                    f.write(labelLexicon.getLexicon(prediction))
+                    f.write("\n")
 
 
 def getFilters(param, log):

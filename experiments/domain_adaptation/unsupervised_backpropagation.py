@@ -21,6 +21,7 @@ from data.Lexicon import createLexiconUsingFile, Lexicon
 from data.TokenDatasetReader import TokenLabelReader, TokenReader
 from model.Callback import Callback
 from model.GradientReversalModel import GradientReversalModel
+from model.Metric import LossMetric, AccuracyMetric
 from model.Objective import NegativeLogLikelihood
 from model.Prediction import ArgmaxPrediction
 from nnet.ActivationLayer import ActivationLayer, softmax, tanh, sigmoid
@@ -45,7 +46,7 @@ UNSUPERVISED_BACKPROPAGATION_PARAMETERS = {
     # "lambda": {"desc": "", "required": True},
 
     "alpha": {"desc": "", "required": True},
-    "height": {"default": 1 ,"desc": "", "required": False},
+    "height": {"default": 1, "desc": "", "required": False},
     "train_source": {"desc": "Supervised Training File Path"},
     "train_target": {"desc": "Unsupervised Training File Path"},
     "num_epochs": {"desc": "Number of epochs: how many iterations over the training set."},
@@ -116,7 +117,7 @@ class AdditionalDevDataset(Callback):
         self.log.info("Reading additional dev examples")
         devDatasetReader = TokenLabelReader(sourceDataset, tokenLabelSeparator)
         devReader = SyncBatchIterator(devDatasetReader, inputGenerator, [outputGeneratorTag], sys.maxint,
-                                  shuffle=False)
+                                      shuffle=False)
 
         self.devReader = devReader
         self.model = model
@@ -215,16 +216,16 @@ def main(**kwargs):
     # Reading supervised and unsupervised data sets.
     trainSupervisedDatasetReader = TokenLabelReader(kwargs["train_source"], kwargs["token_label_separator"])
     trainSupervisedBatch = SyncBatchIterator(trainSupervisedDatasetReader, inputGenerators,
-                                         [outputGeneratorTag, unsupervisedLabelSource], batchSize[0],
-                                         shuffle=shuffle)
+                                             [outputGeneratorTag, unsupervisedLabelSource], batchSize[0],
+                                             shuffle=shuffle)
 
     # Get Unsupervised Input
     unsupervisedLabelTarget = ConstantLabel(domainLexicon, "1")
 
     trainUnsupervisedDatasetReader = TokenReader(kwargs["train_target"])
     trainUnsupervisedDatasetBatch = SyncBatchIterator(trainUnsupervisedDatasetReader,
-                                                  inputGenerators,
-                                                  [unsupervisedLabelTarget], batchSize[1], shuffle=shuffle)
+                                                      inputGenerators,
+                                                      [unsupervisedLabelTarget], batchSize[1], shuffle=shuffle)
 
     # Stopping to add new words, labels and chars
     wordEmbedding.stopAdd()
@@ -241,8 +242,7 @@ def main(**kwargs):
     log.info("Size of  char dictionary and char embedding size: %d and %d" % (
         charEmbedding.getNumberOfVectors(), charEmbedding.getEmbeddingSize()))
 
-
-    #Word Embedding Normalization
+    # Word Embedding Normalization
     if normalization == "zscore":
         wordEmbedding.zscoreNormalization()
     elif normalization == "minmax":
@@ -415,8 +415,6 @@ def main(**kwargs):
                                                                     unsupervisedLabelTarget)
 
     # Creates model
-    model = GradientReversalModel(sourceInput, targetInput, supervisedLabel, unsupervisedLabelSource,
-                                  unsupervisedLabelTarget)
 
     if useAdagrad:
         log.info("Using ADAGRAD")
@@ -429,14 +427,36 @@ def main(**kwargs):
     allLayersTarget = unsupervisedTargetSoftmax.getLayerSet()
     unsupervisedLossTarget *= float(trainSupervisedBatch.size()) / trainUnsupervisedDatasetBatch.size()
 
-    model.compile(allLayersSource, allLayersTarget, opt, supervisedPrediction, unsupervisedPredSource,
-                  unsupervisedPredTarget, supervisedLoss, unsupervisedLossSource, unsupervisedLossTarget)
+    supervisedTrainMetrics = [
+        LossMetric("TrainSupervisedLoss", supervisedLoss),
+        AccuracyMetric("TrainSupervisedAcc", supervisedLabel, supervisedPrediction),
+        LossMetric("TrainUnsupervisedLoss", unsupervisedLossSource),
+        AccuracyMetric("TrainUnsupervisedAccuracy", unsupervisedLabelSource, unsupervisedPredSource)
+    ]
+    unsupervisedTrainMetrics =[
+        LossMetric("TrainUnsupervisedLoss", unsupervisedLossTarget),
+        AccuracyMetric("TrainUnsupervisedAccuracy", unsupervisedLabelTarget, unsupervisedPredTarget)
+    ]
+
+    evalMetrics = [
+        AccuracyMetric("EvalAcc", supervisedLabel, supervisedPrediction)
+    ]
+
+    testMetrics = [ AccuracyMetric("TestAcc", supervisedLabel, supervisedPrediction)]
+
+    #TODO: Não tive tempo de testar o código depois das modificações
+    GradientReversalModel(sourceInput, targetInput, supervisedLabel, unsupervisedLabelSource, unsupervisedLabelTarget,
+                          allLayersSource, allLayersTarget, opt, supervisedPrediction, supervisedLoss,
+                          unsupervisedLossSource, unsupervisedLossTarget, supervisedTrainMetrics,
+                          unsupervisedTrainMetrics, evalMetrics, testMetrics,
+                          mode=None)
+
 
     # Get dev inputs and output
     log.info("Reading development examples")
     devDatasetReader = TokenLabelReader(kwargs["dev"], kwargs["token_label_separator"])
     devReader = SyncBatchIterator(devDatasetReader, inputGenerators, [outputGeneratorTag], sys.maxint,
-                              shuffle=False)
+                                  shuffle=False)
 
     callbacks = []
     # log.info("Usando lambda fixo: " + str(_lambda.get_value()))

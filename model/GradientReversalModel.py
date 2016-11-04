@@ -45,102 +45,155 @@ class ConcatenatorDataset(object):
 
 
 class GradientReversalModel(Model):
-    def __init__(self, sourceInput, targetInput, sourceSupLabel, sourceUnsLabel, targetLabel):
-        super(GradientReversalModel, self).__init__()
+    # TODO: Não tive tempo para testar o código com as modificações da métrica
+    """
+    Modelo baseado no trabalho Domain-Adversarial Training of Neural Networks.
+    Diferente do paper que treina o modelo usando mini-batch, nós treinamos a rede de forma estocástica.
+    Para isso, foi necessário criar duas entradas para a rede, sendo que a primeira recebe os exemplos do source e
+        a segunda recebe os exemplos do target.
+    Quando a rede recebe os exemplos do source, nós treinamos o classificador de domínios e o tagger ao mesmo tempo e
+        quando nós recebemos os exemplos do target, nós treinamos somente o classificador de domínios.
+    Devido a esta arquitetura e múltiplas saídas, foi necessário criar 3 saídas da rede: uma relacionada a saída do tagger
+        e duas relacionadas a saída do classificador de domínios quando recebem, respectivamente, os exemplos
+        do source e do target.
+    """
 
-        self.__trainingFuncs = []
+    def __init__(self, sourceInput, targetInput, sourceSupLabel, sourceUnsLabel, targetLabel, allLayersSource,
+                 allLayersTarget, optimizer, predictionSup, lossSup, lossUnsSource, lossUnsTarget,
+                 supervisedTrainMetrics=None, unsupervisedTrainMetrics=None, evalMetrics=None, testMetrics=None,
+                 mode=None):
+        """
+        :param sourceInput: list of tensors that represent the inputs from the source domain.
+
+        :param targetInput: list of tensors that represent the inputs from the target domain.
+
+        :param sourceSupLabel: list of tensor that represents the corrects annotated outputs from the source domain.
+
+        :param sourceUnsLabel: list of tensor that represents the corrects not annotated outputs from the source domain.
+
+        :param targetLabel:  list of tensor that represents the corrects not annotated outputs from the target domain.
+
+        :param allLayersSource: all model layers from the source
+
+        :param allLayersTarget: all model layers from the target
+
+        :param optimizer: Optimizer.Optimizer
+
+        :param predictionSup: It's the function which will responsible to predict labels
+
+        :param lossSup: It's function which calculates tagger loss
+
+        :param lossUnsSource: It's function which calculates domain classifier loss using examples from source
+
+        :param lossUnsTarget: It's function which calculates domain classifier loss using examples from target
+
+        :param supervisedTrainMetrics: list of Metric objects to be applied on the supervised training. Warning: metrics
+            with the same will be updates as if it were a single metric
+
+        :param unsupervisedTrainMetrics: list of Metric objects to be applied on the unsupervised training. Warning: metrics
+            with the same will be updates as if it were a single metric
+
+        :param evalMetrics: list of Metric objects to be applied on the evaluation dataset.
+
+        :param testMetrics: list of Metric objects to be applied on test datasets.
+
+        :param mode: compilation mode for Theano.
+        """
+
+        # Acurácia e a loss do classificador de domínios são calculadas tanto quando recebem os exemplos do source
+        # e os exemplos do target. Porém, devido a forma como é realizada o treinamento estas métricaS são calculadas
+        # usando variáveis diferentes para cada um dos tipos de exemplos. Atualmente, cada métrica somente esta ligada
+        # a um conjunto de variáveis e, se eu utilizasse esta implementação atual, o classificador de domínios teria uma
+        # loss e acurácia para os exemplos do source e outra para os exemplos do target.
+        # Para evitar isso, eu considerei que as métricas com nomes iguais calculam a mesma coisa e assim somente uma delas
+        # deve ser atualizada. Assim, a loss e acurácia do classificador de domínios são calculados usando uma mesma métrica
+        # e permite que cada métrica seja calculada usando variáveis do theano diferentes.
+        trainMetricsByName = {}
+
+        trainMetrics = []
+
+        if unsupervisedTrainMetrics is not None:
+            trainMetrics += unsupervisedTrainMetrics
+
+        if supervisedTrainMetrics is not None:
+            trainMetrics += set(supervisedTrainMetrics)
+
+        for m in trainMetrics:
+            trainMetricsByName[m.getName()] = m
+
+        evalInput = sourceInput + [sourceSupLabel]
+
+        super(GradientReversalModel, self).__init__(evalInput, evalInput, sourceInput, predictionSup, False,
+                                                    trainMetricsByName.values(), evalMetrics, testMetrics, mode)
 
         self.log = logging.getLogger(__name__)
-
-        self.__isY_ProducedByNN = False
-        self.trainingMetrics = [[], [], []]
-        self.evaluateMetrics = []
-
-        self.__sourceInput = sourceInput
-        self.__targetInput = targetInput
-
-        self.__sourceSupLabel = sourceSupLabel
-        self.__sourceUnsLabel = sourceUnsLabel
-        self.__targetLabel = targetLabel
-
-        self.evaluateFunction = None
-        self.__predictionFunction = None
-        self.__optimizer = None
-        self.__unsupervisedGenerator = None
-
-    def compile(self, allLayersSource, allLayersTarget, optimizer, predictionSup,
-                unsupervisedPredSource, unsupervisedPredTarget, lossSup, lossUnsSource, lossUnsTarget):
         self.__optimizer = optimizer
 
-        _outputSourceFuncTrain = []
-        _outputTargetFuncTrain = []
+        self.__trainFuncs = []
+        self.__trainingMetrics = []
 
-        # _outputSourceFuncTrain.append(loss)
-        # self.trainingMetrics.append(Metric("", "loss"))
+        optimizerInput = optimizer.getInputTensors()
 
-        lossUnsMetric = Metric("", "loss_unsup")
-        accUnsMetric = Metric("", "acc_unsup")
-
-        # Source Metrics
-        _outputSourceFuncTrain.append(lossSup)
-        self.trainingMetrics[0].append(Metric("", "loss_sup"))
-
-        _outputSourceFuncTrain.append(T.mean(T.eq(predictionSup, self.__sourceSupLabel)))
-        self.trainingMetrics[0].append(Metric("", "acc_sup"))
-
-        _outputSourceFuncTrain.append(lossUnsSource)
-        self.trainingMetrics[0].append(lossUnsMetric)
-
-        _outputSourceFuncTrain.append(T.mean(T.eq(unsupervisedPredSource, self.__sourceUnsLabel)))
-        self.trainingMetrics[0].append(accUnsMetric)
-
-        # Target metrics
-        _outputTargetFuncTrain.append(lossUnsTarget)
-        self.trainingMetrics[1].append(lossUnsMetric)
-
-        _outputTargetFuncTrain.append(T.mean(T.eq(unsupervisedPredTarget, self.__targetLabel)))
-        self.trainingMetrics[1].append(accUnsMetric)
-
-        # Eval metrics
-        _outputFuncEval = []
-
-        _outputFuncEval.append(T.mean(T.eq(predictionSup, self.__sourceSupLabel)))
-        self.evaluateMetrics.append(Metric("", "acc"))
-
-        # Removes not trainable layers from update and see if the output of the
         trainableSourceLayers = []
 
+        # Set the supervised part of the trainning
         for l in allLayersSource:
             if l.isTrainable():
                 trainableSourceLayers.append(l)
 
+        if supervisedTrainMetrics:
+
+            # List of inputs for training function.
+            sourceFuncInput = sourceInput + [sourceSupLabel, sourceUnsLabel] + optimizerInput
+
+            # Include the variables required by all training metrics in the output list of the training function.
+            trainOutputs = []
+            metrics = []
+
+            for m in supervisedTrainMetrics:
+                metrics.append(trainMetricsByName[m.m.getName()])
+                trainOutputs += m.getRequiredVariables()
+
+            self.__trainingMetrics.append(metrics)
+
+            # Training updates are given by the optimizer object.
+            updates = optimizer.getUpdates(lossSup + lossUnsSource, trainableSourceLayers)
+
+            # Training function.
+            self.__trainFuncs.append(
+                theano.function(inputs=sourceFuncInput, outputs=trainOutputs, updates=updates, mode=self.mode))
+
+        # Set the unsupervised part of the trainning
         trainableTargetLayers = []
 
         for l in allLayersTarget:
             if l.isTrainable():
                 trainableTargetLayers.append(l)
 
-        optimizerInput = optimizer.getInputTensors()
+        if unsupervisedTrainMetrics:
+            # List of inputs for training function.
+            targetFuncInput = targetInput + [targetLabel] + optimizerInput
 
-        # Create theano functions
-        self.__trainFuncs = []
+            # Include the variables required by all training metrics in the output list of the training function.
+            trainOutputs = []
+            metrics = []
 
-        sourceFuncInput = self.__sourceInput + [self.__sourceSupLabel, self.__sourceUnsLabel] + optimizerInput
-        self.__trainFuncs.append(theano.function(inputs=sourceFuncInput, outputs=_outputSourceFuncTrain,
-                                                 updates=optimizer.getUpdates(lossSup + lossUnsSource,
-                                                                              trainableSourceLayers)))
+            for m in unsupervisedTrainMetrics:
+                metrics.append(trainMetricsByName[m.m.getName()])
+                trainOutputs += m.getRequiredVariables()
 
-        targetFuncInput = self.__targetInput + [self.__targetLabel] + optimizerInput
-        self.__trainFuncs.append(theano.function(inputs=targetFuncInput, outputs=_outputTargetFuncTrain,
-                                                 updates=optimizer.getUpdates(lossUnsTarget, trainableTargetLayers)))
+            self.__trainingMetrics.append(metrics)
 
-        self.evaluateFunction = theano.function(self.__sourceInput + [self.__sourceSupLabel], outputs=_outputFuncEval)
-        self.__predictionFunction = theano.function(self.__sourceInput, outputs=predictionSup)
+            # Training updates are given by the optimizer object.
+            updates = optimizer.getUpdates(lossUnsTarget, trainableTargetLayers)
+
+            # Training function.
+            self.__trainFuncs.append(theano.function(inputs=targetFuncInput, outputs=trainOutputs, updates=updates))
 
     def getTrainingMetrics(self):
         metrics = []
 
-        for l in self.trainingMetrics:
+        for l in self.__trainingMetrics:
             for m2 in l:
                 if not m2 in metrics:
                     metrics.append(m2)
@@ -156,10 +209,16 @@ class GradientReversalModel(Model):
     def getEvaluateFunction(self):
         return self.evaluateFunction
 
-    def doEpoch(self, trainIterator, epoch, callbacks):
+    def doEpoch(self, trainIterator, epoch, iteration, devIterator, evalPerIteration, callbacks):
         lr = self.__optimizer.getInputValues(epoch)
 
         self.log.info("Lr: %f" % lr[0])
+
+        self.log.info({
+            "epoch": epoch,
+            "iteration": iteration,
+            "learn_rate": lr[0]
+        })
 
         trainingExamples = ConcatenatorDataset(trainIterator)
 
@@ -184,9 +243,14 @@ class GradientReversalModel(Model):
 
             outputs = self.__trainFuncs[idx](*inputs)
 
-            trainingMetrics = self.trainingMetrics[idx]
+            trainingMetric = self.__trainingMetrics[idx]
 
-            for m, _output in itertools.izip(trainingMetrics, outputs):
+            for m, _output in itertools.izip(trainingMetric, outputs):
                 m.update(_output, batchSize)
 
             self.callbackBatchEnd(inputs, callbacks)
+
+            # Development per-iteration evaluation
+            if devIterator and evalPerIteration and (iteration % evalPerIteration) == 0:
+                # Perform evaluation.
+                self.__evaluate(devIterator, self.getEvaluationFunction(), self.__evalMetrics, epoch, iteration)

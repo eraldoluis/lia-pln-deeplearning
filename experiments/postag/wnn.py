@@ -25,6 +25,7 @@ from data.SuffixFeatureGenerator import SuffixFeatureGenerator
 from data.TokenDatasetReader import TokenLabelReader
 from data.WordWindowGenerator import WordWindowGenerator
 from model.BasicModel import BasicModel
+from model.Metric import LossMetric, AccuracyMetric
 from model.Objective import NegativeLogLikelihood
 from model.Prediction import ArgmaxPrediction
 from model.SaveModelCallback import ModelWriter, SaveModelCallback
@@ -104,7 +105,8 @@ WNN_PARAMETERS = {
     "word_emb_size": {"default": 100, "desc": "size of word embedding"},
     "word_embedding": {"desc": "word embedding File Path"},
     "word_window_size": {"default": 5, "desc": "The size of words for the wordsWindow"},
-    "with_hidden": {"default": True , "desc": "If this parameter is False, so the hidden before the softmax layer is removed from NN."},
+    "with_hidden": {"default": True,
+                    "desc": "If this parameter is False, so the hidden before the softmax layer is removed from NN."},
 
     # Charwnn parameters
     "with_charwnn": {"default": False, "desc": "Enable or disable the charwnn of the model"},
@@ -174,7 +176,7 @@ def mainWnn(args):
     parametersToSaveOrLoad = {"word_filters", "suffix_filters", "char_filters", "cap_filters",
                               "alg", "hidden_activation_function", "word_window_size", "char_window_size",
                               "hidden_size", "with_charwnn", "conv_size", "charwnn_with_act", "suffix_size",
-                              "use_capitalization", "start_symbol", "end_symbol","with_hidden"}
+                              "use_capitalization", "start_symbol", "end_symbol", "with_hidden"}
 
     # Load parameters of the saving model
     if args.load_model:
@@ -488,12 +490,14 @@ def mainWnn(args):
 
             layerBeforeSoftmax = act1
             sizeLayerBeforeSoftmax = hiddenLayerSize
+            log.info("Using hidden layer")
         else:
             layerBeforeSoftmax = layerBeforeLinear
             sizeLayerBeforeSoftmax = sizeLayerBeforeLinear
+            log.info("Not using hidden layer")
 
-
-        linear2 = LinearLayer(layerBeforeSoftmax, sizeLayerBeforeSoftmax, labelLexicon.getLen(), weightInitialization=ZeroWeightGenerator(),
+        linear2 = LinearLayer(layerBeforeSoftmax, sizeLayerBeforeSoftmax, labelLexicon.getLen(),
+                              weightInitialization=ZeroWeightGenerator(),
                               name="linear_softmax")
         act2 = ActivationLayer(linear2, softmax)
         prediction = ArgmaxPrediction(1).predict(act2.getOutput())
@@ -584,10 +588,23 @@ def mainWnn(args):
         log.info("Using L2 with lambda= %.2f", _lambda)
         loss += _lambda * (T.sum(T.square(linear1.getParameters()[0])))
 
-    wnnModel = BasicModel(inputModel, [y])
+    trainMetrics = [
+        LossMetric("LossTrain", loss, True),
+        AccuracyMetric("AccTrain", y, prediction),
+    ]
 
-    wnnModel.compile(act2.getLayerSet(), opt, prediction, loss, ["loss", "acc"])
+    evalMetrics = [
+        LossMetric("LossDev", loss, True),
+        AccuracyMetric("AccDev", y, prediction),
+    ]
 
+    testMetrics = [
+        LossMetric("LossTest", loss, True),
+        AccuracyMetric("AccTest", y, prediction),
+    ]
+
+    wnnModel = BasicModel(inputModel, [y], act2.getLayerSet(), opt, prediction, loss, trainMetrics=trainMetrics,
+                          evalMetrics=evalMetrics, testMetrics=testMetrics, mode=None)
     # Training
     if trainReader:
         callback = []

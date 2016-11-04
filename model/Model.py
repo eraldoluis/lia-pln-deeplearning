@@ -2,6 +2,7 @@
 # -*- coding: utf-8 -*-
 import logging
 import time
+
 import theano
 
 
@@ -31,29 +32,20 @@ class StopWatch(object):
 
 
 class Model(object):
-    """
-
-    """
-
-    def __init__(self, x, y, allLayers, optimizer, prediction, loss, yExist=False, trainMetrics=None, evalMetrics=None,
-                 testMetrics=None, mode=None):
+    def __init__(self, evalInputs, testInput, predictionInput, prediction, yExist=False, trainMetrics=None,
+                 evalMetrics=None, testMetrics=None, mode=None):
         """
-        :param x: list of tensors that represent the inputs.
+        :param evalInputs: list of tensors that represent the inputs of evaluation function.
 
-        :param y: list of tensor that represents the corrects outputs.
+        :param testInput: list of tensors that represent the inputs of test function.
 
-        :type allLayers: [nnet.Layer]
-        :param allLayers: all model layers
-
-        :type optimizer: Optimizer.Optimizer
-        :param optimizer:
+        :param predictionInput: list of tensors that represent the inputs of prediction function.
 
         :type prediction: T.var.TensorVariable
         :param prediction: It's the function which will responsible to predict labels
 
         :param yExist: This parameter is true when the learner produce your own correct output
                                         or use the input as the correct output, like DA.
-
         :param trainMetrics: list of Metric objects to be applied on the training dataset.
 
         :param evalMetrics: list of Metric objects to be applied on the evaluation dataset.
@@ -62,54 +54,14 @@ class Model(object):
 
         :param mode: compilation mode for Theano.
         """
-        self.mode = mode
         self.log = logging.getLogger(__name__)
-        self.__isY_ProducedByNN = yExist
-
-        # Lists of metrics.
+        self.callBatchBegin = False
+        self.callBatchEnd = False
         self.__trainMetrics = trainMetrics
         self.__evalMetrics = evalMetrics
         self.__testMetrics = testMetrics
-
-        if not isinstance(x, (set, list)):
-            self.__x = [x]
-        else:
-            self.__x = x
-
-        if not isinstance(y, (set, list)):
-            self.__y = [y]
-        else:
-            self.__y = y
-
-        self.__optimizer = optimizer
-        self.__prediction = prediction
-
-        # List of trainable layers.
-        trainableLayers = []
-        for l in allLayers:
-            if l.isTrainable():
-                trainableLayers.append(l)
-
-        # Inputs for the evaluation function.
-        inputs = self.__x[:]
-        if not self.__isY_ProducedByNN:
-            inputs += self.__y
-
-        if trainMetrics:
-            # List of inputs for training function.
-            trainInputs = inputs + optimizer.getInputTensors()
-
-            # Training updates are given by the optimizer object.
-            updates = optimizer.getUpdates(loss, trainableLayers)
-
-            # Include the variables required by all training metrics in the output list of the training function.
-            trainOutputs = []
-            for m in trainMetrics:
-                trainOutputs += m.getRequiredVariables()
-
-            # Training function.
-            self.__trainFunction = theano.function(inputs=trainInputs, outputs=trainOutputs, updates=updates,
-                                                   mode=self.mode)
+        self.__isY_ProducedByNN = yExist
+        self.mode = mode
 
         if evalMetrics:
             # Include the variables required by all evaluation metrics in the output list of the evaluation function.
@@ -118,7 +70,7 @@ class Model(object):
                 evalOutputs += m.getRequiredVariables()
 
             # Evaluation function.
-            self.__evaluateFunction = theano.function(inputs=inputs, outputs=evalOutputs, mode=self.mode)
+            self.__evaluateFunction = theano.function(inputs=evalInputs, outputs=evalOutputs, mode=self.mode)
 
         if testMetrics:
             # Include the variables required by all test metrics in the output list of the test function.
@@ -127,13 +79,22 @@ class Model(object):
                 testOutputs += m.getRequiredVariables()
 
             # Evaluation function.
-            self.__testFunction = theano.function(inputs=inputs, outputs=testOutputs, mode=self.mode)
+            self.__testFunction = theano.function(inputs=testInput, outputs=testOutputs, mode=self.mode)
 
         # Prediction function.
-        self.__predictionFunction = theano.function(inputs=self.__x, outputs=self.__prediction, mode=self.mode)
+        self.__predictionFunction = theano.function(inputs=predictionInput, outputs=prediction, mode=self.mode)
 
-        self.callBatchBegin = False
-        self.callBatchEnd = False
+    def getEvaluationFunction(self):
+        return self.__evaluateFunction
+
+    def getTestFunction(self):
+        return self.__testFunction
+
+    def getPredictionFunction(self):
+        return self.__predictionFunction
+
+    def getTrainMetrics(self):
+        return self.__trainMetrics
 
     def prediction(self, inputs):
         return self.__predictionFunction(*inputs)
@@ -214,7 +175,7 @@ class Model(object):
 
             # Evaluate model after each epoch.
             if devIterator and not evalPerIteration:
-                self.__evaluate(devIterator, self.__evaluateFunction, self.__evalMetrics, epoch, iteration)
+                self._evaluate(devIterator, self.__evaluateFunction, self.__evalMetrics, epoch, iteration)
 
             # Dump training duration.
             log.info({
@@ -233,56 +194,26 @@ class Model(object):
             cb.onTrainEnd()
 
     def doEpoch(self, trainIterator, epoch, iteration, devIterator, evalPerIteration, callbacks):
-        lr = self.__optimizer.getInputValues(epoch)
+        """
+        Train this model during a one epoch.
 
-        self.log.info({
-            "epoch": epoch,
-            "iteration": iteration,
-            "learn_rate": lr
-        })
+        :param trainIterator: list of batch generators for the inputs (training instances)
 
-        for x, y in trainIterator:
-            iteration += 1
+        :param epochs: current epoch.
 
-            if y[0].ndim > 0:
-                batchSize = len(y[0])
-            else:
-                batchSize = 1
+        :param iteration: number of iterations done so far
 
-            # List of input variables.
-            inputs = []
-            inputs += x
-            if self.evaluateFuncUseY():
-                # Theano function receives 'y' as an input.
-                inputs += y
-            inputs += lr
+        :param devIterator: batch generator for the development dataset.
 
-            # Callbacks.
-            self.callbackBatchBegin(inputs, callbacks)
+        :param callbacks: list of callbacks.
 
-            # Call training function.
-            outputs = self.__trainFunction(*inputs)
+        :param evalPerIteration: indicates whether evaluation on the development
+            dataset will be performed on a per-iteration basis.
 
-            # Update training metrics.
-            for m in self.__trainMetrics:
-                # Build metric required variable list.
-                numOuputs = len(m.getRequiredVariables())
-                mOut = []
-                for _ in xrange(numOuputs):
-                    mOut.append(outputs.pop(0))
+        :return number of iterations done so far
+        """
 
-                # Update metric values.
-                m.update(batchSize, *mOut)
-
-            # Callbacks.
-            self.callbackBatchEnd(inputs, callbacks)
-
-            # Development per-iteration evaluation
-            if devIterator and evalPerIteration and (iteration % evalPerIteration) == 0:
-                # Perform evaluation.
-                self.__evaluate(devIterator, self.__evaluateFunction, self.__evalMetrics, epoch, iteration)
-
-        return iteration
+        raise NotImplementedError()
 
     def test(self, examplesIterator):
         """
@@ -291,9 +222,9 @@ class Model(object):
 
         :param examplesIterator: iterator on test examples.
         """
-        self.__evaluate(examplesIterator, self.__testFunction, self.__testMetrics, None, None)
+        self._evaluate(examplesIterator, self.__testFunction, self.__testMetrics, None, None)
 
-    def __evaluate(self, examplesIterator, evalFunction, evalMetrics, epoch, iteration):
+    def _evaluate(self, examplesIterator, evalFunction, evalMetrics, epoch, iteration):
         """
         Apply the given evaluation function on the examples returned by the given iterator. The given metrics are
         computed. These metrics must be the same used when compiling the given evaluation function. For instance, if you

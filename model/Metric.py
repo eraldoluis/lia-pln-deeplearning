@@ -36,7 +36,7 @@ class LossMetric(Metric):
     Compute mean loss over a sequence of mini-batches.
     """
 
-    def __init__(self, name, loss):
+    def __init__(self, name, loss, isAvgLoss=False):
         # Super-class constructor.
         super(LossMetric, self).__init__(name)
 
@@ -49,12 +49,22 @@ class LossMetric(Metric):
         # Accumulated loss over all examples seen so far.
         self.accumLoss = 0.0
 
+        # If the loss is the average of all errors
+        # Normally, methods use the average instead of the sum
+        self.__isAvgLoss = isAvgLoss
+
     def getRequiredVariables(self):
         return [self.__loss]
 
     def update(self, numExamples, *values):
         self.numExamples += numExamples
-        self.accumLoss += values[0]
+
+        value = values[0][0] if isinstance(values[0], (set,list)) else values[0]
+
+        if self.__isAvgLoss:
+            self.accumLoss += value * numExamples
+        else:
+            self.accumLoss += value
 
     def reset(self):
         self.numExamples = 0
@@ -89,7 +99,7 @@ class AccuracyMetric(Metric):
 
     def update(self, numExamples, *values):
         self.numExamples += numExamples
-        self.accumAccuracy += values[0]
+        self.accumAccuracy += values[0].sum()
 
     def reset(self):
         self.numExamples = 0

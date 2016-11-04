@@ -26,6 +26,8 @@ A saída segue o mesmo formato da entrada.
 import sys
 from codecs import open
 
+# Input file includes a header?
+hasHeader = False
 
 def flatTree(tree, node):
     """
@@ -42,12 +44,19 @@ def flatTree(tree, node):
     return parent
 
 def docsFile2Dir(fileName):
+    # Open input file.
     f = open(fileName, 'r', 'utf8')
-    f.readline()
+
+    # Skip header.
+    if hasHeader:
+        f.readline()
+
     # Dictionary of parents for all nodes: 'tree[n]' is the parent of node 'n'.
     tree = {}
+
+    sys.stdout.write('Reading input examples to build the category tree')
+    sys.stdout.flush()
     numExs = 0
-    print 'Reading input examples to build the category tree...'
     for l in f:
         ftrs = [s.strip() for s in l.split('\t')]
         tree[int(ftrs[1])] = int(ftrs[0])
@@ -55,9 +64,9 @@ def docsFile2Dir(fileName):
         if numExs % 100000 == 0:
             sys.stdout.write('.')
             sys.stdout.flush()
-    f.close()
-    
     sys.stdout.write('\n')
+
+    f.close()
 
     print '# examples:', numExs
     print '# nodes:', len(tree)
@@ -73,19 +82,24 @@ def docsFile2Dir(fileName):
 
     print '# roots:', len(roots)
     print 'Roots:', roots
-
     print 'Done!'
     
-    print 'Reading input examples and writing to the output file using the flatten categories...'
-
-    # Open file again
+    # Open input file again.
     f = open(fileName, 'r', 'utf8')
-    header = f.readline()
+
+    # Read header.
+    if hasHeader:
+        header = f.readline()
     
-    # Output file
+    # Open output file.
     fout = open(fileName + '.flat', 'w', 'utf8')
-    fout.write(header)
+
+    # Write header.
+    if hasHeader:
+        fout.write(header)
     
+    sys.stdout.write('Reading input examples and writing to the output file using the flatten categories')
+    sys.stdout.flush()
     numExs = 0
     for l in f:
         ftrs = [s.strip() for s in l.split('\t')]
@@ -95,14 +109,19 @@ def docsFile2Dir(fileName):
         if numExs % 100000 == 0:
             sys.stdout.write('.')
             sys.stdout.flush()
-
-    print '# written examples:', numExs
+    sys.stdout.write('\n')
 
     f.close()
     fout.close()
-    
+
+    print '# written examples:', numExs
     print 'Done!'
 
 
 if __name__ == '__main__':
+    if len(sys.argv) != 2:
+        sys.stderr.write('Erro de sintaxe. Sintaxe esperada:\n')
+        sys.stderr.write('\t<dataset de entrada>\n')
+        sys.exit(1)
+
     docsFile2Dir(sys.argv[1])

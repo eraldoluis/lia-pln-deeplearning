@@ -11,9 +11,13 @@ import os
 import random
 import sys
 import time
+from logging import Formatter
 from time import time
 
+import theano
 import theano.tensor as T
+from numpy.random.mtrand import weibull
+
 from data.BatchIterator import SyncBatchIterator, AsyncBatchIterator
 from data.FeatureGenerator import FeatureGenerator
 from data.WordWindowGenerator import WordWindowGenerator
@@ -23,7 +27,8 @@ from data.DatasetReader import DatasetReader
 from data.Embedding import EmbeddingFactory, RandomUnknownStrategy, ChosenUnknownStrategy, \
     RandomEmbedding
 from data.Lexicon import Lexicon, createLexiconUsingFile, HashLexicon
-from model.BasicModel import BasicModel
+from model.Model import Model
+
 from model.Objective import NegativeLogLikelihoodOneExample
 from model.Prediction import ArgmaxPrediction
 from model.SaveModelCallback import ModelWriter, SaveModelCallback
@@ -36,6 +41,7 @@ from nnet.WeightGenerator import ZeroWeightGenerator, GlorotUniform, SigmoidGlor
 from optim.Adagrad import Adagrad
 from optim.SGD import SGD
 from util.jsontools import dict2obj
+from model.Metric import LossMetric, AccuracyMetric, FMetric
 
 PARAMETERS = {
     "filters": {"default": ['data.Filters.TransformLowerCaseFilter',
@@ -72,13 +78,22 @@ PARAMETERS = {
     "shuffle": {"default": True,
                 "desc": "Enable or disable shuffling of the training examples."},
     "normalization": {"desc": "Choose the normalization method to be applied on  word embeddings. " +
-                              "The possible values are: 'none', 'minmax', 'mean'."},
+                              "The possible values are: 'minmax', 'mean', 'zscore'."},
     "labels": {"desc": "File containing the list of possible labels."},
     "conv_size": {"required": True,
                   "desc": "Size of the convolution layer (number of filters)."},
     "load_method": {"default": "sync",
                     "desc": "Method for loading the training dataset." +
                             "The possible values are: 'sync' and 'async'."},
+    "labels_probs": {
+        "desc": "A dictionary (or @filename where filename is the name of a file containing a dictionary)" +
+                " of probabilities containing an entry for each label." +
+                " Each example is then weighted by the inverse of its label probability."},
+    "labels_weights_log": {
+        "desc": "Use the log of the inverse probabilities as label weights." +
+                "This has the effect of attenuating highly unbalanced distributions.",
+        "default": False
+    },
     "hash_lex_size": {"desc": "Activate the hash lexicon by specifying the hash table size."}
 }
 
@@ -95,24 +110,38 @@ class OfertasReader(DatasetReader):
     anunciante, e <price> é o preço do produto.
     """
 
-    def __init__(self, filePath):
+    def __init__(self, filePath, header=False):
         """
         :type filePath: String
         :param filePath: dataset path
+
+        :type header: bool
+        :param header: whether the given file include a header in the first line
         """
         self.__filePath = filePath
         self.__log = logging.getLogger(__name__)
         self.__printedNumberTokensRead = False
+        self.__header = header
+
+    def __enter__(self):
+        return self
+
+    def __exit__(self, exc_type, exc_val, exc_tb):
+        if self.__f:
+            self.__f.close()
+            self.__f = None
 
     def read(self):
         """
         :return: lista de tokens da oferta e sua categoria.
         """
         f = codecs.open(self.__filePath, "r", "utf-8")
+        self.__f = f
         numExs = 0
 
         # Skip the first line (header).
-        f.readline()
+        if self.__header:
+            f.readline()
 
         for line in f:
             line = line.strip()
@@ -239,8 +268,6 @@ class TextLabelGenerator(FeatureGenerator):
 def main(args):
     log = logging.getLogger(__name__)
 
-    log.info(args)
-
     if args.seed:
         random.seed(args.seed)
         np.random.seed(args.seed)
@@ -284,12 +311,12 @@ def main(args):
         labelLexicon.stopAdd()
 
         # Loading model
-        weights = np.load(loadPath + ".npy").item(0)
+        labelWeights = np.load(loadPath + ".npy").item(0)
 
-        W1 = weights["W_Hidden"]
-        b1 = weights["b_Hidden"]
-        W2 = weights["W_Softmax"]
-        b2 = weights["b_Softmax"]
+        W1 = labelWeights["W_Hidden"]
+        b1 = labelWeights["b_Hidden"]
+        W2 = labelWeights["W_Softmax"]
+        b2 = labelWeights["b_Softmax"]
 
         hiddenLayerSize = b1.shape[0]
     else:
@@ -340,19 +367,19 @@ def main(args):
         trainDatasetReader = OfertasReader(args.train)
         if args.load_method == "sync":
             trainIterator = SyncBatchIterator(trainDatasetReader,
-                                            [wordWindowFeatureGenerator],
-                                            [labelGenerator],
-                                            - 1,
-                                            shuffle=shuffle)
+                                              [wordWindowFeatureGenerator],
+                                              [labelGenerator],
+                                              - 1,
+                                              shuffle=shuffle)
         elif args.load_method == "async":
             trainIterator = AsyncBatchIterator(trainDatasetReader,
-                                             [wordWindowFeatureGenerator],
-                                             [labelGenerator],
-                                             - 1,
-                                             shuffle=shuffle,
-                                             maxqSize=1000)
+                                               [wordWindowFeatureGenerator],
+                                               [labelGenerator],
+                                               - 1,
+                                               shuffle=shuffle,
+                                               maxqSize=1000)
         else:
-            log.error("The option 'load_method' has an invalid value (%s)." % args.load_method)
+            log.error("The argument 'load_method' has an invalid value: %s." % args.load_method)
             sys.exit(1)
 
         wordEmbedding.stopAdd()
@@ -387,6 +414,9 @@ def main(args):
     elif normalizeMethod == "mean":
         log.info("Normalization: mean normalization")
         wordEmbedding.meanNormalization()
+    elif normalizeMethod == "zscore":
+        log.info("Normalization: zscore normalization")
+        wordEmbedding.zscoreNormalization()
     elif normalizeMethod:
         log.error("Normalization: unexpected value %s" % normalizeMethod)
         sys.exit(1)
@@ -409,13 +439,12 @@ def main(args):
 
     # TODO: debug
     # theano.config.compute_test_value = 'warn'
-    # ex = trainReader.next()
-    # _input.tag.test_value = ex[0]
-    # y.tag.test_value = ex[1]
+    # ex = trainIterator.next()
+    # inWords.tag.test_value = ex[0][0]
+    # outLabel.tag.test_value = ex[1][0]
 
     # Lookup table.
-    embeddingLayer = EmbeddingLayer(inWords,
-                                    wordEmbedding.getEmbeddingMatrix())
+    embeddingLayer = EmbeddingLayer(inWords, wordEmbedding.getEmbeddingMatrix())
 
     # A saída da lookup table possui 3 dimensões (numTokens, szWindow, szEmbedding).
     # Esta camada dá um flat nas duas últimas dimensões, produzindo uma saída
@@ -450,6 +479,38 @@ def main(args):
     # Prediction layer (argmax).
     prediction = ArgmaxPrediction(None).predict(softmaxAct.getOutput())
 
+    # Class weights.
+    labelWeights = None
+    if args.labels_probs:
+        numLabels = labelLexicon.getLen()
+        labelWeights = np.zeros(numLabels, dtype=theano.config.floatX)
+        if args.labels_probs.startswith("@"):
+            # Load the dictionary from a JSON file.
+            with codecs.open(args.labels_probs[1:], mode="r", encoding="utf8") as f:
+                labelDistribution = json.load(f)
+        else:
+            # The argument value is already a JSON.
+            labelDistribution = json.loads(args.labels_probs)
+
+        for k, v in labelDistribution.items():
+            # The weight of a class is inversely-proportional to its frequency.
+            labelWeights[labelLexicon.getLexiconIndex(k)] = 1.0 / v
+
+        if args.labels_weights_log:
+            # Attenuate weights for highly unbalanced classes.
+            labelWeights = np.log(labelWeights)
+
+        log.info("Label weights: " + str(labelWeights))
+
+
+    # Loss function.
+    loss = NegativeLogLikelihoodOneExample(labelWeights).calculateError(softmaxAct.getOutput()[0], prediction, outLabel)
+
+    #     if kwargs["lambda"]:
+    #         _lambda = kwargs["lambda"]
+    #         log.info("Using L2 with lambda= %.2f", _lambda)
+    #         loss += _lambda * (T.sum(T.square(hiddenLinear.getParameters()[0])))
+
     # Decaimento da taxa de aprendizado.
     decay = 0.0
     if args.decay == "linear":
@@ -467,7 +528,7 @@ def main(args):
         sys.exit(1)
 
     # TODO: debug
-    # opt.lr.tag.test_value = 0.01
+    # opt.lr.tag.test_value = 0.05
 
     # Printing embedding information.
     dictionarySize = wordEmbedding.getNumberOfVectors()
@@ -476,18 +537,37 @@ def main(args):
     log.info("Embedding size: %d" % embeddingSize)
     log.info("Number of categories: %d" % labelLexicon.getLen())
 
-    # Compiling
-    loss = NegativeLogLikelihoodOneExample().calculateError(softmaxAct.getOutput()[0], prediction, outLabel)
+    # Train metrics.
+    trainMetrics = None
+    if trainIterator:
+        trainMetrics = [
+            LossMetric("TrainLoss", loss),
+            AccuracyMetric("TrainAccuracy", outLabel, prediction)
+        ]
 
-    #     if kwargs["lambda"]:
-    #         _lambda = kwargs["lambda"]
-    #         log.info("Using L2 with lambda= %.2f", _lambda)
-    #         loss += _lambda * (T.sum(T.square(hiddenLinear.getParameters()[0])))
+    # Evaluation metrics.
+    evalMetrics = None
+    if devIterator:
+        evalMetrics = [
+            LossMetric("EvalLoss", loss),
+            AccuracyMetric("EvalAccuracy", outLabel, prediction),
+            FMetric("EvalFMetric", outLabel, prediction, labels=labelLexicon.getLexiconDict().values())
+        ]
+
+    # Test metrics.
+    testMetrics = None
+    if args.test:
+        testMetrics = [
+            LossMetric("TestLoss", loss),
+            AccuracyMetric("TestAccuracy", outLabel, prediction),
+            FMetric("TestFMetric", outLabel, prediction, labels=labelLexicon.getLexiconDict().values())
+        ]
 
     # TODO: debug
-    # model = Model(mode=compile.debugmode.DebugMode(optimizer=None))
-    model = BasicModel([inWords], [outLabel], evalPerIteration=evalPerIteration, devBatchIterator=devIterator)
-    model.compile(softmaxAct.getLayerSet(), opt, prediction, loss, ["loss", "acc"])
+    # mode = theano.compile.debugmode.DebugMode(optimizer=None)
+    mode = None
+    model = Model(x=[inWords], y=[outLabel], allLayers=softmaxAct.getLayerSet(), optimizer=opt, prediction=prediction,
+                  loss=loss, trainMetrics=trainMetrics, evalMetrics=evalMetrics, testMetrics=testMetrics, mode=mode)
 
     # Training
     if trainIterator:
@@ -502,7 +582,7 @@ def main(args):
             callback.append(SaveModelCallback(modelWriter, "eval_acc", True))
 
         log.info("Training")
-        model.train(trainIterator, numEpochs, devIterator, callbacks=callback)
+        model.train(trainIterator, numEpochs, devIterator, evalPerIteration=evalPerIteration, callbacks=callback)
 
     # Testing
     if args.test:
@@ -515,7 +595,7 @@ def main(args):
                                          shuffle=False)
 
         log.info("Testing")
-        model.evaluate(testIterator, True)
+        model.test(testIterator)
 
 
 def method_name(hiddenActFunction):
@@ -531,7 +611,10 @@ if __name__ == '__main__':
     full_path = os.path.realpath(__file__)
     path, filename = os.path.split(full_path)
 
-    logging.config.fileConfig(os.path.join(path, 'logging.conf'))
+    logging.config.fileConfig(os.path.join(path, 'logging.conf'), defaults={})
 
-    args = dict2obj(JsonArgParser(PARAMETERS).parse(sys.argv[1]), 'OfertaArguments')
+    argsDict = JsonArgParser(PARAMETERS).parse(sys.argv[1])
+    args = dict2obj(argsDict, 'OfertaArguments')
+    logging.getLogger(__name__).info(argsDict)
+
     main(args)

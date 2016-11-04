@@ -123,7 +123,7 @@ class EmbeddingConvolutionalLayer(Layer):
         else:
             layerBeforePolling = self.__linearLayer
 
-        # 3-D tensor with shape (numExs * szWrdWin, numMaxCh, numChFltrs).
+        # 3-D tensor with shape (numExs * szWrdWin, numMaxCh, convSize).
         # This tensor is used to perform the max pooling along its 2nd dimension.
         o = ReshapeLayer(layerBeforePolling, (numExs * szWrdWin, numMaxCh, convSize))
 

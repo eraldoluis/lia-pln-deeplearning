@@ -5,8 +5,7 @@ import logging
 import numpy
 import random
 import threading
-import time
-from datetime import time
+import sys
 
 
 class BatchAssembler:
@@ -43,14 +42,12 @@ class BatchAssembler:
         :return: yield-based generator that generates training batches from the data set.
         """
         inputs = [[] for _ in xrange(len(self.__inputGenerators))]
-        generatedOutputs = None
-        nmExamples = 0
-
         if self.__outputGenerators:
             outputs = [[] for _ in xrange(len(self.__outputGenerators))]
         else:
             outputs = []
 
+        numExamples = 0
         for attributes, label in self.__reader.read():
             generatedInputs = []
             generatedOutputs = []
@@ -61,11 +58,10 @@ class BatchAssembler:
             # Unsupervised networks do not use an output (like autoencoders, for instance).
             if self.__outputGenerators:
                 for outputGenerator in self.__outputGenerators:
-                    generatedOutputs.append(outputGenerator.generate(label))
-
-            nmExamples += len(generatedInputs[0])
+                    generatedOutputs.append(outputGenerator(label))
 
             if self.__batchSize > 0:
+                numExamples += len(generatedOutputs[0])
                 # Batch  has fixed size
                 for idx in xrange(len(generatedInputs[0])):
                     for idxGen, genInput in enumerate(generatedInputs):
@@ -82,22 +78,20 @@ class BatchAssembler:
                         inputs = [[] for _ in xrange(len(self.__inputGenerators))]
                         if self.__outputGenerators:
                             outputs = [[] for _ in xrange(len(self.__outputGenerators))]
-
             else:
+                numExamples += 1
                 # Batch don't have fixed size
-                inputs = generatedInputs
-                outputs = generatedOutputs
-
-                yield self.__formatToNumpy(inputs, outputs)
+                yield self.__formatToNumpy(generatedInputs, generatedOutputs)
 
         # The remaining batches are returned
-        if len(inputs[0]):
+        if (len(inputs) > 0 and len(inputs[0]) > 0) or (len(outputs) > 0 and len(outputs[0]) > 0):
             yield self.__formatToNumpy(inputs, outputs)
 
         if not self.__printed:
-            self.__log.info("Number of examples: %d" % nmExamples)
+            self.__log.info("Number of examples: %d" % numExamples)
 
-    def __formatToNumpy(self, inputs, outputs):
+    @staticmethod
+    def __formatToNumpy(inputs, outputs):
         for idx, inp in enumerate(inputs):
             inputs[idx] = numpy.asarray(inp)
         for idx, out in enumerate(outputs):
@@ -176,15 +170,13 @@ class AsyncBatchIterator(object):
     Reads a certain quantity of batches from the data set at a time.
     """
 
-    def __init__(self, datasetReader, inputGenerators, outputGenerator, batchSize, shuffle=True, maxqSize=100,
-                 waitTime=0.005):
+    def __init__(self, reader, inputGenerators, outputGenerator, batchSize, shuffle=False, maxqSize=1000):
         """
             :type reader: data.DatasetReader.DatasetReader
             :param reader:
 
             :type inputGenerators: list[data.InputGenerator.FeatureGenerator.FeatureGenerator]
             :param inputGenerators: generate the input of the training
-
 
             :type outputGenerator: list[data.InputGenerator.FeatureGenerator.FeatureGenerator]
             :param outputGenerator: generate the output of the training
@@ -197,35 +189,39 @@ class AsyncBatchIterator(object):
             :param shuffle: is to shufle or not the batches
 
             :param maxqSize: maximum number of batches in queue
-
-            :param waitTime: time which de thread is going to wait when the queue is full
             """
-        self.__batchIterator = BatchAssembler(datasetReader, inputGenerators, outputGenerator, batchSize)
-        self.__generatorObj = self.__batchIterator.getGeneratorObject()
-        self.__queue, self.__stop = self.generatorQueue(maxqSize, waitTime)
+        self.__batchAssembler = BatchAssembler(reader, inputGenerators, outputGenerator, batchSize)
+        self.__generatorObj = self.__batchAssembler.getGeneratorObject()
+        self.__queue, self.__stop = self.__generatorQueue(maxqSize)
         self.__shuffle = shuffle
         self.__batchSize = batchSize
+
+    def __enter__(self):
+        return self
+
+    def __exit__(self, exc_type, exc_val, exc_tb):
+        self.__stop.set()
+        # This is a trick to unblock the producer thread in case it is blocked because the queue is full.
+        self.__queue.get_nowait()
 
     def __iter__(self):
         return self
 
     def next(self):
-        while True:
-            try:
-                b = self.__queue.get(timeout=0.0001)
-                break;
-            except Queue.Empty as e:
-                print "Empty! %s" % e
-                continue
+        try:
+            b = self.__queue.get()
+            self.__queue.task_done()
+        except Queue.Empty as e:
+            sys.stderr.write("Empty!\n%s\n" % e)
 
-        if b is None:
+        if not b:
             raise StopIteration()
 
         return b
 
-    def generatorQueue(self, maxQsize, waitTime):
+    def __generatorQueue(self, maxQsize):
         # Queue of batches
-        q = Queue.Queue()
+        q = Queue.Queue(maxQsize)
 
         _stop = threading.Event()
 
@@ -235,42 +231,31 @@ class AsyncBatchIterator(object):
 
             while not _stop.is_set():
                 try:
-                    if q.qsize() < maxQsize:
-                        try:
-                            generator_output = self.__generatorObj.next()
+                    batch = self.__generatorObj.next()
 
-                            if self.__shuffle:
-                                # Run a coin to decide if the batch will be put in queue or not.
-                                c = random.randint(0, 1)
-                            else:
-                                c = 1
-
-                            if c:
-                                # If coin is true, so this batch will be put in the queue
-                                q.put(generator_output)
-                            else:
-                                heldData.append(generator_output)
-
-                                # If heldData has some specific length, so one element of this array will be put on queue.
-                                if len(heldData) == maxQsize:
-                                    c = random.randint(0, len(heldData) - 1)
-                                    q.put(heldData.pop(c))
-
-                        except StopIteration:
-                            random.shuffle(heldData)
-
-                            for data in heldData:
-                                q.put(data)
-
-                            q.put(None)
-
-                            self.__generatorObj = self.__batchIterator.getGeneratorObject()
+                    if not self.__shuffle:
+                        q.put(batch)
                     else:
-                        time.sleep(waitTime)
-                except Exception as e:
-                    _stop.set()
-                    print e
-                    raise
+                        # Flip a coin to decide whether the batch will be put in the queue or in the held data.
+                        if random.random() < 1.0/maxQsize:
+                            q.put(batch)
+                        else:
+                            heldData.append(batch)
+                            # If heldData has some specific length, so one element of this array will be put on queue.
+                            if len(heldData) == maxQsize:
+                                c = random.randint(0, len(heldData) - 1)
+                                q.put(heldData.pop(c))
+
+                except StopIteration as e:
+                    if self.__shuffle:
+                        random.shuffle(heldData)
+                    for data in heldData:
+                        q.put(data)
+
+                    # Signal the end of batches.
+                    q.put(None)
+
+                    self.__generatorObj = self.__batchAssembler.getGeneratorObject()
 
         # Create thread that will read the batches
         thread = threading.Thread(target=data_generator_task)

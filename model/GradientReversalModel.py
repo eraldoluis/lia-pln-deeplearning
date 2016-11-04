@@ -156,12 +156,12 @@ class GradientReversalModel(Model):
     def getEvaluateFunction(self):
         return self.evaluateFunction
 
-    def doEpoch(self, trainBatchGenerators, epoch, callbacks):
+    def doEpoch(self, trainIterator, epoch, callbacks):
         lr = self.__optimizer.getInputValues(epoch)
 
         self.log.info("Lr: %f" % lr[0])
 
-        trainingExamples = ConcatenatorDataset(trainBatchGenerators)
+        trainingExamples = ConcatenatorDataset(trainIterator)
 
         for i in xrange(trainingExamples.getSize()):
             idx, example = trainingExamples.getRandomly()

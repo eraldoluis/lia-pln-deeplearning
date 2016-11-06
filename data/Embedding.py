@@ -125,11 +125,11 @@ class Embedding(object):
     def __init__(self, embeddingSize, unknownGenerateStrategy):
         """
         :type embeddingSize: int
-        :params embeddingSize: the vectors length that represent the objects
+        :param embeddingSize: the vectors length that represent the objects
         
         :type unknownGenerateStrategy: UnknownGenerateStrategy
-        :params unknownGenerateStrategy: the object that will generate the unknown embedding
-        
+        :param unknownGenerateStrategy: the object that will generate the unknown embedding
+
         """
 
         self.__lexicon = Lexicon()
@@ -147,12 +147,11 @@ class Embedding(object):
         if self.isReadOnly():
             return
 
-        Embedding.put(self, self.__unknownGenerateStrategy.getUnknownStr(),
-                      self.__unknownGenerateStrategy.generateUnkown(self))
+        self.put(self.__unknownGenerateStrategy.getUnknownStr(), self.__unknownGenerateStrategy.generateUnkown(self))
         self.__lexicon.setUnknownIndex(self.getLexiconIndex(self.__unknownGenerateStrategy.getUnknownStr()))
 
         self.__readOnly = True
-        
+
         self.convertToNumPy()
 
     def isReadOnly(self):
@@ -187,7 +186,7 @@ class Embedding(object):
         idx = self.__lexicon.put(obj)
 
         if len(self.__vectors) != idx:
-            raise Exception("Exist more or less lexicon than vectors")
+            raise Exception("The number of items in the lexicon is different of the number of vectors!")
 
         self.__vectors.append(vec)
 
@@ -277,7 +276,7 @@ class RandomEmbedding(Embedding):
         # Generator that going to generate values for vectors 
         self.__generatorWeight = FeatureVectorsGenerator()
 
-        if lexicon:
+        if lexicon is not None:
             # TODO: @eraldo: adicionei este código para o HashLexicon
             self._Embedding__lexicon = lexicon
             numVectors = lexicon.getLen()

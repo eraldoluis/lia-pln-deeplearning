@@ -106,6 +106,14 @@ PARAMETERS = {
     "numerical_features": {
         "desc": "Aditional numerical features along with their normalization factors." +
                 " Each feature can be only its name (as produced by the reader) or a pair [name, normalization factor]."
+    },
+    "fix_word_embdding": {
+        "desc": "Fix the word embedding (do not update it during training).",
+        default: False
+    },
+    "include_hidden_layer": {
+        "desc": "If equal to False, do not include a hidden layer between the input layers (embeddings) and the softmax layers.",
+        "default": True
     }
 }
 
@@ -397,8 +405,14 @@ def main(args):
     # List of input tensors. One for each input layer.
     inputTensors = [inWords]
 
+    # Whether the word embedding will be updated during training.
+    embLayerTrainable = not args.fix_word_embdding
+
+    if not embLayerTrainable:
+        log.info("Not updating the word embedding!")
+
     # Lookup table for word features.
-    embeddingLayer = EmbeddingLayer(inWords, wordEmbedding.getEmbeddingMatrix())
+    embeddingLayer = EmbeddingLayer(inWords, wordEmbedding.getEmbeddingMatrix(), trainable=embLayerTrainable)
 
     # A saída da lookup table possui 3 dimensões (numTokens, szWindow, szEmbedding).
     # Esta camada dá um flat nas duas últimas dimensões, produzindo uma saída
@@ -445,13 +459,19 @@ def main(args):
     # Concatenate all input layers, when there are more thean one input layer.
     concatenatedInLayers = maxPooling if len(inputLayers) == 1 else ConcatenateLayer(inputLayers, axis=0)
 
-    # Hidden layer.
-    hiddenLinear = LinearLayer(concatenatedInLayers,
-                               concatenatedSize,
-                               hiddenLayerSize,
-                               W=W1, b=b1,
-                               weightInitialization=weightInit)
-    hiddenAct = ActivationLayer(hiddenLinear, hiddenActFunction)
+    if args.include_hidden_layer:
+        # Hidden layer.
+        hiddenLinear = LinearLayer(concatenatedInLayers,
+                                   concatenatedSize,
+                                   hiddenLayerSize,
+                                   W=W1, b=b1,
+                                   weightInitialization=weightInit)
+        hiddenAct = ActivationLayer(hiddenLinear, hiddenActFunction)
+    else:
+        # Do not use a hidden layer.
+        log.info("Not using hidden layer!")
+        hiddenAct = concatenatedInLayers
+        hiddenLayerSize = concatenatedSize
 
     # Entrada linear da camada softmax.
     sotmaxLinearInput = LinearLayer(hiddenAct,

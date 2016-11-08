@@ -61,7 +61,7 @@ class BatchAssembler:
                     generatedOutputs.append(outputGenerator(label))
 
             if self.__batchSize > 0:
-                numExamples += len(generatedOutputs[0])
+                numExamples += len(label)
                 # Batch  has fixed size
                 for idx in xrange(len(generatedInputs[0])):
                     for idxGen, genInput in enumerate(generatedInputs):
@@ -127,6 +127,7 @@ class SyncBatchIterator(object):
         self.__shuffle = shuffle
         self.__current = 0
         self.__log = logging.getLogger(__name__)
+        self.__batchSize = batchSize
 
         idx = 0
         for batch in BatchAssembler(reader, inputGenerators, outputGenerator, batchSize).getGeneratorObject():
@@ -160,6 +161,9 @@ class SyncBatchIterator(object):
 
     def get(self, idx):
         return self.__batches[idx]
+
+    def getBatchSize(self):
+        return self.__batchSize
 
     def size(self):
         return self.__size
@@ -206,6 +210,9 @@ class AsyncBatchIterator(object):
 
     def __iter__(self):
         return self
+
+    def getBatchSize(self):
+        return self.__batchSize
 
     def next(self):
         try:

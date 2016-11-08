@@ -79,7 +79,11 @@ class BasicModel(Model):
         for x, y in trainIterator:
             iteration += 1
 
-            if y[0].ndim > 0:
+            if trainIterator.getBatchSize() > 0:
+                # Fixed batch size
+                batchSize = trainIterator.getBatchSize()
+            elif y[0].ndim > 0:
+                # Variable batch size
                 batchSize = len(y[0])
             else:
                 batchSize = 1

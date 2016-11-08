@@ -82,7 +82,9 @@ class Model(object):
             self.__testFunction = theano.function(inputs=testInput, outputs=testOutputs, mode=self.mode)
 
         # Prediction function.
-        self.__predictionFunction = theano.function(inputs=predictionInput, outputs=prediction, mode=self.mode)
+        if prediction:
+            self.__predictionFunction = theano.function(inputs=predictionInput, outputs=prediction, mode=self.mode)
+
 
     def getEvaluationFunction(self):
         return self.__evaluateFunction
@@ -255,7 +257,11 @@ class Model(object):
             # Alterei o cálculo do batchSize para ser feito pelo tamanho do y, ao invés do tamanho do x. Acho isto mais
             # geral pois funciona, por exemplo, para classificação de documentos também, onde o x de um exemplo é maior
             # do que 1 (várias palavras).
-            if y[0].ndim > 0:
+            if examplesIterator.getBatchSize() > 0:
+                # Fixed batch size
+                batchSize = examplesIterator.getBatchSize()
+            elif y[0].ndim > 0:
+                # Variable batch size
                 batchSize = len(y[0])
             else:
                 batchSize = 1

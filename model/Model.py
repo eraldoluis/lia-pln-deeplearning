@@ -32,7 +32,7 @@ class StopWatch(object):
 
 
 class Model(object):
-    def __init__(self, evalInputs, testInput, predictionInput, prediction, yExist=False, trainMetrics=None,
+    def __init__(self, evalInputs, testInput, predictionInput, prediction, isYProduceByNN=False, trainMetrics=None,
                  evalMetrics=None, testMetrics=None, mode=None):
         """
         :param evalInputs: list of tensors that represent the inputs of evaluation function.
@@ -44,7 +44,7 @@ class Model(object):
         :type prediction: T.var.TensorVariable
         :param prediction: It's the function which will responsible to predict labels
 
-        :param yExist: This parameter is true when the learner produce your own correct output
+        :param isYProduceByNN: This parameter is true when the learner produce your own correct output
                                         or use the input as the correct output, like DA.
         :param trainMetrics: list of Metric objects to be applied on the training dataset.
 
@@ -60,7 +60,7 @@ class Model(object):
         self.__trainMetrics = trainMetrics
         self.__evalMetrics = evalMetrics
         self.__testMetrics = testMetrics
-        self.__isY_ProducedByNN = yExist
+        self.__isYProducedByNN = isYProduceByNN
         self.mode = mode
 
         if evalMetrics:
@@ -111,8 +111,11 @@ class Model(object):
             cb.onBatchEnd(inputs, {})
         self.callBatchEnd = True
 
+    def isYProducedByNN(self):
+        return self.__isYProducedByNN
+
     def evaluateFuncUseY(self):
-        return not self.__isY_ProducedByNN
+        return not self.__isYProducedByNN
 
     def getPredictionFunction(self):
         return self.__predictionFunction
@@ -257,11 +260,10 @@ class Model(object):
             # Alterei o cálculo do batchSize para ser feito pelo tamanho do y, ao invés do tamanho do x. Acho isto mais
             # geral pois funciona, por exemplo, para classificação de documentos também, onde o x de um exemplo é maior
             # do que 1 (várias palavras).
-            if examplesIterator.getBatchSize() > 0:
-                # Fixed batch size
-                batchSize = examplesIterator.getBatchSize()
+
+            if self.isYProducedByNN():
+               batchSize = len(x[0])
             elif y[0].ndim > 0:
-                # Variable batch size
                 batchSize = len(y[0])
             else:
                 batchSize = 1

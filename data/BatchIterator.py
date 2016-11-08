@@ -61,7 +61,7 @@ class BatchAssembler:
                     generatedOutputs.append(outputGenerator(label))
 
             if self.__batchSize > 0:
-                numExamples += len(label)
+                nmExamples += len(generatedInputs[0])
                 # Batch  has fixed size
                 for idx in xrange(len(generatedInputs[0])):
                     for idxGen, genInput in enumerate(generatedInputs):
@@ -80,7 +80,7 @@ class BatchAssembler:
                             outputs = [[] for _ in xrange(len(self.__outputGenerators))]
             else:
                 numExamples += 1
-                # Batch don't have fixed size
+                # Batch doesn't have fixed size
                 yield self.__formatToNumpy(generatedInputs, generatedOutputs)
 
         # The remaining batches are returned
@@ -162,7 +162,7 @@ class SyncBatchIterator(object):
     def get(self, idx):
         return self.__batches[idx]
 
-    def getBatchSize(self):
+    def getBatchSize(self, idx):
         return self.__batchSize
 
     def size(self):
@@ -198,7 +198,6 @@ class AsyncBatchIterator(object):
         self.__generatorObj = self.__batchAssembler.getGeneratorObject()
         self.__queue, self.__stop = self.__generatorQueue(maxqSize)
         self.__shuffle = shuffle
-        self.__batchSize = batchSize
 
     def __enter__(self):
         return self
@@ -211,8 +210,6 @@ class AsyncBatchIterator(object):
     def __iter__(self):
         return self
 
-    def getBatchSize(self):
-        return self.__batchSize
 
     def next(self):
         try:
@@ -244,7 +241,7 @@ class AsyncBatchIterator(object):
                         q.put(batch)
                     else:
                         # Flip a coin to decide whether the batch will be put in the queue or in the held data.
-                        if random.random() < 1.0/maxQsize:
+                        if random.random() < 1.0 / maxQsize:
                             q.put(batch)
                         else:
                             heldData.append(batch)

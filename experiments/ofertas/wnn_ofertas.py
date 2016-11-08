@@ -457,6 +457,8 @@ def main(args):
             inputTensors.append(ftrInput)
             inputLayers.append(ftrLayer)
 
+    log.info("Input layers: %s" % str(inputLayers))
+
     # Concatenate all input layers, when there are more thean one input layer.
     concatenatedInLayers = maxPooling if len(inputLayers) == 1 else ConcatenateLayer(inputLayers, axis=0)
 

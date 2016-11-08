@@ -107,9 +107,9 @@ PARAMETERS = {
         "desc": "Aditional numerical features along with their normalization factors." +
                 " Each feature can be only its name (as produced by the reader) or a pair [name, normalization factor]."
     },
-    "fix_word_embdding": {
+    "fix_word_embedding": {
         "desc": "Fix the word embedding (do not update it during training).",
-        default: False
+        "default": False
     },
     "include_hidden_layer": {
         "desc": "If equal to False, do not include a hidden layer between the input layers (embeddings) and the softmax layers.",
@@ -406,7 +406,7 @@ def main(args):
     inputTensors = [inWords]
 
     # Whether the word embedding will be updated during training.
-    embLayerTrainable = not args.fix_word_embdding
+    embLayerTrainable = not args.fix_word_embedding
 
     if not embLayerTrainable:
         log.info("Not updating the word embedding!")
@@ -443,7 +443,8 @@ def main(args):
     concatenatedSize = convSize
 
     # Additional features.
-    if args.categorical_features:
+    if args.categorical_features is not None:
+        log.info("Using categorical features: %s" % str([ftr[0] for ftr in args.categorical_features]))
         for ftr in args.categorical_features:
             concatenatedSize += ftr[2]
             ftrLexicon = createLexiconUsingFile(ftr[1])

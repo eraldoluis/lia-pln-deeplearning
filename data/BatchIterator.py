@@ -192,9 +192,10 @@ class AsyncBatchIterator(object):
             """
         self.__batchAssembler = BatchAssembler(reader, inputGenerators, outputGenerator, batchSize)
         self.__generatorObj = self.__batchAssembler.getGeneratorObject()
-        self.__queue, self.__stop = self.__generatorQueue(maxqSize)
         self.__shuffle = shuffle
         self.__batchSize = batchSize
+        # Create queue of batches and start reading thread.
+        self.__queue, self.__stop = self.__generatorQueue(maxqSize)
 
     def __enter__(self):
         return self

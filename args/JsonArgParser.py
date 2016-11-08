@@ -51,5 +51,8 @@ class JsonArgParser:
             if parameterNotExist:
                 parameters[paramName] = default
 
+        for param in parameters.iterkeys():
+            if param not in self.__parameterRules.keys():
+                raise Exception("Parameter %s is not recognized!" % param)
 
         return parameters

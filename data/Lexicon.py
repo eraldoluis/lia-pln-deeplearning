@@ -5,8 +5,9 @@
 """
 import codecs
 import logging
-import numpy
 from zlib import adler32
+
+import numpy
 
 from persistence.PersistentObject import PersistentObject
 
@@ -36,7 +37,7 @@ class Lexicon(PersistentObject):
         self.__readOnly = False
         self.__name = name
 
-        # Keep how many times a word was insert in the lexicon
+        # Keep how many times a word was inserted in the lexicon
         self.__countInsWord = []
 
         if unknownSymbol is None:
@@ -45,7 +46,7 @@ class Lexicon(PersistentObject):
                 "The unknown symbol of the lexicon " + name + " was generated automatically.")
             unknownSymbol = Lexicon.defaultUnknown
 
-        self.unknown_index = self.put(unknownSymbol)
+        self.unknown_index = self.put(unknownSymbol, False)
 
     def isReadOnly(self):
         """
@@ -72,7 +73,7 @@ class Lexicon(PersistentObject):
         """
         return len(self.__lexicon)
 
-    def put(self, word):
+    def put(self, word, isToCount=True):
         """
         Include a new word in the lexicon and return its index. If the word is
         already in the lexicon, then just return its index.
@@ -93,7 +94,7 @@ class Lexicon(PersistentObject):
 
             self.__countInsWord.append(0)
 
-        if not self.isReadOnly():
+        if not self.isReadOnly() and isToCount:
             # Count how many times a word was insert in the lexicon
             # Stop to count when the lexicon is only read
             self.__countInsWord[idx] += 1
@@ -146,7 +147,12 @@ class Lexicon(PersistentObject):
         newCountInsWord = []
 
         if self.isReadOnly():
+            logging.getLogger(__name__).warning("You can't prune a read only lexicon")
             return
+
+        # The removed words  from dictionary will be treated as unknown and
+        # yours frequencies will be added to unknown
+        countNewUnknown = 0
 
         for idx, nm in enumerate(self.__countInsWord):
             word = self.__lexicon[idx]
@@ -156,10 +162,29 @@ class Lexicon(PersistentObject):
                 newLexicon.append(word)
                 newLexiconDict[word] = newIdx
                 newCountInsWord.append(nm)
+            else:
+                countNewUnknown += nm
+
+        newCountInsWord[self.getUnknownIndex()] = countNewUnknown
 
         self.__lexicon = newLexicon
         self.__lexiconDict = newLexiconDict
         self.__countInsWord = newCountInsWord
+
+    def getFrequencyOfAllWords(self):
+        '''
+        It returns a vector which contains the frequency of all words.
+        The words are encoded by integers and each dimension of this vector is the frequency
+        of a specific word.
+
+        :return a numpy vector of integers
+        '''
+
+        if not self.isReadOnly():
+            logging.getLogger(__name__).warning(
+                "The word frequencies can change, because the lexicon is not read only ")
+
+        return numpy.asarray(self.__countInsWord)
 
     @staticmethod
     def fromTextFile(filePath, lexiconName=None):
@@ -172,7 +197,7 @@ class Lexicon(PersistentObject):
         :return: Lexicon
         """
         f = codecs.open(filePath, "r", encoding="utf-8")
-        unknownSym =  f.readline().strip("\n")
+        unknownSym = f.readline().strip("\n")
         lexicon = Lexicon(unknownSym, lexiconName)
 
         for l in f:
@@ -194,7 +219,6 @@ class Lexicon(PersistentObject):
             f.write(word)
             f.write("\n")
 
-
     def getName(self):
         return self.__name
 
@@ -203,6 +227,7 @@ class Lexicon(PersistentObject):
             "lexicon": [word.encode("unicode_escape") for word in self.__lexicon],
             "unknownIndex": self.unknown_index
         }
+
     @staticmethod
     def fromPersistentManager(persistentManager, name):
         """
@@ -216,7 +241,7 @@ class Lexicon(PersistentObject):
 
         :return: Lexicon
         """
-        newLexicon = Lexicon(None,name)
+        newLexicon = Lexicon(None, name)
         persistentManager.load(newLexicon)
 
         return newLexicon

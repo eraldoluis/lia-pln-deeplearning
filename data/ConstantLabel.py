@@ -9,9 +9,15 @@ class ConstantLabel(FeatureGenerator):
     def __init__(self, labelLexicon, label):
         """
         :type labelLexicon: DataOperation.Lexicon.Lexicon
-        :param labelLexicon:
+        :param labelLexicon: Lexicon with labels. If the lexicon is none, so we will use the label directly.
+
+        :param label: label to be used
         """
-        self.__labelId = labelLexicon.put(label)
+
+        if labelLexicon:
+            self.__labelId = labelLexicon.put(label)
+        else:
+            self.__labelId = label
 
     def generate(self, labels):
         """

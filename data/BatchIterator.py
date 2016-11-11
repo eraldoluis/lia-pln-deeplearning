@@ -61,7 +61,7 @@ class BatchAssembler:
                     generatedOutputs.append(outputGenerator(label))
 
             if self.__batchSize > 0:
-                nmExamples += len(generatedInputs[0])
+                numExamples += len(generatedInputs[0])
                 # Batch  has fixed size
                 for idx in xrange(len(generatedInputs[0])):
                     for idxGen, genInput in enumerate(generatedInputs):

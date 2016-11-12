@@ -10,10 +10,34 @@ import numpy as np
 
 class NegativeSamplingModel(Model):
     """
-    This class trains a model using negative sampling and subsampling
+    This class trains a model using negative sampling and subsampling.
+    During the training, alpha will linearly drop to min_alpha.
+    The lr update is done for each "numExUpdLr' examples read and ,to do that,
+    we use following equation: lr =  startingLr * 1 - ( numberExamplesRead / (numEpochs * totalNumExamplesInDataset + 1) )
     """
 
-    def __init__(self, t, noiseRate, sampler, x, y, allLayers, optimizer, loss, trainMetrics):
+    def __init__(self, t, noiseRate, sampler, minLr, numExUpdLr, totalExamples, numEpochs, x, y, allLayers, optimizer,
+                 loss, trainMetrics):
+        """
+
+        :param t: Set threshold for occurrence of words. Those that appear with higher frequency in the training data "
+                  will be randomly down-sampled;
+        :param noiseRate: "Number of noise examples
+        :param sampler: This object will raffle noise examples using a distribution
+        :param minLr: this is the miminum value which the lr can have
+        :param numExUpdLr: The lr update is done for each "numExUpdLr' examples read
+        :param totalExamples: number of examples in the dataset
+        :param numEpochs: total number of epochs
+        :param x: list of tensors that represent the inputs.
+        :param y: list of tensor that represents the corrects outputs.
+        :param allLayers: all model layers
+
+        :type optimizer: Optimizer.Optimizer
+        :param optimizer:
+
+        :param loss: tensor which represents the loss of the problem
+        :param trainMetrics: list of Metric objects to be applied on the training dataset.
+        """
 
         super(NegativeSamplingModel, self).__init__(None, None, None, None, trainMetrics=trainMetrics)
 
@@ -22,6 +46,16 @@ class NegativeSamplingModel(Model):
         self.__sampler = sampler
         self.log = logging.getLogger(__name__)
         self.__optimizer = optimizer
+
+        # Setting linear decay parameters
+        self.__minLr = minLr
+        self.__startingLr = optimizer.getInputValues(0)[0]
+        self.__numExamplesRead = 0
+        self.__numExUpdLr = numExUpdLr
+        self.__lr = self.__startingLr
+
+        # Total number of examples that the model will read
+        self.__totalExampleToRead = float(totalExamples * numEpochs)
 
         # List of trainable layers.
         trainableLayers = []
@@ -44,8 +78,6 @@ class NegativeSamplingModel(Model):
         # Training function.
         self.__trainFunction = theano.function(inputs=trainInputs, outputs=trainOutputs, updates=updates,
                                                mode=self.mode)
-
-        self.__numExamples = 0
 
     def getCentralToken(self, correctWindow):
         centralIdx = int(len(correctWindow) / 2)
@@ -80,21 +112,32 @@ class NegativeSamplingModel(Model):
         return discard
 
     def doEpoch(self, trainIterator, epoch, iteration, devIterator, evalPerIteration, callbacks):
-        lr = self.__optimizer.getInputValues(epoch)
-
         self.log.info({
             "epoch": epoch,
             "iteration": iteration,
-            "learn_rate": lr
         })
 
         for x, y in trainIterator:
-
             windowWords = []
             labels = []
 
-            #  We raffle the noise examples during the training
+            if self.__numExamplesRead % self.__numExUpdLr == 0:
+                self.__lr = self.__startingLr * (1 - (self.__numExamplesRead / (self.__totalExampleToRead + 1)))
+
+                if self.__lr < self.__minLr:
+                    self.__lr = self.__minLr
+
+                self.log.info({
+                    "lr": self.__lr,
+                    "num_examples_read": self.__numExamplesRead,
+                })
+
+            # We raffle the noise examples during the training
             for correctedWindow in x[0]:
+                # Word2vec code counts the examples before sub-sampling
+                self.__numExamplesRead += 1
+
+
                 centralToken = self.getCentralToken(correctedWindow)
 
                 #  Subsampling randomly discards words.
@@ -102,6 +145,7 @@ class NegativeSamplingModel(Model):
                 # The equation aggressively subsamples words whose frequency is greater than t.
                 if self.doDiscard(centralToken):
                     continue
+
 
                 # Put correct examples and noises examples in a same batch
                 windowWords.append(correctedWindow)
@@ -123,7 +167,7 @@ class NegativeSamplingModel(Model):
             inputs = [
                 np.asarray(windowWords),
                 np.asarray(labels),
-                lr[0]
+                self.__lr
             ]
 
             # Callbacks.

@@ -49,7 +49,7 @@ PARAMETERS = {
     "hidden_size": {"required": True, "desc": "size of the hidden layer"},
     "num_epochs": {"required": True,
                    "desc": "Number of epochs: how many iterations over the training set."},
-    "noise_rate": {"required": True, "desc": "Number of negative examples",},
+    "noise_rate": {"required": True, "desc": "Number of noise examples",},
 
     # Word embedding options
     "word_embedding_size": {
@@ -58,27 +58,26 @@ PARAMETERS = {
     # Model options
     "window_size": {"default": 5, "desc": "size of the window size"},
 
-    # Other options
-    "power": {"default": 0.75, "desc": "q(w)^power, where q(w) is the unigram distribution."},
-    "min_count": {"default": 5,
-                  "desc": "This will discard words that appear less than n times",},
-    "decay": {"default": "DIVIDE_EPOCH",
-              "desc": "Set the learning rate update strategy. NORMAL and DIVIDE_EPOCH are the options available"},
-
+    # Trainig options
+    "min_lr": {"default": 0.0001, "desc": "this is the miminum value which the lr can have"},
+    "num_examples_updt_lr": {"default": 10000, "desc": "The lr update is done for each numExUpdLr examples read"},
+    # "batch_size": {"default": 1},
     "t": {"default": 10 ** -5,
           "desc": "Set threshold for occurrence of words. Those that appear with higher frequency in the training data "
                   "will be randomly down-sampled; default is 1e-5, useful range is (0, 1e-10)"},
 
+    # Vocabulary and frequency options
+    "power": {"default": 0.75, "desc": "q(w)^power, where q(w) is the unigram distribution."},
+    "min_count": {"default": 5,
+                  "desc": "This will discard words that appear less than n times",},
+
+    # Other options
     "shuffle": {"default": True, "desc": "able or disable the shuffle of training examples."},
-
-    "batch_size": {"default": 1},
-
     "start_symbol": {"default": "</s>",
                      "desc": "Object that will be place when the initial limit of list is exceeded"},
     # "end_symbol": {"default": "</s>",
     #                "desc": "Object that will be place when the end limit of list is exceeded"},
     "seed": {"desc": ""},
-
 }
 
 
@@ -92,11 +91,17 @@ def mainWnnNegativeSampling(args):
     # endSymbol = args.end_symbol
     endSymbol = startSymbol
     noiseRate = args.noise_rate
-    batchSize = args.batch_size
+
+    # todo: o algoritmo não suporta mini batch. Somente treinamento estocástico.
+    batchSize = 1
+
     shuffle = args.shuffle
     lr = args.lr
     numEpochs = args.num_epochs
     power = args.power
+
+    minLr = args.min_lr
+    numExUpdLr = args.num_examples_updt_lr
 
     log = logging.getLogger(__name__)
 
@@ -105,18 +110,22 @@ def mainWnnNegativeSampling(args):
     if args.seed:
         random.seed(args.seed)
         np.random.seed(args.seed)
-
-    if args.decay.lower() == "normal":
-        decay = 0.0
-    elif args.decay.lower() == "divide_epoch":
-        decay = 1.0
+    #
+    # if args.decay.lower() == "normal":
+    #     decay = 0.0
+    # elif args.decay.lower() == "divide_epoch":
+    #     decay = 1.0
 
     # Calculate the frequency of each word
     trainReader = TokenReader(args.train)
     wordLexicon = Lexicon("UUKNNN")
     wordLexicon.put(startSymbol, False)
 
+    totalNumOfTokens = 0
     for tokens, labels in trainReader.read():
+        # we don't count the </s>, because this token is only insert in the sentence to count its frequency.
+        totalNumOfTokens += len(tokens)
+
         # Word2vec considers that the number of lines is the frequency of </s>
         tokens += [startSymbol]
 
@@ -135,7 +144,6 @@ def mainWnnNegativeSampling(args):
     #     print "%s\t%d\t%.4f" % (wordLexicon.getLexicon(_), frequency[_],frequency[_]/float(total))
 
     sampler = Sampler(frequency / float(total))
-
 
     # Create a random embedding for each word
     wordEmbedding = Embedding(wordLexicon, None, wordEmbeddingSize)
@@ -177,10 +185,11 @@ def mainWnnNegativeSampling(args):
 
     allLayers = act2.getLayerSet()
 
-    opt = SGD(lr=lr, decay=decay)
+    # opt = SGD(lr=lr, decay=decay)
+    opt = SGD(lr=lr)
 
-    model = NegativeSamplingModel(args.t, noiseRate, sampler, [x], [y], allLayers, opt, negativeSamplingLoss,
-                                  trainMetrics)
+    model = NegativeSamplingModel(args.t, noiseRate, sampler, minLr, numExUpdLr, totalNumOfTokens, numEpochs, [x], [y],
+                                  allLayers, opt, negativeSamplingLoss, trainMetrics)
 
     # Training
     model.train(trainIterator, numEpochs=numEpochs, callbacks=[])

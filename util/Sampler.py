@@ -16,11 +16,14 @@ class Sampler(object):
         if round(self.__prob.sum(), 2) != 1.0:
             raise Exception("The sum of all probabilities isn't 1")
 
-        self.__capacity = 2 ^ 20
+        self.__capacity = 2^20
         self.__samples = np.random.choice(len(self.__prob), size=self.__capacity, p=self.__prob)
 
         # It pointers to the first not used sample
         self.__ptr = 0
+
+    def getProbability(self, idx):
+        return self.__prob[idx]
 
     def sample(self, nm=1):
         """
@@ -30,8 +33,10 @@ class Sampler(object):
         if len(self.__samples) - self.__ptr < nm:
             newSamples = np.random.choice(len(self.__prob), size=self.__capacity, p=self.__prob)
             newPtr = nm - (len(self.__samples) - self.__ptr)
-
-            samples = self.__samples[self.__ptr:] + newSamples[:newPtr]
+            if self.__ptr == len(self.__samples):
+                samples = newSamples[:newPtr]
+            else:
+                samples = self.__samples[self.__ptr:] + newSamples[:newPtr]
 
             self.__samples = newSamples
             self.__ptr = newPtr

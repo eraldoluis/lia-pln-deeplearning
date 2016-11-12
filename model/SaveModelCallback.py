@@ -4,10 +4,6 @@ import sys
 
 from model.Callback import Callback
 
-class ModelWriter:
-    def save(self):
-        raise NotImplementedError()
-
 
 class SaveModelCallback(Callback):
     """
@@ -17,7 +13,7 @@ class SaveModelCallback(Callback):
 
     def __init__(self, modelWritter, metricName, biggest=True):
         """
-        :type modelWritter: Model.SaveModelCallback.ModelWriter
+        :type modelWritter: Model.ModelWriter.ModelWriter
         :param modelWritter: this class is responsible to save the model
 
         :param metricName: metric name which the class will monitor

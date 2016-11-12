@@ -31,6 +31,7 @@ from data.TokenDatasetReader import TokenReader
 from data.WordWindowGenerator import WordWindowGenerator
 from model.Callback import Callback
 from model.Metric import LossMetric
+from model.ModelWriter import ModelWriter
 from model.NegativeSamplingModel import NegativeSamplingModel
 from model.Prediction import ArgmaxPrediction
 from nnet.ActivationLayer import ActivationLayer, tanh, sigmoid
@@ -73,6 +74,8 @@ PARAMETERS = {
 
     # Other options
     "shuffle": {"default": True, "desc": "able or disable the shuffle of training examples."},
+    "save_model": {"desc": "Path + basename that will be used to save the weights and embeddings to be saved."},
+
     "start_symbol": {"default": "</s>",
                      "desc": "Object that will be place when the initial limit of list is exceeded"},
     # "end_symbol": {"default": "</s>",
@@ -116,9 +119,11 @@ def mainWnnNegativeSampling(args):
     # elif args.decay.lower() == "divide_epoch":
     #     decay = 1.0
 
+    parametersToSaveOrLoad = {"hidden_size", "window_size", "start_symbol", "word_em"}
+
     # Calculate the frequency of each word
     trainReader = TokenReader(args.train)
-    wordLexicon = Lexicon("UUKNNN")
+    wordLexicon = Lexicon("UUKNNN", "lexicon")
     wordLexicon.put(startSymbol, False)
 
     totalNumOfTokens = 0
@@ -134,6 +139,7 @@ def mainWnnNegativeSampling(args):
 
     # Prune the words with the frequency less than min_count
     wordLexicon.prune(args.min_count)
+    wordLexicon.stopAdd()
 
     # Calculte the unigram distribution
     frequency = np.power(wordLexicon.getFrequencyOfAllWords(), power)
@@ -190,10 +196,22 @@ def mainWnnNegativeSampling(args):
 
     model = NegativeSamplingModel(args.t, noiseRate, sampler, minLr, numExUpdLr, totalNumOfTokens, numEpochs, [x], [y],
                                   allLayers, opt, negativeSamplingLoss, trainMetrics)
+    # Save Model
+    if args.save_model:
+        savePath = args.save_model
+        objsToSave = list(act2.getLayerSet()) + [wordLexicon]
+
+        modelWriter = ModelWriter(savePath, objsToSave, args, parametersToSaveOrLoad)
+
 
     # Training
     model.train(trainIterator, numEpochs=numEpochs, callbacks=[])
 
+    if args.save_model:
+        modelWriter.save()
+
+    print wordEmbeddingLayer.getParameters()[0].get_value()
+    print linear1.getParameters()[0].get_value()
 
 if __name__ == '__main__':
     full_path = os.path.realpath(__file__)

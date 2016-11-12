@@ -26,9 +26,10 @@ from data.TokenDatasetReader import TokenLabelReader
 from data.WordWindowGenerator import WordWindowGenerator
 from model.BasicModel import BasicModel
 from model.Metric import LossMetric, AccuracyMetric
+from model.ModelWriter import ModelWriter
 from model.Objective import NegativeLogLikelihood
 from model.Prediction import ArgmaxPrediction
-from model.SaveModelCallback import ModelWriter, SaveModelCallback
+from model.SaveModelCallback import SaveModelCallback
 from nnet.ActivationLayer import ActivationLayer, softmax, tanh, sigmoid
 from nnet.ConcatenateLayer import ConcatenateLayer
 from nnet.EmbeddingConvolutionalLayer import EmbeddingConvolutionalLayer
@@ -129,39 +130,6 @@ WNN_PARAMETERS = {
     "seed": {"desc": ""},
     "print_prediction": {"desc": "file where the prediction will be writed."}
 }
-
-
-class WNNModelWritter(ModelWriter):
-    def __init__(self, savePath, listOfPersistentObjs, args, parametersToSave):
-        """
-        :param savePath: path where the model will be save
-
-        :param listOfPersistentObjs: list of PersistentObject. These objects represents the  necessary data to be saved.
-
-        :param args: object with all parameters
-
-        :param parametersToSave: a list with the name of parameters which need to be saved.
-        """
-        self.__h5py = H5py(savePath)
-        self.__listOfPersistentObjs = listOfPersistentObjs
-        self.__log = logging.getLogger(__name__)
-
-        parameters = {}
-
-        for parameterName in parametersToSave:
-            parameters[parameterName] = getattr(args, parameterName)
-
-        self.__h5py.addAttribute("parameters", json.dumps(parameters))
-
-    def save(self):
-        begin = int(time())
-
-        for obj in self.__listOfPersistentObjs:
-            if obj.getName():
-                self.__h5py.save(obj)
-
-        self.__log.info("Model Saved in %d", int(time()) - begin)
-
 
 def mainWnn(args):
     ################################################
@@ -622,7 +590,7 @@ def mainWnn(args):
             if useCapFeatures:
                 objsToSave.append(capLexicon)
 
-            modelWriter = WNNModelWritter(savePath, objsToSave, args, parametersToSaveOrLoad)
+            modelWriter = ModelWriter(savePath, objsToSave, args, parametersToSaveOrLoad)
 
             # Save the model with best acc in dev
             if args.save_by_acc:

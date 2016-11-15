@@ -6,7 +6,14 @@ import sys
 from numpy import random
 
 
-def pickRandomlySentences(fileFrom, fileTo, numLines):
+def pickUpSentences(fileFrom, fileTo, numSentences):
+    """
+
+    :param fileFrom: file which the sentences will be picked
+    :param fileTo: file which the picked sentences will be written
+    :param numSentences: number of sentences to be picked
+    :return:
+    """
     lines = codecs.open(fileFrom, "r", encoding="utf-8").readlines()
     f = codecs.open(fileTo, "w", encoding="utf-8")
 
@@ -15,10 +22,9 @@ def pickRandomlySentences(fileFrom, fileTo, numLines):
     random.shuffle(linesNumber)
 
     for i, l in enumerate(linesNumber):
-        if i == numLines:
+        if i == numSentences:
             break
         f.write(lines[l])
 
-
 if __name__ == '__main__':
-    pickRandomlySentences(sys.args[1], sys.args[2], sys.args[3])
+    pickUpSentences(sys.argv[1], sys.argv[2], int(sys.argv[3]))

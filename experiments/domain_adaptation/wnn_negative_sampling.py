@@ -53,8 +53,8 @@ PARAMETERS = {
     "noise_rate": {"required": True, "desc": "Number of noise examples",},
 
     # Word embedding options
-    "word_embedding_size": {
-        "desc": "the size of the word embedding. This parameter will be used when word_embedding is None."},
+    "word_embedding_size": {"required": True,
+                            "desc": "the size of the word embedding. This parameter will be used when word_embedding is None."},
 
     # Model options
     "window_size": {"default": 5, "desc": "size of the window size"},
@@ -119,7 +119,7 @@ def mainWnnNegativeSampling(args):
     # elif args.decay.lower() == "divide_epoch":
     #     decay = 1.0
 
-    parametersToSaveOrLoad = {"hidden_size", "window_size", "start_symbol", "word_em"}
+    parametersToSaveOrLoad = {"hidden_size", "window_size", "start_symbol"}
 
     # Calculate the frequency of each word
     trainReader = TokenReader(args.train)
@@ -171,12 +171,11 @@ def mainWnnNegativeSampling(args):
                           name="linear_softmax_regresion")
 
     act2 = ActivationLayer(linear2, sigmoid)
-    output = T.flatten(act2.getOutput())
+    # We clip the output of -sigmoid, because this output can be 0  and ln(0) is infinite, which can cause problems.
+    output = T.flatten(T.clip(act2.getOutput(), 10**-5, 1 - 10**-5))
 
-    # Loss Function
-    # We clip the output of -log, because this output can be 0  and ln(0) is infinite, which can cause problems.
-    negativeSamplingLoss = (y * T.clip(-T.log(output), 0, 1000) + (1. - y) * T.clip(-T.log(1 - output), 0, 1000)).sum()
-
+    # Loss Functions
+    negativeSamplingLoss = T.nnet.binary_crossentropy(output, y).sum()
     # Set training
     inputGenerators = [
         WordWindowGenerator(windowSize, wordLexicon, [], startSymbol, endSymbol)]
@@ -203,15 +202,12 @@ def mainWnnNegativeSampling(args):
 
         modelWriter = ModelWriter(savePath, objsToSave, args, parametersToSaveOrLoad)
 
-
     # Training
     model.train(trainIterator, numEpochs=numEpochs, callbacks=[])
 
     if args.save_model:
         modelWriter.save()
 
-    print wordEmbeddingLayer.getParameters()[0].get_value()
-    print linear1.getParameters()[0].get_value()
 
 if __name__ == '__main__':
     full_path = os.path.realpath(__file__)

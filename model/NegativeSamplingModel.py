@@ -17,7 +17,7 @@ class NegativeSamplingModel(Model):
     """
 
     def __init__(self, t, noiseRate, sampler, minLr, numExUpdLr, totalExamples, numEpochs, x, y, allLayers, optimizer,
-                 loss, trainMetrics):
+                 loss, trainMetrics, mode=None):
         """
 
         :param t: Set threshold for occurrence of words. Those that appear with higher frequency in the training data "
@@ -39,7 +39,7 @@ class NegativeSamplingModel(Model):
         :param trainMetrics: list of Metric objects to be applied on the training dataset.
         """
 
-        super(NegativeSamplingModel, self).__init__(None, None, None, None, trainMetrics=trainMetrics)
+        super(NegativeSamplingModel, self).__init__(None, None, None, None, trainMetrics=trainMetrics, mode=mode)
 
         self.__t = t
         self.__noiseRate = noiseRate
@@ -127,16 +127,16 @@ class NegativeSamplingModel(Model):
                 if self.__lr < self.__minLr:
                     self.__lr = self.__minLr
 
-                self.log.info({
-                    "lr": self.__lr,
-                    "num_examples_read": self.__numExamplesRead,
-                })
+                if self.__numExamplesRead % (self.__numExUpdLr * 1000) == 0:
+                    self.log.info({
+                        "lr": self.__lr,
+                        "num_examples_read": self.__numExamplesRead,
+                    })
 
             # We raffle the noise examples during the training
             for correctedWindow in x[0]:
                 # Word2vec code counts the examples before sub-sampling
                 self.__numExamplesRead += 1
-
 
                 centralToken = self.getCentralToken(correctedWindow)
 
@@ -145,7 +145,6 @@ class NegativeSamplingModel(Model):
                 # The equation aggressively subsamples words whose frequency is greater than t.
                 if self.doDiscard(centralToken):
                     continue
-
 
                 # Put correct examples and noises examples in a same batch
                 windowWords.append(correctedWindow)

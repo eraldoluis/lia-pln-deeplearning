@@ -94,135 +94,139 @@ def getNumbersOfJobs():
 
     return len(re.findall("\n[0-9]+", out))
 
+def main():
+    # Get json with parameters of this script
+    f = codecs.open(sys.argv[1], "r", "utf-8")
+    js = json.load(f)
 
-# Get json with parameters of this script
-f = codecs.open(sys.argv[1], "r", "utf-8")
-js = json.load(f)
+    # Execute many rounds of a same algorithm
+    # For each round, you need to create a json with the basic parameters.
+    # Each json will have different parameter values, however we will use the same values ​​for the parameters that vary.
+    # Thus, the rounds can have different values for constant parameters and
+    # will have the same values for not constant parameters.
+    jsonsToRead = js["jsons"]
 
-# Execute many rounds of a same algorithm
-# For each round, you need to create a json with the basic parameters.
-# Each json will have different parameter values, however we will use the same values ​​for the parameters that vary.
-# Thus, the rounds can have different values for constant parameters and
-# will have the same values for not constant parameters.
-jsonsToRead = js["jsons"]
+    # This is a list of objects.
+    # Each object has parameter name and possible parameters values.
+    parameters = js["parameters"]
 
-# This is a list of objects.
-# Each object has parameter name and possible parameters values.
-parameters = js["parameters"]
+    # The dir where a temporary json will be created
+    dirPathJson = js["json_garbage"]
 
-# The dir where a temporary json will be created
-dirPathJson = js["json_garbage"]
+    # Number of jobs to be launched
+    nm = js["nm"]
 
-# Number of jobs to be launched
-nm = js["nm"]
+    # Python script
+    scriptPath = js["scrip_path"]
 
-# Python script
-scriptPath = js["scrip_path"]
+    # The file which will be store the jobId and parameters of each job
+    appendFile = js["append_file"]
 
-# The file which will be store the jobId and parameters of each job
-appendFile = js["append_file"]
+    # Max memory used by script. This value is in MB.
+    memory = js["memory"]
 
-# Max memory used by script. This value is in MB.
-memory = js["memory"]
+    if not isinstance(memory, int):
+        raise Exception("Memory needs to be a integer")
 
-if not isinstance(memory, int):
-    raise Exception("Memory needs to be a integer")
+    # Save model path
+    if "save_model_path" in js:
+        saveModelPath = js["save_model_path"]
+    else:
+        saveModelPath = None
 
-# Save model path
-if "save_model_path" in js:
-    saveModelPath = js["save_model_path"]
-else:
-    saveModelPath = None
+    log = codecs.open(appendFile, "a", encoding="utf-8")
 
-log = codecs.open(appendFile, "a", encoding="utf-8")
+    baseJsons = []
 
-baseJsons = []
+    for j in jsonsToRead:
+        with codecs.open(j, "r", encoding="utf-8") as f:
+            baseJsons.append(json.load(f))
 
-for j in jsonsToRead:
-    with codecs.open(j, "r", encoding="utf-8") as f:
-        baseJsons.append(json.load(f))
+    # Create parameters that vary
+    parametersValue = {}
 
-# Create parameters that vary
-parametersValue = {}
+    for param in parameters:
+        name = param["name"]
 
-for param in parameters:
-    name = param["name"]
+        if param["type"] == "float":
+            r = param["round"]
+            a = param["a"]
+            b = param["b"]
+            parametersValue[name] = [round(10 ** (scipy.stats.uniform.rvs() * b - a), r) for _ in xrange(nm)]
+        elif param["type"] == "int":
+            min = param["min"]
+            max = param["max"]
+            parametersValue[name] = [random.randint(min, max) for _ in xrange(nm)]
+        elif param["type"] == "list":
+                parametersValue[name] = [random.choice(param["values"]) for _ in xrange(nm)]
 
-    if param["type"] == "float":
-        r = param["round"]
-        a = param["a"]
-        b = param["b"]
-        parametersValue[name] = [round(10 ** (scipy.stats.uniform.rvs() * b - a), r) for _ in xrange(nm)]
-    elif param["type"] == "int":
-        min = param["min"]
-        max = param["max"]
-        parametersValue[name] = [random.randint(min, max) for _ in xrange(nm)]
-    elif param["type"] == "list":
-            parametersValue[name] = [random.choice(param["values"]) for _ in xrange(nm)]
+    # Launch the 'nm' jobs
+    for launchNum in xrange(nm):
+        param = {}
+        name = ""
 
-# Launch the 'nm' jobs
-for launchNum in xrange(nm):
-    param = {}
-    name = ""
+        # Transfer the parameters values of a launch to a dictionary
+        for paramName, paramValues in parametersValue.iteritems():
+            name += paramName
+            name += "_"
+            name += str(paramValues[launchNum])
+            name += "_"
 
-    # Transfer the parameters values of a launch to a dictionary
-    for paramName, paramValues in parametersValue.iteritems():
-        name += paramName
-        name += "_"
-        name += str(paramValues[launchNum])
-        name += "_"
+            param[paramName] = paramValues[launchNum]
 
-        param[paramName] = paramValues[launchNum]
+        print "#######################################"
+        print param,
+        print "\t",
 
-    print "#######################################"
-    print param,
-    print "\t",
+        jobIds = []
 
-    jobIds = []
+        # Execute script python for each round
+        for roundNum, jsonParameters in enumerate(baseJsons):
 
-    # Execute script python for each round
-    for roundNum, jsonParameters in enumerate(baseJsons):
+            # Change the parameter values that vary
+            for k, v in param.iteritems():
+                jsonParameters[k] = v
 
-        # Change the parameter values that vary
-        for k, v in param.iteritems():
-            jsonParameters[k] = v
+            if saveModelPath:
+                saveModel = saveModelPath + "_" + name
 
-        if saveModelPath:
-            saveModel = saveModelPath + "_" + name
+                if len(baseJsons) > 1:
+                    saveModel += "_%d" % (roundNum)
 
-            if len(baseJsons) > 1:
-                saveModel += "_%d" % (roundNum)
+                jsonParameters["save_model"] = saveModel
 
-            jsonParameters["save_model"] = saveModel
+            # Create a temporary json
+            filePath = os.path.join(dirPathJson, uuid.uuid4().hex)
+            with codecs.open(filePath, mode="w", encoding="utf-8") as f:
+                json.dump(jsonParameters, f)
 
-        # Create a temporary json
-        filePath = os.path.join(dirPathJson, uuid.uuid4().hex)
-        with codecs.open(filePath, mode="w", encoding="utf-8") as f:
-            json.dump(jsonParameters, f)
+            # Launch job
+            print "Run %d" % launchNum
 
-        # Launch job
-        print "Run %d" % launchNum
+            out = executeSub(scriptPath, filePath, memory)
 
-        out = executeSub(scriptPath, filePath, memory)
+            # Get job id
+            r = re.findall("[0-9]+", out)
 
-        # Get job id
-        r = re.findall("[0-9]+", out)
+            if len(r) > 1:
+                print "Tem mais de um numero na saida"
+                sys.exit()
 
-        if len(r) > 1:
-            print "Tem mais de um numero na saida"
-            sys.exit()
+            jobIds.append(r[0])
 
-        jobIds.append(r[0])
+            print jsonParameters
+            print "\n\n"
+            launchNum += 1
+            time.sleep(1)
 
-        print jsonParameters
-        print "\n\n"
-        launchNum += 1
-        time.sleep(1)
+        st = str(param)
+        st += " "
+        st += str(jobIds)
+        st += "\n"
 
-    st = str(param)
-    st += " "
-    st += str(jobIds)
-    st += "\n"
+        print st
+        log.write(st)
 
-    print st
-    log.write(st)
+
+if __name__ == '__main__':
+    main()

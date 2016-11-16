@@ -1,21 +1,12 @@
-import argparse
 import codecs
 import json
+import os
 import re
-import scipy.stats
-import subprocess
+import sys
+import time
 import uuid
 
-import itertools
-from numpy import random
-
-import numpy
-import os
-import time
-
-import sys
-
-from co_training_wnn_run_best_models import jsonParameters
+from experiments.domain_adaptation.random_search import executeSub
 
 
 def main():
@@ -50,14 +41,15 @@ def main():
     lrs = [0.001, 0.0025, 0.005, 0.0075, 0.01, 0.025, 0.05, 0.075, 0.1]
     saveModel = jsonParameters["save_model"] if "save_model" in jsonParameters else None
 
+    jobIds = []
+
     for lr in lrs:
-        name = ""
         param = {}
 
         jsonParameters["lr"] = lr
 
         if "save_model" in jsonParameters and jsonParameters["save_model"]:
-            jsonParameters["save_model"] = saveModel + str(lr)
+            jsonParameters["save_model"] = saveModel + "_" + str(lr)
 
         print "#######################################"
         print param,
@@ -79,10 +71,19 @@ def main():
             print "Tem mais de um numero na saida"
             sys.exit()
 
+        jobId = r[0]
+
+        jobIds.append(jobId)
+
         print jsonParameters
         print "\n\n"
         i += 1
         time.sleep(1)
+
+    print commandParameters
+
+    for jobId in jobIds:
+        print "%d\t" %(jobId),
 
 
 if __name__ == '__main__':

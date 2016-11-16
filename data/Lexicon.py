@@ -248,7 +248,8 @@ class Lexicon(PersistentObject):
 
     def load(self, attributes):
         lexicon = attributes["lexicon"]
-        self.unknown_index = numpy.asarray(attributes["unknownIndex"])
+        # The only way that I found to tranform a Dataset to integer
+        self.unknown_index = numpy.int(numpy.asarray(attributes["unknownIndex"]))
         self.__lexicon = []
         self.__lexiconDict = {}
         self.__readOnly = False

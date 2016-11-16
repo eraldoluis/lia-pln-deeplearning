@@ -37,6 +37,8 @@ class H5py(PersistentManager):
             else:
                 attrGrp[attrName][...] = attrValue
 
+    def objectExist(self,objName):
+        return objName in self.__f
 
     def load(self, persistentObject):
         objName = persistentObject.getName()

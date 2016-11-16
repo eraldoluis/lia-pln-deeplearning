@@ -1,5 +1,4 @@
 import numpy
-
 import theano
 import theano.tensor as T
 from theano.tensor.sharedvar import TensorSharedVariable
@@ -76,15 +75,29 @@ class LinearLayer(Layer):
     def getUpdates(self, cost, lr, sumSqGrads=None):
         return []
 
+
+    @staticmethod
+    def getParametersFromPersistenceManager(persistenceManager, name):
+        """
+        Return parameters of a linear alayer from the database
+
+        :type persistenceManager: persistence.PersistentManager.PersistentManager
+        :param persistenceManager:
+
+        :param name: name of object which parameters was saved as attribute
+
+        :return:  a tuple with  W e b values
+        """
+        attrs = persistenceManager.getObjAttributesByObjName(name)
+
+        return (numpy.array(attrs["w"]), numpy.array(attrs["b"]))
+
     def getAttributes(self):
-        return  {
+        return {
             "w": self.W.get_value(),
             "b": self.b.get_value()
         }
 
-    def load(self,attributes):
+    def load(self, attributes):
         self.W.set_value(numpy.array(attributes["w"]))
         self.b.set_value(numpy.array(attributes["b"]))
-
-
-

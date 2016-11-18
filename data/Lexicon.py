@@ -241,6 +241,7 @@ class Lexicon(PersistentObject):
 
         :return: Lexicon
         """
+        # todo: o script está avisando que o unknown foi gerado automaticamente. Retirar este aviso
         newLexicon = Lexicon(None, name)
         persistentManager.load(newLexicon)
 

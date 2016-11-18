@@ -594,7 +594,8 @@ def mainWnn(args):
 
             # Save the model with best acc in dev
             if args.save_by_acc:
-                callback.append(SaveModelCallback(modelWriter, "eval_acc", True))
+                # todo: esta feature não está funcionando depois do merge com o ofertas
+                callback.append(SaveModelCallback(modelWriter, "AccDev", True))
 
         log.info("Training")
         wnnModel.train(trainReader, numEpochs, devReader, callbacks=callback)
@@ -610,7 +611,7 @@ def mainWnn(args):
         testReader = SyncBatchIterator(testDatasetReader, inputGenerators, [outputGenerator], sys.maxint, shuffle=False)
 
         log.info("Testing")
-        wnnModel.evaluate(testReader, True)
+        wnnModel.test(testReader)
 
         if args.print_prediction:
             f = codecs.open(args.print_prediction, "w", encoding="utf-8")

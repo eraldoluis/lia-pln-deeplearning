@@ -305,7 +305,7 @@ def mainWnn(args):
     elif args.word_embedding:
         wordLexicon, wordEmbedding = Embedding.fromWord2Vec(args.word_embedding, "UUUNKKK", "word_lexicon")
     elif args.word_lexicon:
-        wordLexicon = Lexicon.fromTextFile(args.word_lexicon, "word_lexicon")
+        wordLexicon = Lexicon.fromTextFile(args.word_lexicon, True, "word_lexicon")
         wordEmbedding = Embedding(wordLexicon, vectors=None, embeddingSize=embeddingSize)
     else:
         log.error("You need to set one of these parameters: load_model, word_embedding or word_lexicon")
@@ -320,7 +320,7 @@ def mainWnn(args):
 
             charEmbedding = Embedding(charLexicon, vectors)
         elif args.char_lexicon:
-            charLexicon = Lexicon.fromTextFile(args.char_lexicon, "char_lexicon")
+            charLexicon = Lexicon.fromTextFile(args.char_lexicon, True, "char_lexicon")
             charEmbedding = Embedding(charLexicon, vectors=None, embeddingSize=charEmbeddingSize)
         else:
             log.error("You need to set one of these parameters: load_model or char_lexicon")
@@ -335,7 +335,7 @@ def mainWnn(args):
 
                 suffixEmbedding = Embedding(suffixLexicon, vectors)
             elif args.suffix_lexicon:
-                suffixLexicon = Lexicon.fromTextFile(args.suffix_lexicon, "suffix_lexicon")
+                suffixLexicon = Lexicon.fromTextFile(args.suffix_lexicon, True, "suffix_lexicon")
                 suffixEmbedding = Embedding(suffixLexicon, vectors=None, embeddingSize=suffixEmbSize)
             else:
                 log.error("You need to set one of these parameters: load_model or suffix_lexicon")
@@ -350,7 +350,7 @@ def mainWnn(args):
 
                 capEmbedding = Embedding(capLexicon, vectors)
             elif args.cap_lexicon:
-                capLexicon = Lexicon.fromTextFile(args.cap_lexicon, "cap_lexicon")
+                capLexicon = Lexicon.fromTextFile(args.cap_lexicon, True, "cap_lexicon")
                 capEmbedding = Embedding(capLexicon, vectors=None, embeddingSize=capEmbSize)
             else:
                 log.error("You need to set one of these parameters: load_model or cap_lexicon")
@@ -360,7 +360,7 @@ def mainWnn(args):
     if args.load_model:
         labelLexicon = Lexicon.fromPersistentManager(persistentManager, "label_lexicon")
     elif args.label_file:
-        labelLexicon = Lexicon.fromTextFile(args.label_file, lexiconName="label_lexicon")
+        labelLexicon = Lexicon.fromTextFile(args.label_file, False, lexiconName="label_lexicon")
     else:
         log.error("You need to set one of these parameters: load_model, word_embedding or word_lexicon")
         return
@@ -594,8 +594,7 @@ def mainWnn(args):
 
             # Save the model with best acc in dev
             if args.save_by_acc:
-                # todo: esta feature não está funcionando depois do merge com o ofertas
-                callback.append(SaveModelCallback(modelWriter, "AccDev", True))
+                callback.append(SaveModelCallback(modelWriter, evalMetrics[1], "accuracy", True))
 
         log.info("Training")
         wnnModel.train(trainReader, numEpochs, devReader, callbacks=callback)

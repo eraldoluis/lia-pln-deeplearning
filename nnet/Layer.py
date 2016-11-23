@@ -49,8 +49,8 @@ class Layer(PersistentObject):
 
         self.log = logging.getLogger(__name__)
 
-        if name is None:
-            self.log.debug("The layer object doesn't have a name. It won't be possible to save this object.")
+        # if name is None:
+        #     self.log.debug("The layer object doesn't have a name. It won't be possible to save this object.")
 
         self.__name = name
 

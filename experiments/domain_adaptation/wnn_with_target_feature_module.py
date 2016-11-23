@@ -332,7 +332,7 @@ def mainWnn(args):
     elif args.word_embedding:
         wordLexicon, wordEmbedding = Embedding.fromWord2Vec(args.word_embedding, "UUUNKKK", "word_lexicon")
     elif args.word_lexicon:
-        wordLexicon = Lexicon.fromTextFile(args.word_lexicon, "word_lexicon")
+        wordLexicon = Lexicon.fromTextFile(args.word_lexicon, True, "word_lexicon")
         wordEmbedding = Embedding(wordLexicon, vectors=None, embeddingSize=embeddingSize)
     else:
         log.error("You need to set one of these parameters: load_model, word_embedding or word_lexicon")
@@ -361,7 +361,7 @@ def mainWnn(args):
 
         pars = json.loads(h5pyTarget.getAttribute("parameters"))
         targetWindowSize = pars["window_size"]
-        targetStartSymbol =  pars["start_symbol"]
+        targetStartSymbol = pars["start_symbol"]
 
     # Read char lexicon and create char embeddings
     if withCharWNN:
@@ -372,7 +372,7 @@ def mainWnn(args):
 
             charEmbedding = Embedding(charLexicon, vectors)
         elif args.char_lexicon:
-            charLexicon = Lexicon.fromTextFile(args.char_lexicon, "char_lexicon")
+            charLexicon = Lexicon.fromTextFile(args.char_lexicon, True, "char_lexicon")
             charEmbedding = Embedding(charLexicon, vectors=None, embeddingSize=charEmbeddingSize)
         else:
             log.error("You need to set one of these parameters: load_model or char_lexicon")
@@ -387,7 +387,7 @@ def mainWnn(args):
 
                 suffixEmbedding = Embedding(suffixLexicon, vectors)
             elif args.suffix_lexicon:
-                suffixLexicon = Lexicon.fromTextFile(args.suffix_lexicon, "suffix_lexicon")
+                suffixLexicon = Lexicon.fromTextFile(args.suffix_lexicon, True, "suffix_lexicon")
                 suffixEmbedding = Embedding(suffixLexicon, vectors=None, embeddingSize=suffixEmbSize)
             else:
                 log.error("You need to set one of these parameters: load_model or suffix_lexicon")
@@ -402,7 +402,7 @@ def mainWnn(args):
 
                 capEmbedding = Embedding(capLexicon, vectors)
             elif args.cap_lexicon:
-                capLexicon = Lexicon.fromTextFile(args.cap_lexicon, "cap_lexicon")
+                capLexicon = Lexicon.fromTextFile(args.cap_lexicon, True, "cap_lexicon")
                 capEmbedding = Embedding(capLexicon, vectors=None, embeddingSize=capEmbSize)
             else:
                 log.error("You need to set one of these parameters: load_model or cap_lexicon")
@@ -412,7 +412,7 @@ def mainWnn(args):
     if args.load_model:
         labelLexicon = Lexicon.fromPersistentManager(persistentManager, "label_lexicon")
     elif args.label_file:
-        labelLexicon = Lexicon.fromTextFile(args.label_file, lexiconName="label_lexicon")
+        labelLexicon = Lexicon.fromTextFile(args.label_file, False, lexiconName="label_lexicon")
     else:
         log.error("You need to set one of these parameters: load_model, word_embedding or word_lexicon")
         return
@@ -536,8 +536,7 @@ def mainWnn(args):
             lastLayerTarget = targetFlatten
             sizeLastLayerTarget = targetWordEmbedding.getEmbeddingSize()
 
-
-        conc = ConcatenateLayer([layerBeforeSoftmax,lastLayerTarget])
+        conc = ConcatenateLayer([layerBeforeSoftmax, lastLayerTarget])
 
         # Softmax
         linear2 = LinearLayer(conc, sizeLayerBeforeSoftmax + sizeLastLayerTarget, labelLexicon.getLen(),
@@ -615,6 +614,9 @@ def mainWnn(args):
 
     log.info("Size of  word dictionary and word embedding size: %d and %d" % (dictionarySize, embeddingSize))
 
+    log.info("Size of  target dictionary and target embedding size: %d and %d" % (
+        targetWordEmbedding.getNumberOfVectors(), targetWordEmbedding.getEmbeddingSize()))
+
     if withCharWNN:
         log.info("Size of  char dictionary and char embedding size: %d and %d" % (
             charEmbedding.getNumberOfVectors(), charEmbedding.getEmbeddingSize()))
@@ -673,7 +675,7 @@ def mainWnn(args):
 
             # Save the model with best acc in dev
             if args.save_by_acc:
-                callback.append(SaveModelCallback(modelWriter, "eval_acc", True))
+                callback.append(SaveModelCallback(modelWriter, evalMetrics[1], "accuracy", True))
 
         log.info("Training")
         wnnModel.train(trainReader, numEpochs, devReader, callbacks=callback)

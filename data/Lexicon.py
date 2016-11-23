@@ -18,13 +18,10 @@ class Lexicon(PersistentObject):
     Each added word in this lexicon will be represented by a integer.
     This class has a variable '__readOnly' that control if the lexicon will or not insert new words.
     If a word in new to lexicon and '__readOnly' is true, so this lexicon will return a index which
-        is related with all unknown words.
-    This special index is always 0.
+        is related with a unknown word.
     """
 
-    defaultUnknown = "5E03B540596634A1AEC9A6F97AB869D8"
-
-    def __init__(self, unknownSymbol, name=None):
+    def __init__(self, unknownSymbol="UUUNKKK", name=None):
         """
         :param unknownSymbol: the string which represents all unknown words.
             If this parameter is none, so a warning message will be showed and a default unknown symbol is generated.
@@ -36,17 +33,18 @@ class Lexicon(PersistentObject):
         self.__lexiconDict = {}
         self.__readOnly = False
         self.__name = name
+        self.__log = logging.getLogger(__name__)
 
         # Keep how many times a word was inserted in the lexicon
         self.__countInsWord = []
 
         if unknownSymbol is None:
             name = name if name is not None else ""
-            logging.getLogger(__name__).warning(
-                "The unknown symbol of the lexicon " + name + " was generated automatically.")
-            unknownSymbol = Lexicon.defaultUnknown
+            self.__log.warning("The unknown symbol of the lexicon '" + name + "' wasn't defined.")
 
-        self.unknown_index = self.put(unknownSymbol, False)
+            self.unknown_index = -1
+        else:
+            self.unknown_index = self.put(unknownSymbol, False)
 
     def isReadOnly(self):
         """
@@ -120,11 +118,11 @@ class Lexicon(PersistentObject):
     def isUnknownIndex(self, index):
         return index == self.unknown_index
 
+    def isUnknownSymbolDefined(self):
+        return self.unknown_index != -1
+
     def exist(self, word):
         return not self.isUnknownIndex(self.getLexiconIndex(word))
-
-    def setUnknownIndex(self, unknown_index):
-        self.unknown_index = unknown_index
 
     def stopAdd(self):
         """
@@ -147,7 +145,7 @@ class Lexicon(PersistentObject):
         newCountInsWord = []
 
         if self.isReadOnly():
-            logging.getLogger(__name__).warning("You can't prune a read only lexicon")
+            self.__log.warning("You can't prune a read only lexicon")
             return
 
         # The removed words  from dictionary will be treated as unknown and
@@ -165,7 +163,8 @@ class Lexicon(PersistentObject):
             else:
                 countNewUnknown += nm
 
-        newCountInsWord[self.getUnknownIndex()] = countNewUnknown
+        if self.isUnknownSymbolDefined():
+            newCountInsWord[self.getUnknownIndex()] = countNewUnknown
 
         self.__lexicon = newLexicon
         self.__lexiconDict = newLexiconDict
@@ -181,23 +180,30 @@ class Lexicon(PersistentObject):
         '''
 
         if not self.isReadOnly():
-            logging.getLogger(__name__).warning(
+            self.__log.warning(
                 "The word frequencies can change, because the lexicon is not read only ")
 
         return numpy.asarray(self.__countInsWord)
 
     @staticmethod
-    def fromTextFile(filePath, lexiconName=None):
+    def fromTextFile(filePath, hasUnknowSymbol, lexiconName=None):
         """
         Create lexicon object from a text file
 
         :param filePath: path of the file with the words
+        :param hasUnknowSymbol: if this parameter is true, so the first word of the file will be consider as the unknown
+            symbol. However, if this parameter is false, so the unknown symbol will be undefined.
         :param lexiconName: name of lexicon
 
         :return: Lexicon
         """
         f = codecs.open(filePath, "r", encoding="utf-8")
-        unknownSym = f.readline().strip("\n")
+
+        if hasUnknowSymbol:
+            unknownSym = f.readline().strip("\n")
+        else:
+            unknownSym = None
+
         lexicon = Lexicon(unknownSym, lexiconName)
 
         for l in f:
@@ -241,8 +247,7 @@ class Lexicon(PersistentObject):
 
         :return: Lexicon
         """
-        # todo: o script está avisando que o unknown foi gerado automaticamente. Retirar este aviso
-        newLexicon = Lexicon(None, name)
+        newLexicon = Lexicon(name=name)
         persistentManager.load(newLexicon)
 
         return newLexicon
@@ -251,6 +256,11 @@ class Lexicon(PersistentObject):
         lexicon = attributes["lexicon"]
         # The only way that I found to tranform a Dataset to integer
         self.unknown_index = numpy.int(numpy.asarray(attributes["unknownIndex"]))
+
+        if self.unknown_index == -1:
+            name = self.__name if self.__name is not None else ""
+            self.__log.warning("The unknown symbol of the lexicon '" + name + "' wasn't defined.")
+
         self.__lexicon = []
         self.__lexiconDict = {}
         self.__readOnly = False

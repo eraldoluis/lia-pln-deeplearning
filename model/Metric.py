@@ -3,6 +3,7 @@
 from __future__ import division
 from itertools import izip
 import theano.tensor as T
+from networkx.algorithms.shortest_paths.unweighted import predecessor
 
 
 class Metric(object):
@@ -266,4 +267,40 @@ class FMetric(Metric):
                 "recall": r,
                 "f": f
             }
+        }
+
+
+class PredictedProbabilities(Metric):
+    """
+    Output class probabilities for all instances of a dataset.
+    """
+
+    def __init__(self, name, softmaxOutput):
+        # Super-class constructor.
+        super(PredictedProbabilities, self).__init__(name)
+
+        # Tensor variable representing the predicted values.
+        self.softmaxOutput = softmaxOutput
+
+        # Number of examples seen so far.
+        self.numExamples = 0
+
+        # Store the predictions for all examples.
+        self.probs = []
+
+    def getRequiredVariables(self):
+        return [self.softmaxOutput]
+
+    def update(self, numExamples, *values):
+        self.numExamples += numExamples
+        self.probs += values[0].tolist()
+
+    def reset(self):
+        self.numExamples = 0
+        self.probs = []
+
+    def getValues(self):
+        return {
+            "numExamples": self.numExamples,
+            "probabilities": self.probs
         }

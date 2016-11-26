@@ -42,7 +42,7 @@ from nnet.WeightGenerator import ZeroWeightGenerator, GlorotUniform, SigmoidGlor
 from optim.Adagrad import Adagrad
 from optim.SGD import SGD
 from util.jsontools import dict2obj
-from model.Metric import LossMetric, AccuracyMetric, FMetric
+from model.Metric import LossMetric, AccuracyMetric, FMetric, PredictedProbabilities
 
 PARAMETERS = {
     "filters": {"default": ['data.Filters.TransformLowerCaseFilter',
@@ -114,6 +114,10 @@ PARAMETERS = {
     "include_hidden_layer": {
         "desc": "If equal to False, do not include a hidden layer between the input layers (embeddings) and the softmax layers.",
         "default": True
+    },
+    "test_probs": {
+        "desc": "Output class probabilities for test instances.",
+        "default": False
     }
 }
 
@@ -527,6 +531,7 @@ def main(args):
                                               outputGenerators,
                                               - 1,
                                               shuffle=shuffle)
+            wordEmbedding.stopAdd()
         elif args.load_method == "async":
             log.info("Examples will be asynchronously loaded.")
             trainIterator = AsyncBatchIterator(trainDatasetReader,
@@ -539,7 +544,6 @@ def main(args):
             log.error("The argument 'load_method' has an invalid value: %s." % args.load_method)
             sys.exit(1)
 
-        wordEmbedding.stopAdd()
         labelLexicon.stopAdd()
 
         # Get dev inputs and output
@@ -635,6 +639,14 @@ def main(args):
             AccuracyMetric("TestAccuracy", outLabel, prediction),
             FMetric("TestFMetric", outLabel, prediction, labels=labelLexicon.getLexiconDict().values())
         ]
+
+        if args.test_probs:
+            # Append predicted probabilities for the test set.
+            testMetrics.append(PredictedProbabilities("TestProbs", softmaxAct.getOutput()))
+    else:
+        if args.test_probs:
+            log.error("The option test_probs requires a test dataset (option test).")
+            sys.exit(1)
 
     # TODO: debug
     # mode = theano.compile.debugmode.DebugMode(optimizer=None)

@@ -3,7 +3,6 @@
 from __future__ import division
 from itertools import izip
 import theano.tensor as T
-from networkx.algorithms.shortest_paths.unweighted import predecessor
 
 
 class Metric(object):

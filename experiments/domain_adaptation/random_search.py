@@ -51,7 +51,7 @@ A example of a valid json:
 """
 
 
-def executeSub(scriptPath, filePath, memory):
+def executeSub(scriptPath, filePath, memory, specificHost=None):
     input = """
     !/bin/sh
     #BSUB -J pln_theano_modifiacando_gereadord_do_tanh
@@ -71,6 +71,9 @@ def executeSub(scriptPath, filePath, memory):
              "LD_LIBRARY_PATH=/opt/macgyver/usr/lib /opt/macgyver/scipy-stack-modern-openblas/bin/python -u " + scriptPath + " " + filePath
 
     arguments = ["bsub", "-n", "1", "-R", '"span[hosts=1] select[hname!=macgyver] rusage[mem=%d] "' % (memory)]
+
+    if specificHost:
+        arguments += ["-m", '"%s"'%(specificHost)]
 
     sp = subprocess.Popen(arguments, stdin=subprocess.PIPE, stdout=subprocess.PIPE,
                           stderr=subprocess.PIPE)
@@ -93,6 +96,7 @@ def getNumbersOfJobs():
     out, err = sp.communicate()
 
     return len(re.findall("\n[0-9]+", out))
+
 
 def main():
     # Get json with parameters of this script
@@ -158,7 +162,7 @@ def main():
             max = param["max"]
             parametersValue[name] = [random.randint(min, max) for _ in xrange(nm)]
         elif param["type"] == "list":
-                parametersValue[name] = [random.choice(param["values"]) for _ in xrange(nm)]
+            parametersValue[name] = [random.choice(param["values"]) for _ in xrange(nm)]
 
     # Launch the 'nm' jobs
     for launchNum in xrange(nm):

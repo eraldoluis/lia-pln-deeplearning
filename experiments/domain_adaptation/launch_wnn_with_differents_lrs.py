@@ -30,6 +30,11 @@ def main():
     else:
         commandParameters = None
 
+    if len(sys.argv) > 6:
+        # Array of lrs in string format, for instance: "[0.1, 0.25, 0.5]"
+        lrs = json.loads(sys.argv[6])
+    else:
+        lrs = [0.001, 0.0025, 0.005, 0.0075, 0.01, 0.025, 0.05, 0.075, 0.1]
 
     with codecs.open(jsonPath, "r", encoding="utf-8") as f:
         jsonParameters = json.load(f)
@@ -38,7 +43,7 @@ def main():
         for key,value in commandParameters.iteritems():
             jsonParameters[key] = value
 
-    lrs = [0.001, 0.0025, 0.005, 0.0075, 0.01, 0.025, 0.05, 0.075, 0.1]
+
     saveModel = jsonParameters["save_model"] if "save_model" in jsonParameters else None
 
     jobIds = []
@@ -63,7 +68,7 @@ def main():
 
         print "Run %d" % i
 
-        out = executeSub(scriptPath, filePath)
+        out = executeSub(scriptPath, filePath, memory)
 
         r = re.findall("[0-9]+", out)
 
@@ -83,7 +88,7 @@ def main():
     print commandParameters
 
     for jobId in jobIds:
-        print "%d\t" %(jobId),
+        print "%s\t" %(jobId),
 
 
 if __name__ == '__main__':

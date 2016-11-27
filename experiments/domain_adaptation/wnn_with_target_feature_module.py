@@ -39,6 +39,7 @@ from data.SuffixFeatureGenerator import SuffixFeatureGenerator
 from data.TokenDatasetReader import TokenLabelReader
 from data.WordWindowGenerator import WordWindowGenerator
 from model.BasicModel import BasicModel
+from model.Callback import Callback
 from model.Metric import LossMetric, AccuracyMetric
 from model.ModelWriter import ModelWriter
 from model.Objective import NegativeLogLikelihood
@@ -96,7 +97,10 @@ WNN_PARAMETERS = {
 
     # Dataset
     "train": {"desc": "Training File Path"},
-    "dev": {"desc": "Development File Path"},
+    "dev": {"desc": "Development File Path. "},
+    "aux_devs": {
+        "desc": "The parameter 'dev' represents the main dev and this parameter represents the auxiliary devs that"
+                " will be use to evaluate the model."},
     "test": {"desc": "Test File Path"},
 
     # Save and load
@@ -154,6 +158,23 @@ WNN_PARAMETERS = {
 }
 
 
+class DevCallback(Callback):
+    def __init__(self, model, devs, tokenLabelSep, inputGenerators, outputGenerators):
+        self.__datasetIterators = []
+        self.__model = model
+
+        for devFile in devs:
+            devDatasetReader = TokenLabelReader(devFile, tokenLabelSep)
+            devIterator = SyncBatchIterator(devDatasetReader, inputGenerators, outputGenerators, sys.maxint,
+                                            shuffle=False)
+
+            self.__datasetIterators.append(devIterator)
+
+    def onEpochEnd(self,epoch, logs={}):
+        for it in self.__datasetIterators:
+            self.__model.test(it)
+
+
 def mainWnn(args):
     ################################################
     # Initializing parameters
@@ -182,7 +203,7 @@ def mainWnn(args):
         log.info("Loading parameters of the model")
         args = args._replace(**savedParameters)
 
-    log.info(args)
+    log.info(str(args))
 
     # Read the parameters
     lr = args.lr
@@ -676,6 +697,10 @@ def mainWnn(args):
             # Save the model with best acc in dev
             if args.save_by_acc:
                 callback.append(SaveModelCallback(modelWriter, evalMetrics[1], "accuracy", True))
+
+        if args.aux_devs:
+            callback.append(
+                DevCallback(wnnModel, args.aux_devs, args.token_label_separator, inputGenerators, [outputGenerator]))
 
         log.info("Training")
         wnnModel.train(trainReader, numEpochs, devReader, callbacks=callback)

@@ -159,7 +159,7 @@ def mainWnn(args):
         log.info("Loading parameters of the model")
         args = args._replace(**savedParameters)
 
-    log.info(args)
+    log.info(str(args))
 
     # Read the parameters
     lr = args.lr

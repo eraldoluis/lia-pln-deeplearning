@@ -108,7 +108,7 @@ def mainWnnNegativeSampling(args):
 
     log = logging.getLogger(__name__)
 
-    log.info(args)
+    log.info(str(args))
 
     if args.seed:
         random.seed(args.seed)

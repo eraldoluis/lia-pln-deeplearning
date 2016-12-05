@@ -40,7 +40,7 @@ from data.TokenDatasetReader import TokenLabelReader
 from data.WordWindowGenerator import WordWindowGenerator
 from model.BasicModel import BasicModel
 from model.Callback import Callback
-from model.Metric import LossMetric, AccuracyMetric
+from model.Metric import LossMetric, AccuracyMetric, ActivationMetric, DerivativeMetric
 from model.ModelWriter import ModelWriter
 from model.Objective import NegativeLogLikelihood
 from model.Prediction import ArgmaxPrediction
@@ -154,7 +154,11 @@ WNN_PARAMETERS = {
     "start_symbol": {"default": "</s>", "desc": "Object that will be place when the initial limit of list is exceeded"},
     "end_symbol": {"default": "</s>", "desc": "Object that will be place when the end limit of list is exceeded"},
     "seed": {"desc": ""},
-    "print_prediction": {"desc": "file where the prediction will be writed."}
+    "print_prediction": {"desc": "file where the prediction will be writed."},
+    "enable_activation_statistics": {"desc": "Enable to track the activations value of the main layers",
+                                     "default": False},
+    "enable_derivative_statistics": {
+        "desc": "Enable to track the derivative of some parameters and activation functions. ", "default": False},
 }
 
 
@@ -170,7 +174,7 @@ class DevCallback(Callback):
 
             self.__datasetIterators.append(devIterator)
 
-    def onEpochEnd(self,epoch, logs={}):
+    def onEpochEnd(self, epoch, logs={}):
         for it in self.__datasetIterators:
             self.__model.test(it)
 
@@ -533,6 +537,7 @@ def mainWnn(args):
             sizeLayerBeforeSoftmax = hiddenLayerSize
             log.info("Using hidden layer")
         else:
+            act1 = None
             layerBeforeSoftmax = layerBeforeLinear
             sizeLayerBeforeSoftmax = sizeLayerBeforeLinear
             log.info("Not using hidden layer")
@@ -662,6 +667,33 @@ def mainWnn(args):
         LossMetric("LossTrain", loss, True),
         AccuracyMetric("AccTrain", y, prediction),
     ]
+
+    if args.enable_activation_statistics:
+        if args.with_hidden:
+            trainMetrics.append(ActivationMetric("ActSupHidden", act1.getOutput(), np.linspace(-1, 1, 21), "avg"))
+
+        if targetHiddenParameters:
+            trainMetrics.append(ActivationMetric("ActUnsHidden", targetAct.getOutput(), np.linspace(-1, 1, 21), "avg"))
+
+        trainMetrics.append(ActivationMetric("ActSoftmax", act2.getOutput(), np.linspace(0, 1, 11), "none"))
+
+    if args.enable_derivative_statistics:
+        derivativeIntervals = [-sys.maxint, -1, -10 ** -1, -10 ** -2, -10 ** -3, -10 ** -4, -10 ** -5, -10 ** -6, -10 ** -7,
+                               -10 ** -8, 0, 10 ** -8, 10 ** -7, 10 ** -6, 10 ** -5, 10 ** -4, 10 ** -3, 10 ** -2, 10 ** -1, 1,
+                               sys.maxint]
+
+        if args.with_hidden:
+            # trainMetrics.append(
+            #     DerivativeMetric("DerivativeWeightHidden", loss, linear1.getParameters()[0], derivativeIntervals,
+            #                      "avg"))
+
+            trainMetrics.append(
+                DerivativeMetric("DerivativeActHidden", loss, act1.getOutput(), derivativeIntervals, "avg"))
+
+        # trainMetrics.append(
+        #     DerivativeMetric("DerivativeWeightSoftmax", loss, linear2.getParameters()[0], derivativeIntervals, "avg"))
+        trainMetrics.append(
+            DerivativeMetric("DerivativeActSoftmax", loss, act2.getOutput(), derivativeIntervals, "avg"))
 
     evalMetrics = [
         LossMetric("LossDev", loss, True),

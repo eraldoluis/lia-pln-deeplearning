@@ -1,8 +1,13 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
 from __future__ import division
+
+from collections import OrderedDict
 from itertools import izip
+
+import math
 import theano.tensor as T
+import numpy as np
 
 
 class Metric(object):
@@ -59,7 +64,7 @@ class LossMetric(Metric):
     def update(self, numExamples, *values):
         self.numExamples += numExamples
 
-        value = values[0][0] if isinstance(values[0], (set,list)) else values[0]
+        value = values[0][0] if isinstance(values[0], (set, list)) else values[0]
 
         if self.__isAvgLoss:
             self.accumLoss += value * numExamples
@@ -188,7 +193,8 @@ class FMetric(Metric):
 
         if numExamples != count:
             raise (
-            "Given number of examples (%d) is different from the number of given outputs (%d)" % (numExamples, count))
+                "Given number of examples (%d) is different from the number of given outputs (%d)" % (
+                    numExamples, count))
 
         self.numExamples += count
 
@@ -276,4 +282,312 @@ class FMetric(Metric):
                 "recall": r,
                 "f": f
             }
+        }
+
+
+class ActivationMetric(Metric):
+    """
+    Get the activations of one layer.
+    For epoch or number of iteration,
+        we calculate the average and standard deviation and create a histogram of layer activation .
+    """
+
+    def __init__(self, name, activation, intervals, absolutValueOption):
+
+        """
+        Create a Activation metric object.
+        You need to pass the theano variable
+            which represents layer activation output.
+
+
+        :param name: name of the metric
+        :param activation: the theano variable which represents layer activation
+        :param intervals: a list of real numbers. Imagine that parameter has following value: [-1, -0.5, 0, 0.5, 1].
+            So in this case, we have a histogram with 5 intervals: [-1, 0.5), [0.5,0.0), [0.0,0.5), (0.5,1].
+        :param absolutValueOption: There are the following options to this parameter:
+            "none": It doesn't use absolute value to calculate de average and to create the histogram;
+            "avg": It only use absolute value to calculate the average;
+            "all": It use absolute value to calculate the average to create the histogram;
+
+        """
+        # Super-class constructor.
+        super(ActivationMetric, self).__init__(name)
+
+        self.__activation = activation
+        self.__intervals = intervals
+        self.__isToAbsoluteValueAvg = absolutValueOption in ["all", "avg"]
+        self.__isToAbsoluteValueHist = absolutValueOption in ["all"]
+
+        # This parameter is really initialized in the reset method
+        self.__statistics = None
+        self.reset()
+
+    def getRequiredVariables(self):
+        return [self.__activation]
+
+    def update(self, numExamples, *values):
+        for batchActivationValues in values:
+            avg = self.__statistics["average"]
+            variance = self.__statistics["variance"]
+            histogram = self.__statistics["histogram"]
+            totalExample = self.__statistics["total_example"]
+            # all = self.__statistics["all_examples"]
+
+            if isinstance(batchActivationValues[0], (int, float)):
+                # It's not using batch or mini-batch
+                batchActivationValues = [batchActivationValues]
+
+            for activationValues in batchActivationValues:
+                for actValue in activationValues:
+                    totalExample += 1
+                    oldAvg = avg
+
+                    # all.append(actValue)
+
+                    if self.__isToAbsoluteValueAvg:
+                        actValueAvg = math.fabs(actValue)
+                    else:
+                        actValueAvg = actValue
+
+                    avg += (actValueAvg - avg) / totalExample
+                    variance += (actValueAvg - avg) * (actValueAvg - oldAvg)
+
+                    if self.__isToAbsoluteValueHist:
+                        actValueHist = math.fabs(actValue)
+                    else:
+                        actValueHist = actValue
+
+                    if actValueHist < self.__intervals[0]:
+                        raise Exception("One value(%.4f) of a activation is smaller than the minimum value %.4f" % (
+                            actValueHist, self.__intervals))
+
+                    if actValueHist > self.__intervals[-1]:
+                        raise Exception("One value(%.4f) of a activation is greater than the maximum value %.4f" % (
+                            actValueHist, self.__intervals[-1]))
+
+                    minInterval = self.__intervals[0]
+
+                    for idx, interval in enumerate(self.__intervals[1:]):
+                        if interval == self.__intervals[-1]:
+                            if minInterval <= actValueHist <= interval:
+                                histogram[idx] += 1
+                                break
+                        else:
+                            if minInterval <= actValueHist < interval:
+                                histogram[idx] += 1
+                                break
+
+                        minInterval = interval
+
+            self.__statistics["average"] = avg
+            self.__statistics["variance"] = variance
+            # DEBUG
+            # allEx = np.asarray(self.__statistics["all_examples"])
+            # assert np.isclose(avg, np.fabs(allEx).mean() if self.__isToAbsoluteValueAvg else allEx.mean())
+            # assert np.isclose(variance / totalExample, np.fabs(allEx).var() if self.__isToAbsoluteValueAvg else allEx.var())
+
+            self.__statistics["histogram"] = histogram
+            self.__statistics["total_example"] = totalExample
+
+    def reset(self):
+        self.__statistics = {
+            # We calculate de avg and standard deviation using the Welford’s method
+            #   (http://jonisalonen.com/2013/deriving-welfords-method-for-computing-variance/)
+            "average": 0.0,
+            "variance": 0.0,
+            "total_example": 0,
+
+            # the number of classes = len(intervals) - 1
+            "histogram": [0 for _ in self.__intervals[:-1]],
+
+            # "all_examples": []
+        }
+
+    def getValues(self):
+        totalExample = self.__statistics["total_example"]
+        variance = self.__statistics["variance"] / totalExample
+
+        histogram = OrderedDict()
+
+        for idx, interval in enumerate(self.__intervals[:-1]):
+            intervalStr = "[%.2f, %.2f]" % (self.__intervals[idx], self.__intervals[idx + 1])
+            histogram[intervalStr] = self.__statistics["histogram"][idx]
+
+        # DEBUG
+        # all_examples = np.fabs(np.asarray(self.__statistics["all_examples"])) if self.__isToAbsoluteValueHist else np.asarray(self.__statistics["all_examples"])
+        # for a, b  in izip(np.histogram(all_examples, self.__intervals)[0], self.__statistics["histogram"]):
+        #     assert np.isclose(a, b)
+        # print self.__statistics["histogram"]
+        # print np.histogram(all_examples, self.__intervals)
+        #
+        # print np.fabs(np.asarray(self.__statistics["all_examples"])).mean() if self.__isToAbsoluteValueAvg else np.asarray(self.__statistics["all_examples"]).mean()
+        # print np.fabs(np.asarray(self.__statistics["all_examples"])).var() if self.__isToAbsoluteValueAvg else np.asarray(self.__statistics["all_examples"]).var()
+
+
+        return {
+            "average": self.__statistics["average"],
+            "variance": variance,
+            "std_deviation": math.sqrt(variance),
+            "total_example": totalExample,
+            "histogram": histogram
+        }
+
+
+class DerivativeMetric(Metric):
+    """
+    This object gets a derivatives of a layer.
+    When the method getValues is called,
+        it returns the average, standard deviation and a histogram of derivative.
+    """
+
+    def __init__(self, name, lossFunction, variable, intervals, absolutValueOption):
+        """
+        Create a Derivate metric object.
+        You need to pass the theano variable
+            which represents layer activation output.
+        :param name: name of the metric
+
+        :type lossFunction: T.var.TensorVariable
+        :param lossFunction: It's the function which represents the loss function
+
+        :param variable: theano variable of the model
+
+        :param activation: the theano variable which represents layer activation
+        :param intervals: a list of real numbers. Imagine that parameter has following value: [-1, -0.5, 0, 0.5, 1].
+            So in this case, we have a histogram with 5 intervals: [-1, 0.5), [0.5,0.0), [0.0,0.5), [0.5,1].
+
+        :param absolutValueOption: There are the following options to this parameter:
+            "none": It doesn't use absolute value to calculate de average and to create the histogram;
+            "avg": It only use absolute value to calculate de average;
+            "all": It use absolute value to calculate de average to create the histogram;
+
+        """
+        # Super-class constructor.
+        super(DerivativeMetric, self).__init__(name)
+
+        # Calculate the
+        self.__grads = T.grad(lossFunction, variable)
+        self.__intervals = intervals
+        self.__isToAbsoluteValueAvg = absolutValueOption in ["all", "avg"]
+        self.__isToAbsoluteValueHist = absolutValueOption in ["all"]
+
+        # This parameter is really initialized in the reset method
+        self.__statistics = None
+        self.reset()
+
+    def getRequiredVariables(self):
+        return [self.__grads]
+
+    def update(self, numExamples, *values):
+        for batchDerivativeValues in values:
+            avg = self.__statistics["average"]
+            variance = self.__statistics["variance"]
+            histogram = self.__statistics["histogram"]
+            totalExample = self.__statistics["total_example"]
+            # all = self.__statistics["all_examples"]
+
+            if isinstance(batchDerivativeValues[0], (int, float)):
+                # It's not using batch or mini-batch
+                batchDerivativeValues = [batchDerivativeValues]
+
+            for derivativeValues in batchDerivativeValues:
+                for derivativeValue in derivativeValues:
+                    totalExample += 1
+                    oldAvg = avg
+
+                    if self.__isToAbsoluteValueAvg:
+                        derivativeValueAvg = math.fabs(derivativeValue)
+                    else:
+                        derivativeValueAvg = derivativeValue
+
+                    avg += (derivativeValueAvg - avg) / totalExample
+                    variance += (derivativeValueAvg - avg) * (derivativeValueAvg - oldAvg)
+                    # all.append(derivativeValue)
+
+                    if self.__isToAbsoluteValueHist:
+                        derivativeValueHist = math.fabs(derivativeValue)
+                    else:
+                        derivativeValueHist = derivativeValue
+
+                    if derivativeValueHist < self.__intervals[0]:
+                        raise Exception("One value(%.4f) of a activation is smaller than the minimum value %.4f" % (
+                            derivativeValueHist, self.__intervals[0]))
+
+                    if derivativeValueHist > self.__intervals[-1]:
+                        raise Exception("One value(%.4f) of a activation is greater than the maximum value %.4f" % (
+                            derivativeValueHist, self.__intervals[-1]))
+
+
+                    minInterval = self.__intervals[0]
+
+                    for idx, interval in enumerate(self.__intervals[1:]):
+                        if interval == self.__intervals[-1]:
+                            if minInterval <= derivativeValueHist <= interval:
+                                histogram[idx] += 1
+                                break
+                        else:
+                            if minInterval <= derivativeValueHist < interval:
+                                histogram[idx] += 1
+                                break
+
+                        minInterval = interval
+
+
+            self.__statistics["average"] = avg
+            self.__statistics["variance"] = variance
+            # DEBUG
+            # allEx = np.asarray(self.__statistics["all_examples"])
+            # assert np.isclose(avg, np.fabs(allEx).mean() if self.__isToAbsoluteValueAvg else allEx.mean())
+            # assert np.isclose(variance / totalExample,
+            #                   np.fabs(allEx).var() if self.__isToAbsoluteValueAvg else allEx.var())
+
+            self.__statistics["histogram"] = histogram
+            self.__statistics["total_example"] = totalExample
+
+    def reset(self):
+        self.__statistics = {
+            # We calculate de avg and standard deviation using the Welford’s method
+            #   (http://jonisalonen.com/2013/deriving-welfords-method-for-computing-variance/)
+            "average": 0.0,
+            "variance": 0.0,
+            "total_example": 0,
+
+            # the number of classes = len(intervals) - 1
+            "histogram": [0 for _ in self.__intervals[:-1]],
+
+            # "all_examples": []
+        }
+
+    def getValues(self):
+        totalExample = self.__statistics["total_example"]
+        variance = self.__statistics["variance"] / totalExample
+
+        histogram = OrderedDict()
+
+        for idx, interval in enumerate(self.__intervals[:-1]):
+            intervalStr = "[%.2f, %.2f]" % (self.__intervals[idx], self.__intervals[idx + 1])
+            histogram[intervalStr] = self.__statistics["histogram"][idx]
+
+        # DEBUG
+        # all_examples = np.fabs(np.asarray(
+        #     self.__statistics["all_examples"])) if self.__isToAbsoluteValueHist else np.asarray(
+        #     self.__statistics["all_examples"])
+        #
+        # print self.__statistics["histogram"]
+        # print np.histogram(all_examples, self.__intervals)
+        # for a, b in izip(np.histogram(all_examples, self.__intervals)[0], self.__statistics["histogram"]):
+        #     assert np.isclose(a, b)
+        #
+        # print np.fabs(np.asarray(
+        #     self.__statistics["all_examples"])).mean() if self.__isToAbsoluteValueAvg else np.asarray(
+        #     self.__statistics["all_examples"]).mean()
+        # print np.fabs(np.asarray(self.__statistics["all_examples"])).var() if self.__isToAbsoluteValueAvg else np.asarray(
+        #     self.__statistics["all_examples"]).var()
+
+        return {
+            "average": self.__statistics["average"],
+            "variance": variance,
+            "std_deviation": math.sqrt(variance),
+            "total_example": totalExample,
+            "histogram": histogram
         }

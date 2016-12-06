@@ -35,13 +35,14 @@ from model.SaveModelCallback import ModelWriter, SaveModelCallback
 from nnet.ActivationLayer import ActivationLayer, softmax, tanh, sigmoid
 from nnet.EmbeddingLayer import EmbeddingLayer
 from nnet.FlattenLayer import FlattenLayer
+from nnet.ConcatenateLayer import ConcatenateLayer
 from nnet.LinearLayer import LinearLayer
 from nnet.MaxPoolingLayer import MaxPoolingLayer
 from nnet.WeightGenerator import ZeroWeightGenerator, GlorotUniform, SigmoidGlorot
 from optim.Adagrad import Adagrad
 from optim.SGD import SGD
 from util.jsontools import dict2obj
-from model.Metric import LossMetric, AccuracyMetric, FMetric
+from model.Metric import LossMetric, AccuracyMetric, FMetric, PredictedProbabilities
 
 PARAMETERS = {
     "filters": {"default": ['data.Filters.TransformLowerCaseFilter',
@@ -91,10 +92,33 @@ PARAMETERS = {
                 " Each example is then weighted by the inverse of its label probability."},
     "labels_weights_log": {
         "desc": "Use the log of the inverse probabilities as label weights." +
-                "This has the effect of attenuating highly unbalanced distributions.",
+                " This has the effect of attenuating highly unbalanced distributions.",
         "default": False
     },
-    "hash_lex_size": {"desc": "Activate the hash lexicon by specifying the hash table size."}
+    "hash_lex_size": {"desc": "Activate the hash lexicon by specifying the hash table size."},
+    "categorical_features": {
+        "desc": "List of aditional categorical features along with their lexicon files." +
+                " Each feature is a pair [name, lexicon_file, vec_size]," +
+                " where name is the feature name as the reader produces," +
+                " lexicon_file is the file containing the list of possible values,"
+                " and vec_size is the size of each vector in the embedding."
+    },
+    "numerical_features": {
+        "desc": "Aditional numerical features along with their normalization factors." +
+                " Each feature can be only its name (as produced by the reader) or a pair [name, normalization factor]."
+    },
+    "fix_word_embedding": {
+        "desc": "Fix the word embedding (do not update it during training).",
+        "default": False
+    },
+    "include_hidden_layer": {
+        "desc": "If equal to False, do not include a hidden layer between the input layers (embeddings) and the softmax layers.",
+        "default": True
+    },
+    "test_probs": {
+        "desc": "Output class probabilities for test instances.",
+        "default": False
+    }
 }
 
 
@@ -152,12 +176,20 @@ class OfertasReader(DatasetReader):
 
             ftrs = [s.strip() for s in line.split('\t')]
 
-            tokens = ftrs[2].split()
+            # The offer's correct category.
             category = ftrs[1]
+
+            # The input for each offer includes four fields: the description, the store category, the price and the
+            # store name.
+            offer = {}
+            offer["tokens"] = ftrs[2].split()
+            offer["store_cat"] = ftrs[3]
+            offer["price"] = float(ftrs[4])
+            offer["store"] = ftrs[5]
 
             numExs += 1
 
-            yield (tokens, category)
+            yield (offer, category)
 
         if not self.__printedNumberTokensRead:
             self.__log.info("Number of examples read: %d" % numExs)
@@ -330,7 +362,6 @@ def main(args):
         if args.word_embedding:
             log.info("Reading W2v File")
             wordEmbedding = EmbeddingFactory().createFromW2V(args.word_embedding, RandomUnknownStrategy())
-            # TODO: teste
             wordEmbedding.stopAdd()
         elif args.hash_lex_size:
             wordEmbedding = RandomEmbedding(args.word_emb_size,
@@ -356,77 +387,15 @@ def main(args):
 
             hiddenLayerSize = b1.shape[0]
 
-    # Generate word windows.
-    wordWindowFeatureGenerator = WordWindowGenerator(wordWindowSize, wordEmbedding, filters, startSymbol, endSymbol)
-    # Generate one label per example (list of tokens).
-    labelGenerator = TextLabelGenerator(labelLexicon)
-
-    if args.train:
-        log.info("Reading training examples")
-
-        trainDatasetReader = OfertasReader(args.train)
-        if args.load_method == "sync":
-            trainIterator = SyncBatchIterator(trainDatasetReader,
-                                              [wordWindowFeatureGenerator],
-                                              [labelGenerator],
-                                              - 1,
-                                              shuffle=shuffle)
-        elif args.load_method == "async":
-            trainIterator = AsyncBatchIterator(trainDatasetReader,
-                                               [wordWindowFeatureGenerator],
-                                               [labelGenerator],
-                                               - 1,
-                                               shuffle=shuffle,
-                                               maxqSize=1000)
-        else:
-            log.error("The argument 'load_method' has an invalid value: %s." % args.load_method)
-            sys.exit(1)
-
-        wordEmbedding.stopAdd()
-        labelLexicon.stopAdd()
-
-        # Get dev inputs and output
-        dev = args.dev
-        evalPerIteration = args.eval_per_iteration
-        if not dev and evalPerIteration > 0:
-            log.error("Argument eval_per_iteration cannot be used without a dev argument.")
-            sys.exit(1)
-
-        if dev:
-            log.info("Reading development examples")
-            devReader = OfertasReader(args.dev)
-            devIterator = SyncBatchIterator(devReader,
-                                            [wordWindowFeatureGenerator],
-                                            [labelGenerator],
-                                            - 1,
-                                            shuffle=False)
-        else:
-            devIterator = None
-    else:
-        trainIterator = None
-        devIterator = None
-
-    weightInit = SigmoidGlorot() if hiddenActFunction == sigmoid else GlorotUniform()
-
-    if normalizeMethod == "minmax":
-        log.info("Normalization: minmax")
-        wordEmbedding.minMaxNormalization()
-    elif normalizeMethod == "mean":
-        log.info("Normalization: mean normalization")
-        wordEmbedding.meanNormalization()
-    elif normalizeMethod == "zscore":
-        log.info("Normalization: zscore normalization")
-        wordEmbedding.zscoreNormalization()
-    elif normalizeMethod:
-        log.error("Normalization: unexpected value %s" % normalizeMethod)
-        sys.exit(1)
-
-    if normalizeMethod is not None and loadPath is not None:
-        log.warn("The word embedding of model was normalized. This can change the result of test.")
-
     #
     # Build the network model (Theano graph).
     #
+
+    # TODO: debug
+    # theano.config.compute_test_value = 'warn'
+    # ex = trainIterator.next()
+    # inWords.tag.test_value = ex[0][0]
+    # outLabel.tag.test_value = ex[1][0]
 
     # Matriz de entrada. Cada linha representa um token da oferta. Cada token é
     # representado por uma janela de tokens (token central e alguns tokens
@@ -437,34 +406,79 @@ def main(args):
     # Categoria correta de uma oferta.
     outLabel = T.lscalar("outLabel")
 
-    # TODO: debug
-    # theano.config.compute_test_value = 'warn'
-    # ex = trainIterator.next()
-    # inWords.tag.test_value = ex[0][0]
-    # outLabel.tag.test_value = ex[1][0]
+    # List of input tensors. One for each input layer.
+    inputTensors = [inWords]
 
-    # Lookup table.
-    embeddingLayer = EmbeddingLayer(inWords, wordEmbedding.getEmbeddingMatrix())
+    # Whether the word embedding will be updated during training.
+    embLayerTrainable = not args.fix_word_embedding
+
+    if not embLayerTrainable:
+        log.info("Not updating the word embedding!")
+
+    # Lookup table for word features.
+    embeddingLayer = EmbeddingLayer(inWords, wordEmbedding.getEmbeddingMatrix(), trainable=embLayerTrainable)
 
     # A saída da lookup table possui 3 dimensões (numTokens, szWindow, szEmbedding).
     # Esta camada dá um flat nas duas últimas dimensões, produzindo uma saída
     # com a forma (numTokens, szWindow * szEmbedding).
     flattenInput = FlattenLayer(embeddingLayer)
 
+    # Random weight initialization procedure.
+    weightInit = SigmoidGlorot() if hiddenActFunction == sigmoid else GlorotUniform()
+
     # Convolution layer. Convolução no texto de uma oferta.
     convLinear = LinearLayer(flattenInput,
                              wordWindowSize * wordEmbedding.getEmbeddingSize(),
                              convSize, W=None, b=None,
                              weightInitialization=weightInit)
+
+    # Max pooling layer.
     maxPooling = MaxPoolingLayer(convLinear)
 
-    # Hidden layer.
-    hiddenLinear = LinearLayer(maxPooling,
-                               convSize,
-                               hiddenLayerSize,
-                               W=W1, b=b1,
-                               weightInitialization=weightInit)
-    hiddenAct = ActivationLayer(hiddenLinear, hiddenActFunction)
+    # List of input layers (will be concatenated).
+    inputLayers = [maxPooling]
+
+    # Generate word windows.
+    wordWindowFeatureGenerator = WordWindowGenerator(wordWindowSize, wordEmbedding, filters, startSymbol, endSymbol)
+
+    # List of input generators.
+    inputGenerators = [lambda offer: wordWindowFeatureGenerator(offer["tokens"])]
+
+    concatenatedSize = convSize
+
+    # Additional features.
+    if args.categorical_features is not None:
+        log.info("Using categorical features: %s" % str([ftr[0] for ftr in args.categorical_features]))
+        for ftr in args.categorical_features:
+            concatenatedSize += ftr[2]
+            ftrLexicon = createLexiconUsingFile(ftr[1])
+            ftrEmbedding = RandomEmbedding(embeddingSize=ftr[2], unknownGenerateStrategy=RandomUnknownStrategy(),
+                                           lexicon=ftrLexicon,)
+            ftrInput = T.lscalar("in_" + ftr[0])
+            ftrLayer = EmbeddingLayer(ftrInput, ftrEmbedding.getEmbeddingMatrix())
+
+            inputGenerators.append(lambda offer: ftrLexicon.put(offer[ftr[0]].strip().lower()))
+            inputTensors.append(ftrInput)
+            inputLayers.append(ftrLayer)
+
+    log.info("Input layers: %s" % str(inputLayers))
+
+    # Concatenate all input layers, when there are more thean one input layer.
+    concatenatedInLayers = maxPooling if len(inputLayers) == 1 else ConcatenateLayer(inputLayers, axis=0)
+
+    if args.include_hidden_layer:
+        # Hidden layer.
+        hiddenLinear = LinearLayer(concatenatedInLayers,
+                                   concatenatedSize,
+                                   hiddenLayerSize,
+                                   W=W1, b=b1,
+                                   weightInitialization=weightInit)
+        hiddenAct = ActivationLayer(hiddenLinear, hiddenActFunction)
+    else:
+        # Do not use a hidden layer.
+        log.info("Not using hidden layer!")
+        hiddenAct = concatenatedInLayers
+        hiddenLayerSize = concatenatedSize
 
     # Entrada linear da camada softmax.
     sotmaxLinearInput = LinearLayer(hiddenAct,
@@ -502,9 +516,72 @@ def main(args):
 
         log.info("Label weights: " + str(labelWeights))
 
-
     # Loss function.
     loss = NegativeLogLikelihoodOneExample(labelWeights).calculateError(softmaxAct.getOutput()[0], prediction, outLabel)
+
+    # Output generator: generate one label per offer.
+    outputGenerators = [TextLabelGenerator(labelLexicon)]
+
+    if args.train:
+        trainDatasetReader = OfertasReader(args.train)
+        if args.load_method == "sync":
+            log.info("Reading training examples...")
+            trainIterator = SyncBatchIterator(trainDatasetReader,
+                                              intputGenerators,
+                                              outputGenerators,
+                                              - 1,
+                                              shuffle=shuffle)
+            wordEmbedding.stopAdd()
+        elif args.load_method == "async":
+            log.info("Examples will be asynchronously loaded.")
+            trainIterator = AsyncBatchIterator(trainDatasetReader,
+                                               inputGenerators,
+                                               outputGenerators,
+                                               - 1,
+                                               shuffle=shuffle,
+                                               maxqSize=1000)
+        else:
+            log.error("The argument 'load_method' has an invalid value: %s." % args.load_method)
+            sys.exit(1)
+
+        labelLexicon.stopAdd()
+
+        # Get dev inputs and output
+        dev = args.dev
+        evalPerIteration = args.eval_per_iteration
+        if not dev and evalPerIteration > 0:
+            log.error("Argument eval_per_iteration cannot be used without a dev argument.")
+            sys.exit(1)
+
+        if dev:
+            log.info("Reading development examples")
+            devReader = OfertasReader(args.dev)
+            devIterator = SyncBatchIterator(devReader,
+                                            inputGenerators,
+                                            outputGenerators,
+                                            - 1,
+                                            shuffle=False)
+        else:
+            devIterator = None
+    else:
+        trainIterator = None
+        devIterator = None
+
+    if normalizeMethod == "minmax":
+        log.info("Normalization: minmax")
+        wordEmbedding.minMaxNormalization()
+    elif normalizeMethod == "mean":
+        log.info("Normalization: mean normalization")
+        wordEmbedding.meanNormalization()
+    elif normalizeMethod == "zscore":
+        log.info("Normalization: zscore normalization")
+        wordEmbedding.zscoreNormalization()
+    elif normalizeMethod:
+        log.error("Normalization: unknown value %s" % normalizeMethod)
+        sys.exit(1)
+
+    if normalizeMethod is not None and loadPath is not None:
+        log.warn("The word embedding of model was normalized. This can change the result of test.")
 
     #     if kwargs["lambda"]:
     #         _lambda = kwargs["lambda"]
@@ -563,10 +640,18 @@ def main(args):
             FMetric("TestFMetric", outLabel, prediction, labels=labelLexicon.getLexiconDict().values())
         ]
 
+        if args.test_probs:
+            # Append predicted probabilities for the test set.
+            testMetrics.append(PredictedProbabilities("TestProbs", softmaxAct.getOutput()))
+    else:
+        if args.test_probs:
+            log.error("The option test_probs requires a test dataset (option test).")
+            sys.exit(1)
+
     # TODO: debug
     # mode = theano.compile.debugmode.DebugMode(optimizer=None)
     mode = None
-    model = Model(x=[inWords], y=[outLabel], allLayers=softmaxAct.getLayerSet(), optimizer=opt, prediction=prediction,
+    model = Model(x=inputTensors, y=[outLabel], allLayers=softmaxAct.getLayerSet(), optimizer=opt, prediction=prediction,
                   loss=loss, trainMetrics=trainMetrics, evalMetrics=evalMetrics, testMetrics=testMetrics, mode=mode)
 
     # Training
@@ -589,8 +674,8 @@ def main(args):
         log.info("Reading test examples")
         testReader = OfertasReader(args.test)
         testIterator = SyncBatchIterator(testReader,
-                                         [wordWindowFeatureGenerator],
-                                         [labelGenerator],
+                                         inputGenerators,
+                                         outputGenerators,
                                          - 1,
                                          shuffle=False)
 

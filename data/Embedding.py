@@ -32,7 +32,7 @@ class Embedding(object):
 
         :type lexicon: data.Lexicon.Lexicon
         :params lexicon: a Lexicon object
-        
+
         :type vectors: [[int]] | numpy.array | None
         :params vectors: embedding list
 

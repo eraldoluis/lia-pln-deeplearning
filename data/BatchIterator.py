@@ -210,7 +210,6 @@ class AsyncBatchIterator(object):
     def __iter__(self):
         return self
 
-
     def next(self):
         try:
             b = self.__queue.get()

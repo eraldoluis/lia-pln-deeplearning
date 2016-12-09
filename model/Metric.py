@@ -407,11 +407,11 @@ class ActivationMetric(Metric):
         totalExample = self.__statistics["total_example"]
         variance = self.__statistics["variance"] / totalExample
 
-        histogram = OrderedDict()
-
-        for idx, interval in enumerate(self.__intervals[:-1]):
-            intervalStr = "[%.2f, %.2f]" % (self.__intervals[idx], self.__intervals[idx + 1])
-            histogram[intervalStr] = self.__statistics["histogram"][idx]
+        # histogram = OrderedDict()
+        #
+        # for idx, interval in enumerate(self.__intervals[:-1]):
+        #     intervalStr = "[%f, %f]" % (self.__intervals[idx], self.__intervals[idx + 1])
+        #     histogram[intervalStr] = self.__statistics["histogram"][idx]
 
         # DEBUG
         # all_examples = np.fabs(np.asarray(self.__statistics["all_examples"])) if self.__isToAbsoluteValueHist else np.asarray(self.__statistics["all_examples"])
@@ -429,7 +429,11 @@ class ActivationMetric(Metric):
             "variance": variance,
             "std_deviation": math.sqrt(variance),
             "total_example": totalExample,
-            "histogram": histogram
+            "histogram": {
+                "bin": list(self.__intervals),
+                "values":  self.__statistics["histogram"],
+
+            }
         }
 
 
@@ -562,11 +566,11 @@ class DerivativeMetric(Metric):
         totalExample = self.__statistics["total_example"]
         variance = self.__statistics["variance"] / totalExample
 
-        histogram = OrderedDict()
-
-        for idx, interval in enumerate(self.__intervals[:-1]):
-            intervalStr = "[%.2f, %.2f]" % (self.__intervals[idx], self.__intervals[idx + 1])
-            histogram[intervalStr] = self.__statistics["histogram"][idx]
+        # histogram = OrderedDict()
+        #
+        # for idx, interval in enumerate(self.__intervals[:-1]):
+        #     intervalStr = "[%f, %f]" % (self.__intervals[idx], self.__intervals[idx + 1])
+        #     histogram[intervalStr] = self.__statistics["histogram"][idx]
 
         # DEBUG
         # all_examples = np.fabs(np.asarray(
@@ -589,5 +593,10 @@ class DerivativeMetric(Metric):
             "variance": variance,
             "std_deviation": math.sqrt(variance),
             "total_example": totalExample,
-            "histogram": histogram
+            "histogram": {
+                "bin": list(self.__intervals),
+                "values": self.__statistics["histogram"],
+
+            }
         }
+

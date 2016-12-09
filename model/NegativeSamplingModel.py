@@ -17,7 +17,7 @@ class NegativeSamplingModel(Model):
     """
 
     def __init__(self, t, noiseRate, sampler, minLr, numExUpdLr, totalExamples, numEpochs, x, y, allLayers, optimizer,
-                 loss, trainMetrics, mode=None):
+                 loss, trainMetrics, isWord2vecDecay, mode=None):
         """
 
         :param t: Set threshold for occurrence of words. Those that appear with higher frequency in the training data "
@@ -56,6 +56,8 @@ class NegativeSamplingModel(Model):
 
         # Total number of examples that the model will read
         self.__totalExampleToRead = float(totalExamples * numEpochs)
+
+        self.__isWord2vecDecay = isWord2vecDecay
 
         # List of trainable layers.
         trainableLayers = []
@@ -112,26 +114,41 @@ class NegativeSamplingModel(Model):
         return discard
 
     def doEpoch(self, trainIterator, epoch, iteration, devIterator, evalPerIteration, callbacks):
-        self.log.info({
-            "epoch": epoch,
-            "iteration": iteration,
-        })
+        if self.__isWord2vecDecay:
+            self.log.info({
+                "epoch": epoch,
+                "iteration": iteration,
+
+            })
+
+            lr = self.__lr
+        else:
+
+            lr = self.__optimizer.getInputValues(epoch)[0]
+
+            self.log.info({
+                "epoch": epoch,
+                "iteration": iteration,
+                "lr": lr,
+            })
 
         for x, y in trainIterator:
             windowWords = []
             labels = []
 
-            if self.__numExamplesRead % self.__numExUpdLr == 0:
+            if self.__isWord2vecDecay and self.__numExamplesRead % self.__numExUpdLr == 0:
                 self.__lr = self.__startingLr * (1 - (self.__numExamplesRead / (self.__totalExampleToRead + 1)))
 
                 if self.__lr < self.__minLr:
                     self.__lr = self.__minLr
 
-                if self.__numExamplesRead % (self.__numExUpdLr * 1000) == 0:
+                if self.__numExamplesRead % (self.__numExUpdLr * 10) == 0:
                     self.log.info({
                         "lr": self.__lr,
                         "num_examples_read": self.__numExamplesRead,
                     })
+
+                lr = self.__lr
 
             # We raffle the noise examples during the training
             for correctedWindow in x[0]:
@@ -166,7 +183,7 @@ class NegativeSamplingModel(Model):
             inputs = [
                 np.asarray(windowWords),
                 np.asarray(labels),
-                self.__lr
+                lr
             ]
 
             # Callbacks.

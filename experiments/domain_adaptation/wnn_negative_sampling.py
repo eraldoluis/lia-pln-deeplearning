@@ -30,7 +30,7 @@ from data.Lexicon import Lexicon
 from data.TokenDatasetReader import TokenReader
 from data.WordWindowGenerator import WordWindowGenerator
 from model.Callback import Callback
-from model.Metric import LossMetric
+from model.Metric import LossMetric, ActivationMetric, DerivativeMetric
 from model.ModelWriter import ModelWriter
 from model.NegativeSamplingModel import NegativeSamplingModel
 from model.Prediction import ArgmaxPrediction
@@ -39,6 +39,7 @@ from nnet.EmbeddingLayer import EmbeddingLayer
 from nnet.FlattenLayer import FlattenLayer
 from nnet.LinearLayer import LinearLayer
 from nnet.WeightGenerator import ZeroWeightGenerator
+from optim.Adagrad import Adagrad
 from optim.SGD import SGD
 from util.Sampler import Sampler
 from util.jsontools import dict2obj
@@ -81,7 +82,40 @@ PARAMETERS = {
     # "end_symbol": {"default": "</s>",
     #                "desc": "Object that will be place when the end limit of list is exceeded"},
     "seed": {"desc": ""},
+    "enable_activation_statistics": {"desc": "Enable to track the activations value of the main layers",
+                                     "default": False},
+    "enable_derivative_statistics": {
+        "desc": "Enable to track the derivative of some parameters and activation functions. ", "default": False},
+    "decay": {"default": "WORD2VEC_DEFAULT",
+              "desc": "Set the learning rate update strategy. WORD2VEC_DEFAULT and DIVIDE_EPOCH are the options available"},
+    "adagrad": {"desc": "Activate AdaGrad updates.", "default": False}
 }
+
+
+class MetricCB(Callback):
+    def __init__(self, metric, evalPerIteration):
+        super(MetricCB, self).__init__()
+
+        self.__metric = metric
+        self.__evalPerIteration = evalPerIteration
+        self.__logger = logging.getLogger(__name__)
+        self.__numberIteration = 0
+
+    def onBatchEnd(self,  batch, logs={}):
+        self.__numberIteration += 1
+
+        if self.__numberIteration % self.__evalPerIteration == 0:
+            self.__logger.info({
+                    "type": "metric",
+                    "subtype": "train",
+                    "iteration": self.__numberIteration,
+                    "name": self.__metric.getName(),
+                    "values": self.__metric.getValues()
+                })
+
+            self.__metric.reset()
+
+
 
 
 def mainWnnNegativeSampling(args):
@@ -113,11 +147,6 @@ def mainWnnNegativeSampling(args):
     if args.seed:
         random.seed(args.seed)
         np.random.seed(args.seed)
-    #
-    # if args.decay.lower() == "normal":
-    #     decay = 0.0
-    # elif args.decay.lower() == "divide_epoch":
-    #     decay = 1.0
 
     parametersToSaveOrLoad = {"hidden_size", "window_size", "start_symbol"}
 
@@ -172,7 +201,7 @@ def mainWnnNegativeSampling(args):
 
     act2 = ActivationLayer(linear2, sigmoid)
     # We clip the output of -sigmoid, because this output can be 0  and ln(0) is infinite, which can cause problems.
-    output = T.flatten(T.clip(act2.getOutput(), 10**-5, 1 - 10**-5))
+    output = T.flatten(T.clip(act2.getOutput(), 10 ** -5, 1 - 10 ** -5))
 
     # Loss Functions
     negativeSamplingLoss = T.nnet.binary_crossentropy(output, y).sum()
@@ -188,13 +217,41 @@ def mainWnnNegativeSampling(args):
         LossMetric("lossTrain", negativeSamplingLoss)
     ]
 
+    if args.enable_activation_statistics:
+        activationMetric = ActivationMetric("ActHidden", act1.getOutput(), np.linspace(-1, 1, 21), "avg")
+        trainMetrics.append(activationMetric)
+
+
+
+    if args.enable_derivative_statistics:
+        derivativeIntervals = [-float("inf"), -1, -10 ** -1, -10 ** -2, -10 ** -3, -10 ** -4, -10 ** -5, -10 ** -6,
+                               -10 ** -7,
+                               -10 ** -8, 0, 10 ** -8, 10 ** -7, 10 ** -6, 10 ** -5, 10 ** -4, 10 ** -3, 10 ** -2,
+                               10 ** -1, 1,
+                               float("inf")]
+        derivativeMetric = DerivativeMetric("DerivativeActHidden", negativeSamplingLoss, act1.getOutput(), derivativeIntervals, "avg")
+        trainMetrics.append(derivativeMetric)
+
     allLayers = act2.getLayerSet()
 
-    # opt = SGD(lr=lr, decay=decay)
-    opt = SGD(lr=lr)
+    if args.decay.lower() == "word2vec_default":
+        isWord2vecDecay = True
+        decay = 0.0
+    elif args.decay.lower() == "divide_epoch":
+        isWord2vecDecay = False
+        decay = 1.0
+    else:
+        decay =- None
+
+    if args.adagrad:
+        log.info("Using Adagrad")
+        opt = Adagrad(lr=lr, decay=decay)
+    else:
+        log.info("Using SGD")
+        opt = SGD(lr=lr, decay=decay)
 
     model = NegativeSamplingModel(args.t, noiseRate, sampler, minLr, numExUpdLr, totalNumOfTokens, numEpochs, [x], [y],
-                                  allLayers, opt, negativeSamplingLoss, trainMetrics)
+                                  allLayers, opt, negativeSamplingLoss, trainMetrics, isWord2vecDecay)
     # Save Model
     if args.save_model:
         savePath = args.save_model
@@ -202,8 +259,16 @@ def mainWnnNegativeSampling(args):
 
         modelWriter = ModelWriter(savePath, objsToSave, args, parametersToSaveOrLoad)
 
+    cb = []
+
+    if args.enable_activation_statistics:
+        cb.append(MetricCB(activationMetric, 500000))
+
+    if args.enable_derivative_statistics:
+        cb.append(MetricCB(derivativeMetric, 500000))
+
     # Training
-    model.train(trainIterator, numEpochs=numEpochs, callbacks=[])
+    model.train(trainIterator, numEpochs=numEpochs, callbacks=cb)
 
     if args.save_model:
         modelWriter.save()

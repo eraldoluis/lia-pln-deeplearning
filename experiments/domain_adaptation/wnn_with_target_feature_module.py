@@ -675,12 +675,12 @@ def mainWnn(args):
         if targetHiddenParameters:
             trainMetrics.append(ActivationMetric("ActUnsHidden", targetAct.getOutput(), np.linspace(-1, 1, 21), "avg"))
 
-        trainMetrics.append(ActivationMetric("ActSoftmax", act2.getOutput(), np.linspace(0, 1, 11), "none"))
+        # trainMetrics.append(ActivationMetric("ActSoftmax", act2.getOutput(), np.linspace(0, 1, 11), "none"))
 
     if args.enable_derivative_statistics:
-        derivativeIntervals = [-sys.maxint, -1, -10 ** -1, -10 ** -2, -10 ** -3, -10 ** -4, -10 ** -5, -10 ** -6, -10 ** -7,
+        derivativeIntervals = [-float("inf"), -1, -10 ** -1, -10 ** -2, -10 ** -3, -10 ** -4, -10 ** -5, -10 ** -6, -10 ** -7,
                                -10 ** -8, 0, 10 ** -8, 10 ** -7, 10 ** -6, 10 ** -5, 10 ** -4, 10 ** -3, 10 ** -2, 10 ** -1, 1,
-                               sys.maxint]
+                               float("inf")]
 
         if args.with_hidden:
             # trainMetrics.append(

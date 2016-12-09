@@ -12,15 +12,16 @@ class Adagrad(Optimizer):
     """Adagrad optimizer
     """
 
-    def __init__(self, lr=0.01, decay=1.0):
+    def __init__(self, lr=0.01, decay=0.0):
         super(Adagrad, self).__init__()
         self.lr = T.scalar(name="lr")
         self.lrValue = lr
         self.__sumsSqDefGrads = []
         self.__sumsSqStructGrads = []
 
-        if decay == 0.0:
-            decay = 1
+        # Não entendi muito isto. Por quê o decay está sempre habilitado no Adagrad????
+        # if decay == 0.0:
+        #     decay = 1
 
         self.decay = decay
 

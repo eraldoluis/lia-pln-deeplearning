@@ -135,6 +135,7 @@ class NegativeSamplingModel(Model):
         for x, y in trainIterator:
             windowWords = []
             labels = []
+            words = []
 
             if self.__isWord2vecDecay and self.__numExamplesRead % self.__numExUpdLr == 0:
                 self.__lr = self.__startingLr * (1 - (self.__numExamplesRead / (self.__totalExampleToRead + 1)))
@@ -150,12 +151,15 @@ class NegativeSamplingModel(Model):
 
                 lr = self.__lr
 
+            if len(x[0]) > 1:
+                raise Exception("Negative sampling doens't support mini-batch")
+
             # We raffle the noise examples during the training
-            for correctedWindow in x[0]:
+            for correctWindow in x[0]:
                 # Word2vec code counts the examples before sub-sampling
                 self.__numExamplesRead += 1
 
-                centralToken = self.getCentralToken(correctedWindow)
+                centralToken = self.getCentralToken(correctWindow)
 
                 #  Subsampling randomly discards words.
                 # The higher the frequency, more will increase the change of the word be discarted.
@@ -163,12 +167,18 @@ class NegativeSamplingModel(Model):
                 if self.doDiscard(centralToken):
                     continue
 
+
                 # Put correct examples and noises examples in a same batch
-                windowWords.append(correctedWindow)
+                windowWords.append(correctWindow)
                 labels.append(1)
 
-                windowWords += self.generateNoiseExamples(correctedWindow)
+                windowWords += self.generateNoiseExamples(correctWindow)
                 labels += [0] * self.__noiseRate
+
+                for win in windowWords:
+                    words.append(self.getCentralToken(win))
+
+
 
             # The real batch is num correct examples times noise rate
             batchSize = len(windowWords)
@@ -182,6 +192,7 @@ class NegativeSamplingModel(Model):
             # List of input variables.
             inputs = [
                 np.asarray(windowWords),
+                np.asarray(words),
                 np.asarray(labels),
                 lr
             ]

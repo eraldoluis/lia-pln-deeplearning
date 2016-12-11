@@ -35,9 +35,11 @@ from model.ModelWriter import ModelWriter
 from model.NegativeSamplingModel import NegativeSamplingModel
 from model.Prediction import ArgmaxPrediction
 from nnet.ActivationLayer import ActivationLayer, tanh, sigmoid
+from nnet.DotLayer import DotLayer
 from nnet.EmbeddingLayer import EmbeddingLayer
 from nnet.FlattenLayer import FlattenLayer
 from nnet.LinearLayer import LinearLayer
+from nnet.ReshapeLayer import ReshapeLayer
 from nnet.WeightGenerator import ZeroWeightGenerator
 from optim.Adagrad import Adagrad
 from optim.SGD import SGD
@@ -101,21 +103,19 @@ class MetricCB(Callback):
         self.__logger = logging.getLogger(__name__)
         self.__numberIteration = 0
 
-    def onBatchEnd(self,  batch, logs={}):
+    def onBatchEnd(self, batch, logs={}):
         self.__numberIteration += 1
 
         if self.__numberIteration % self.__evalPerIteration == 0:
             self.__logger.info({
-                    "type": "metric",
-                    "subtype": "train",
-                    "iteration": self.__numberIteration,
-                    "name": self.__metric.getName(),
-                    "values": self.__metric.getValues()
-                })
+                "type": "metric",
+                "subtype": "train",
+                "iteration": self.__numberIteration,
+                "name": self.__metric.getName(),
+                "values": self.__metric.getValues()
+            })
 
             self.__metric.reset()
-
-
 
 
 def mainWnnNegativeSampling(args):
@@ -181,25 +181,35 @@ def mainWnnNegativeSampling(args):
     sampler = Sampler(frequency / float(total))
 
     # Create a random embedding for each word
-    wordEmbedding = Embedding(wordLexicon, None, wordEmbeddingSize)
+    inputWordEmbedding = Embedding(wordLexicon, None, wordEmbeddingSize)
+    outputWordEmbedding = Embedding(wordLexicon, None, hiddenLayerSize)
+    # biasWordEmbedding = Embedding(wordLexicon, None, 1)
+
     log.info("Lexicon size: %d" % (wordLexicon.getLen()))
 
     # Create NN
     x = T.lmatrix("word_window")
+    words = T.lvector("correct_noise_words")
     y = T.lvector("labels")
 
-    wordEmbeddingLayer = EmbeddingLayer(x, wordEmbedding.getEmbeddingMatrix(), name="embedding")
-    flatten = FlattenLayer(wordEmbeddingLayer)
+    inputWordEmbeddingLayer = EmbeddingLayer(x, inputWordEmbedding.getEmbeddingMatrix(), name="embedding")
+    flatten = FlattenLayer(inputWordEmbeddingLayer)
 
     linear1 = LinearLayer(flatten, wordEmbeddingSize * windowSize, hiddenLayerSize, name="linear1")
     act1 = ActivationLayer(linear1, tanh)
 
-    # Softmax regression. It's like a logistic regression
-    linear2 = LinearLayer(act1, hiddenLayerSize, 1,
-                          weightInitialization=ZeroWeightGenerator(),
-                          name="linear_softmax_regresion")
+    # A logistic regression
+    outputWordEmbeddingLayer = EmbeddingLayer(words, outputWordEmbedding.getEmbeddingMatrix(), name="output_embedding")
+    # biasWordEmbedding = EmbeddingLayer(words, biasWordEmbedding.getEmbeddingMatrix(), name="bias_embedding")
+    # biasFlatten = FlattenLayer(biasWordEmbedding,1)
 
-    act2 = ActivationLayer(linear2, sigmoid)
+    scoreUnormalized = DotLayer(act1, outputWordEmbeddingLayer, b=None, useDiagonal=True)
+
+    # linear2 = LinearLayer(act1, hiddenLayerSize, 1,
+    #                       weightInitialization=ZeroWeightGenerator(),
+    #                       name="linear_softmax_regresion")
+
+    act2 = ActivationLayer(scoreUnormalized, sigmoid)
     # We clip the output of -sigmoid, because this output can be 0  and ln(0) is infinite, which can cause problems.
     output = T.flatten(T.clip(act2.getOutput(), 10 ** -5, 1 - 10 ** -5))
 
@@ -221,15 +231,14 @@ def mainWnnNegativeSampling(args):
         activationMetric = ActivationMetric("ActHidden", act1.getOutput(), np.linspace(-1, 1, 21), "avg")
         trainMetrics.append(activationMetric)
 
-
-
     if args.enable_derivative_statistics:
         derivativeIntervals = [-float("inf"), -1, -10 ** -1, -10 ** -2, -10 ** -3, -10 ** -4, -10 ** -5, -10 ** -6,
                                -10 ** -7,
                                -10 ** -8, 0, 10 ** -8, 10 ** -7, 10 ** -6, 10 ** -5, 10 ** -4, 10 ** -3, 10 ** -2,
                                10 ** -1, 1,
                                float("inf")]
-        derivativeMetric = DerivativeMetric("DerivativeActHidden", negativeSamplingLoss, act1.getOutput(), derivativeIntervals, "avg")
+        derivativeMetric = DerivativeMetric("DerivativeActHidden", negativeSamplingLoss, act1.getOutput(),
+                                            derivativeIntervals, "avg")
         trainMetrics.append(derivativeMetric)
 
     allLayers = act2.getLayerSet()
@@ -241,7 +250,7 @@ def mainWnnNegativeSampling(args):
         isWord2vecDecay = False
         decay = 1.0
     else:
-        decay =- None
+        decay = - None
 
     if args.adagrad:
         log.info("Using Adagrad")
@@ -250,7 +259,8 @@ def mainWnnNegativeSampling(args):
         log.info("Using SGD")
         opt = SGD(lr=lr, decay=decay)
 
-    model = NegativeSamplingModel(args.t, noiseRate, sampler, minLr, numExUpdLr, totalNumOfTokens, numEpochs, [x], [y],
+    model = NegativeSamplingModel(args.t, noiseRate, sampler, minLr, numExUpdLr, totalNumOfTokens, numEpochs,
+                                  [x, words], [y],
                                   allLayers, opt, negativeSamplingLoss, trainMetrics, isWord2vecDecay)
     # Save Model
     if args.save_model:

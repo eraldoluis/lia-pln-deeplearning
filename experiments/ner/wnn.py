@@ -212,16 +212,16 @@ def mainWnnNer(args):
     evalMetrics = [
         LossMetric("LossDev", loss, True),
         AccuracyMetric("AccDev", y, prediction),
-        FMetric("FMetric", y, prediction)
+        FMetric("FMetricDev", y, prediction)
     ]
 
     testMetrics = [
         LossMetric("LossTest", loss, True),
         AccuracyMetric("AccTest", y, prediction),
-        FMetric("FMetric", y, prediction)
+        FMetric("FMetricTest", y, prediction)
     ]
 
-    log.info("Compiling network...")
+    log.info("Compiling the network...")
     wnnModel = BasicModel(inputModel, [y], actSoftmax.getLayerSet(), opt, prediction, loss, trainMetrics=trainMetrics,
                           evalMetrics=evalMetrics, testMetrics=testMetrics, mode=None)
 

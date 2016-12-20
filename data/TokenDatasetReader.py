@@ -151,14 +151,19 @@ class TokenLabelPerLineReader(DatasetReader):
         tkns = []
         labels = []
 
+        sep = self.__labelTknSep
+
         for line in f:
             line = line.strip()
 
             if len(line) == 0:
                 # Blank line separates sentences.
                 yield (tkns, labels)
+                tkns = []
+                labels = []
+                continue
 
-            tknLabel = line.split(self.__sep)
+            tknLabel = line.split(sep)
             tkns.append(tknLabel[0])
             labels.append(tknLabel[1])
 

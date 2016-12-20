@@ -95,9 +95,6 @@ class Embedding(object):
         x = (x − mean(x)) / stddev(x)
         :return: None
         """
-        if not self.isReadOnly():
-            raise Exception("To normalize the word embedding is necessary to stop it from accepting new words. ")
-
         self.__vectors = np.asarray(self.__vectors, dtype=theano.config.floatX)
 
         self.__vectors -= np.mean(self.__vectors, axis=0)
@@ -109,10 +106,6 @@ class Embedding(object):
         x = (x − min(x)) / (max(x) − min(x))
         :return:None
         """
-
-        if not self.isReadOnly():
-            raise Exception("To normalize the word embedding is necessary to stop it from accepting new words. ")
-
         self.__vectors = np.asarray(self.__vectors, dtype=theano.config.floatX)
 
         self.__vectors -= np.min(self.__vectors, axis=0)
@@ -124,10 +117,6 @@ class Embedding(object):
         x = (x − mean(x)) / (max(x) − min(x))
         :return:None
         """
-
-        if not self.isReadOnly():
-            raise Exception("To normalize the word embedding is necessary to stop it from accepting new words. ")
-
         self.__vectors = np.asarray(self.__vectors, dtype=theano.config.floatX)
 
         self.__vectors -= np.mean(self.__vectors, axis=0)

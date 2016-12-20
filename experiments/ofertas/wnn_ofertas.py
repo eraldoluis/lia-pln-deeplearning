@@ -11,38 +11,31 @@ import os
 import random
 import sys
 import time
-from logging import Formatter
 from time import time
 
 import theano
 import theano.tensor as T
-from numpy.random.mtrand import weibull
-
-from data.BatchIterator import SyncBatchIterator, AsyncBatchIterator
-from data.FeatureGenerator import FeatureGenerator
-from data.WordWindowGenerator import WordWindowGenerator
 
 from args.JsonArgParser import JsonArgParser
+from data.BatchIterator import SyncBatchIterator, AsyncBatchIterator
 from data.DatasetReader import DatasetReader
-from data.Embedding import EmbeddingFactory, RandomUnknownStrategy, ChosenUnknownStrategy, \
-    RandomEmbedding
-from data.Lexicon import Lexicon, createLexiconUsingFile, HashLexicon
+from data.FeatureGenerator import FeatureGenerator
+from data.WordWindowGenerator import WordWindowGenerator
+from model.Metric import LossMetric, AccuracyMetric, FMetric, PredictedProbabilities
 from model.Model import Model
-
+from model.ModelWriter import ModelWriter
 from model.Objective import NegativeLogLikelihoodOneExample
 from model.Prediction import ArgmaxPrediction
-from model.SaveModelCallback import ModelWriter, SaveModelCallback
 from nnet.ActivationLayer import ActivationLayer, softmax, tanh, sigmoid
+from nnet.ConcatenateLayer import ConcatenateLayer
 from nnet.EmbeddingLayer import EmbeddingLayer
 from nnet.FlattenLayer import FlattenLayer
-from nnet.ConcatenateLayer import ConcatenateLayer
 from nnet.LinearLayer import LinearLayer
 from nnet.MaxPoolingLayer import MaxPoolingLayer
 from nnet.WeightGenerator import ZeroWeightGenerator, GlorotUniform, SigmoidGlorot
 from optim.Adagrad import Adagrad
 from optim.SGD import SGD
 from util.jsontools import dict2obj
-from model.Metric import LossMetric, AccuracyMetric, FMetric, PredictedProbabilities
 
 PARAMETERS = {
     "filters": {"default": ['data.Filters.TransformLowerCaseFilter',
@@ -206,6 +199,8 @@ class OfertasModelWritter(ModelWriter):
         :type linearLayer2: nnet.LinearLayer.LinearLayer
         :type embedding: data.Embedding.Embedding
         """
+        super(OfertasModelWritter, self).__init__(savePath, [], "", [])
+
         self.__savePath = savePath
         self.__embeddingLayer = embeddingLayer
         self.__linear1 = linearLayer1

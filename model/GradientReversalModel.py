@@ -6,7 +6,7 @@ from numpy import random
 
 import theano
 import theano.tensor as T
-from model.Model import Model, Metric
+from model.Model import Model
 
 
 class ConcatenatorDataset(object):
@@ -45,7 +45,6 @@ class ConcatenatorDataset(object):
 
 
 class GradientReversalModel(Model):
-    # TODO: Não tive tempo para testar o código com as modificações da métrica
     """
     Modelo baseado no trabalho Domain-Adversarial Training of Neural Networks.
     Diferente do paper que treina o modelo usando mini-batch, nós treinamos a rede de forma estocástica.
@@ -58,20 +57,16 @@ class GradientReversalModel(Model):
         do source e do target.
     """
 
-    def __init__(self, sourceInput, targetInput, sourceSupLabel, sourceUnsLabel, targetLabel, allLayersSource,
+    def __init__(self, input, sourceSupLabel, unsLabel, allLayersSource,
                  allLayersTarget, optimizer, predictionSup, lossSup, lossUnsSource, lossUnsTarget,
                  supervisedTrainMetrics=None, unsupervisedTrainMetrics=None, evalMetrics=None, testMetrics=None,
                  mode=None):
         """
-        :param sourceInput: list of tensors that represent the inputs from the source domain.
-
-        :param targetInput: list of tensors that represent the inputs from the target domain.
+        :param input: list of tensors
 
         :param sourceSupLabel: list of tensor that represents the corrects annotated outputs from the source domain.
 
-        :param sourceUnsLabel: list of tensor that represents the corrects not annotated outputs from the source domain.
-
-        :param targetLabel:  list of tensor that represents the corrects not annotated outputs from the target domain.
+        :param unsLabel: list of tensor that represents th
 
         :param allLayersSource: all model layers from the source
 
@@ -121,9 +116,9 @@ class GradientReversalModel(Model):
         for m in trainMetrics:
             trainMetricsByName[m.getName()] = m
 
-        evalInput = sourceInput + [sourceSupLabel]
+        evalInput = input + [sourceSupLabel]
 
-        super(GradientReversalModel, self).__init__(evalInput, evalInput, sourceInput, predictionSup, False,
+        super(GradientReversalModel, self).__init__(evalInput, evalInput, input, predictionSup, False,
                                                     trainMetricsByName.values(), evalMetrics, testMetrics, mode)
 
         self.log = logging.getLogger(__name__)
@@ -144,14 +139,14 @@ class GradientReversalModel(Model):
         if supervisedTrainMetrics:
 
             # List of inputs for training function.
-            sourceFuncInput = sourceInput + [sourceSupLabel, sourceUnsLabel] + optimizerInput
+            sourceFuncInput = input + [sourceSupLabel, unsLabel] + optimizerInput
 
             # Include the variables required by all training metrics in the output list of the training function.
             trainOutputs = []
             metrics = []
 
             for m in supervisedTrainMetrics:
-                metrics.append(trainMetricsByName[m.m.getName()])
+                metrics.append(trainMetricsByName[m.getName()])
                 trainOutputs += m.getRequiredVariables()
 
             self.__trainingMetrics.append(metrics)
@@ -172,14 +167,14 @@ class GradientReversalModel(Model):
 
         if unsupervisedTrainMetrics:
             # List of inputs for training function.
-            targetFuncInput = targetInput + [targetLabel] + optimizerInput
+            targetFuncInput = input + [unsLabel] + optimizerInput
 
             # Include the variables required by all training metrics in the output list of the training function.
             trainOutputs = []
             metrics = []
 
             for m in unsupervisedTrainMetrics:
-                metrics.append(trainMetricsByName[m.m.getName()])
+                metrics.append(trainMetricsByName[m.getName()])
                 trainOutputs += m.getRequiredVariables()
 
             self.__trainingMetrics.append(metrics)
@@ -190,24 +185,6 @@ class GradientReversalModel(Model):
             # Training function.
             self.__trainFuncs.append(theano.function(inputs=targetFuncInput, outputs=trainOutputs, updates=updates))
 
-    def getTrainingMetrics(self):
-        metrics = []
-
-        for l in self.__trainingMetrics:
-            for m2 in l:
-                if not m2 in metrics:
-                    metrics.append(m2)
-
-        return metrics
-
-    def getEvaluateMetrics(self):
-        return self.evaluateMetrics
-
-    def evaluateFuncUseY(self):
-        return not self.__isY_ProducedByNN
-
-    def getEvaluateFunction(self):
-        return self.evaluateFunction
 
     def doEpoch(self, trainIterator, epoch, iteration, devIterator, evalPerIteration, callbacks):
         lr = self.__optimizer.getInputValues(epoch)
@@ -243,10 +220,14 @@ class GradientReversalModel(Model):
 
             outputs = self.__trainFuncs[idx](*inputs)
 
-            trainingMetric = self.__trainingMetrics[idx]
+            for m in  self.__trainingMetrics[idx]:
+                numOuputs = len(m.getRequiredVariables())
+                mOut = []
+                for _ in xrange(numOuputs):
+                    mOut.append(outputs.pop(0))
 
-            for m, _output in itertools.izip(trainingMetric, outputs):
-                m.update(_output, batchSize)
+                    # Update metric values.
+                    m.update(batchSize, *mOut)
 
             self.callbackBatchEnd(inputs, callbacks)
 

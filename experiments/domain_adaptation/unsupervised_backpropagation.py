@@ -4,24 +4,30 @@ import importlib
 import logging
 import logging.config
 import math
-import numpy as np
 import os
 import random
 import sys
 
+import numpy as np
 import theano
 import theano.tensor as T
-from data.Embedding import EmbeddingFactory, RandomUnknownStrategy
+from pandas import json
+
+from args.JsonArgParser import JsonArgParser
 from data.BatchIterator import SyncBatchIterator
+from data.CapitalizationFeatureGenerator import CapitalizationFeatureGenerator
 from data.CharacterWindowGenerator import CharacterWindowGenerator
 from data.ConstantLabel import ConstantLabel
+from data.Embedding import Embedding
 from data.LabelGenerator import LabelGenerator
-from data.WordWindowGenerator import WordWindowGenerator
-from data.Lexicon import createLexiconUsingFile, Lexicon
+from data.Lexicon import Lexicon
+from data.SuffixFeatureGenerator import SuffixFeatureGenerator
 from data.TokenDatasetReader import TokenLabelReader, TokenReader
+from data.WordWindowGenerator import WordWindowGenerator
 from model.Callback import Callback
 from model.GradientReversalModel import GradientReversalModel
 from model.Metric import LossMetric, AccuracyMetric
+from model.ModelWriter import ModelWriter
 from model.Objective import NegativeLogLikelihood
 from model.Prediction import ArgmaxPrediction
 from nnet.ActivationLayer import ActivationLayer, softmax, tanh, sigmoid
@@ -31,19 +37,34 @@ from nnet.EmbeddingLayer import EmbeddingLayer
 from nnet.FlattenLayer import FlattenLayer
 from nnet.GradientReversalLayer import GradientReversalLayer
 from nnet.LinearLayer import LinearLayer
-from nnet.WeightGenerator import ZeroWeightGenerator, GlorotUniform, SigmoidGenerator
+from nnet.WeightGenerator import ZeroWeightGenerator, GlorotUniform, SigmoidGlorot
 from optim.Adagrad import Adagrad
 from optim.SGD import SGD
-from args.JsonArgParser import JsonArgParser
+from persistence.H5py import H5py
+from util.jsontools import dict2obj
 
 UNSUPERVISED_BACKPROPAGATION_PARAMETERS = {
     "token_label_separator": {"required": True,
                               "desc": "specify the character that is being used to separate the token from the label in the dataset."},
-    "filters": {"required": True,
-                "desc": "list contains the filters. Each filter is describe by your module name + . + class name"},
+    "word_filters": {"required": True,
+                     "desc": "a list which contains the filters. Each filter is describe by your module name + . + class name"},
+
+    # Filters
+    "suffix_filters": {"default": [],
+                       "desc": "a list which contains the filters that will be used to process the suffix."
+                               "These filters will be applied in tokens and after that the program will get suffix of each token."
+                               "Each filter is describe by your module name + . + class name"},
+    "cap_filters": {"default": [],
+                    "desc": "a list which contains the filters that will be used to process the capitalization. "
+                            "These filters will be applied in tokens and after that the program will get capitalization of each token."
+                            "Each filter is describe by your module name + . + class name"},
+    "char_filters": {"default": [], "desc": "list contains the filters that will be used in character embedding. "
+                                            "These filters will be applied in tokens and after that the program will get the characters of each token ."
+                                            "Each filter is describe by your module name + . + class name"},
+
     "label_file": {"desc": "", "required": True},
     "batch_size": {"required": True},
-    # "lambda": {"desc": "", "required": True},
+    "lambda_gradient": {"desc": "", "required": True},
 
     "alpha": {"desc": "", "required": True},
     "height": {"default": 1, "desc": "", "required": False},
@@ -55,6 +76,9 @@ UNSUPERVISED_BACKPROPAGATION_PARAMETERS = {
 
     "test": {"desc": "Test File Path"},
     "dev": {"desc": "Development File Path"},
+    "aux_devs": {
+        "desc": "The parameter 'dev' represents the main dev and this parameter represents the auxiliary devs that"
+                " will be use to evaluate the model."},
     "load_model": {"desc": "Path + basename that will be used to save the weights and embeddings to be loaded."},
 
     "alg": {"default": "window_word",
@@ -80,8 +104,8 @@ UNSUPERVISED_BACKPROPAGATION_PARAMETERS = {
     "hidden_size_supervised_part": {"default": 0, "desc": "Set the size of the hidden layer before "
                                                           "the softmax of the supervised part. If the value is 0, "
                                                           "so this hidden isn't put in the NN."},
-    "normalization": {"desc": "options = none, zscore, minmax e mean"},
-    "additional_dev": {'desc': ""},
+    "normalization": {"desc": "Choose the normalize method to be applied on  word embeddings. "
+                              "The possible values are: minmax or mean"},
     "activation_hidden_extractor": {"default": "tanh", "desc": "This parameter chooses the type of activation function"
                                                                " that will be used in the hidden layer of the extractor. Options: sigmoid or tanh"},
 
@@ -92,6 +116,15 @@ UNSUPERVISED_BACKPROPAGATION_PARAMETERS = {
     "charwnn_with_act": {"default": True,
                          "desc": "Enable or disable the use of a activation function in the convolution. "
                                  "When this parameter is true, we use tanh as activation function"},
+
+    "with_hidden": {"default": True,
+                    "desc": "If this parameter is False, so the hidden before the softmax layer is removed from NN."},
+
+    # Hand-crafted features
+    "cap_emb_size": {"default": 5, "desc": ""},
+    "suffix_emb_size": {"default": 5, "desc": ""},
+    "suffix_size": {"default": 0, "desc": ""},
+    "use_capitalization": {"default": False, "desc": ""},
 }
 
 
@@ -110,74 +143,215 @@ class ChangeLambda(Callback):
         self.lambdaShared.set_value(_lambda)
 
 
-class AdditionalDevDataset(Callback):
-    def __init__(self, model, sourceDataset, tokenLabelSeparator, inputGenerator, outputGeneratorTag):
-        # Get dev inputs and output
-        self.log = logging.getLogger(__name__)
-        self.log.info("Reading additional dev examples")
-        devDatasetReader = TokenLabelReader(sourceDataset, tokenLabelSeparator)
-        devReader = SyncBatchIterator(devDatasetReader, inputGenerator, [outputGeneratorTag], sys.maxint,
-                                      shuffle=False)
+class DevCallback(Callback):
+    def __init__(self, model, devs, tokenLabelSep, inputGenerators, outputGenerators):
+        self.__datasetIterators = []
+        self.__model = model
 
-        self.devReader = devReader
-        self.model = model
+        for devFile in devs:
+            devDatasetReader = TokenLabelReader(devFile, tokenLabelSep)
+            devIterator = SyncBatchIterator(devDatasetReader, inputGenerators, outputGenerators, sys.maxint,
+                                            shuffle=False)
+
+            self.__datasetIterators.append(devIterator)
 
     def onEpochEnd(self, epoch, logs={}):
-        result = self.model.evaluate(self.devReader, False)
-        self.log.info("Additional Dataset: " + str(result["acc"]))
+        for it in self.__datasetIterators:
+            self.__model.test(it)
 
 
-def main(**kwargs):
-    log = logging.getLogger(__name__)
-    log.info(kwargs)
-
-    if kwargs["seed"] != None:
-        random.seed(kwargs["seed"])
-        np.random.seed(kwargs["seed"])
-
+def getFilters(param, log):
     filters = []
 
-    for filterName in kwargs["filters"]:
+    for filterName in param:
         moduleName, className = filterName.rsplit('.', 1)
         log.info("Usando o filtro: " + moduleName + " " + className)
 
         module_ = importlib.import_module(moduleName)
         filters.append(getattr(module_, className)())
 
-    wordWindowSize = kwargs["word_window_size"]
-    hiddenLayerSize = kwargs["hidden_size"]
-    batchSize = kwargs["batch_size"]
-    startSymbol = kwargs["start_symbol"]
-    endSymbol = kwargs["end_symbol"]
-    numEpochs = kwargs["num_epochs"]
-    lr = kwargs["lr"]
-    tagLexicon = createLexiconUsingFile(kwargs["label_file"])
-    # _lambda = theano.shared(kwargs["lambda"], "lambda")
-    _lambda = theano.shared(0.0, "lambda")
-    useAdagrad = kwargs["adagrad"]
-    shuffle = kwargs["shuffle"]
-    supHiddenLayerSize = kwargs["hidden_size_supervised_part"]
-    unsupHiddenLayerSize = kwargs["hidden_size_unsupervised_part"]
-    normalization = kwargs["normalization"]
-    activationHiddenExtractor = kwargs["activation_hidden_extractor"]
+    return filters
 
-    withCharWNN = kwargs["with_charwnn"]
-    convSize = kwargs["conv_size"]
-    charEmbeddingSize = kwargs["char_emb_size"]
-    charWindowSize = kwargs["char_window_size"]
+
+def main(args):
+    log = logging.getLogger(__name__)
+    log.info(args)
+
+    if args.seed:
+        random.seed(args.seed)
+        np.random.seed(args.seed)
+
+    parametersToSaveOrLoad = {"word_filters", "suffix_filters", "char_filters", "cap_filters",
+                              "alg", "hidden_activation_function", "word_window_size", "char_window_size",
+                              "hidden_size_unsupervised_part", "hidden_size_supervised_part", "with_charwnn",
+                              "conv_size", "charwnn_with_act", "suffix_size", "use_capitalization",
+                              "start_symbol", "end_symbol", "with_hidden"}
+
+    # Load parameters of the saving model
+    if args.load_model:
+        persistentManager = H5py(args.load_model)
+        savedParameters = json.loads(persistentManager.getAttribute("parameters"))
+
+        if savedParameters.get("charwnn_filters", None) != None:
+            savedParameters["char_filters"] = savedParameters["charwnn_filters"]
+            savedParameters.pop("charwnn_filters")
+            print savedParameters
+
+        log.info("Loading parameters of the model")
+        args = args._replace(**savedParameters)
+
+    log.info(str(args))
+
+    wordWindowSize = args.word_window_size
+    hiddenLayerSize = args.hidden_size
+    batchSize = args.batch_size
+    startSymbol = args.start_symbol
+    endSymbol = args.end_symbol
+    numEpochs = args.num_epochs
+    lr = args.lr
+    _lambda = theano.shared(args.lambda_gradient, "lambda")
+    # _lambda = theano.shared(0.0, "lambda")
+    useAdagrad = args.adagrad
+    shuffle = args.shuffle
+    supHiddenLayerSize = args.hidden_size_supervised_part
+    unsupHiddenLayerSize = args.hidden_size_unsupervised_part
+    normalizeMethod = args.normalization.lower() if args.normalization is not None else None
+    activationHiddenExtractor = args.activation_hidden_extractor
+    hiddenActFunctionName = args.hidden_activation_function
+
+    withCharWNN = args.with_charwnn
+    charEmbeddingSize = args.char_emb_size
+    charWindowSize = args.char_window_size
     startSymbolChar = "</s>"
 
-    if kwargs["charwnn_with_act"]:
-        charAct = tanh
-    else:
-        charAct = None
+    suffixEmbSize = args.suffix_emb_size
+    capEmbSize = args.cap_emb_size
+
+    useSuffixFeatures = args.suffix_size > 0
+    useCapFeatures = args.use_capitalization
+
+    # Insert the character that will be used to fill the matrix
+    # with a dimension lesser than chosen dimension.This enables that the convolution is performed by a matrix multiplication.
+    artificialChar = "ART_CHAR"
 
     # TODO: the maximum number of characters of word is fixed in 20.
     numMaxChar = 20
 
-    if kwargs["decay"].lower() == "normal":
+
+    isSentenceModel = True
+    batchSize = -1 if isSentenceModel else args.batch_size
+
+    # Lendo Filtros do wnn
+    log.info("Lendo filtros básicos")
+    wordFilters = getFilters(args.word_filters, log)
+
+    # Lendo Filtros do charwnn
+    log.info("Lendo filtros do charwnn")
+    charFilters = getFilters(args.char_filters, log)
+
+    # Lendo Filtros do suffix
+    log.info("Lendo filtros do sufixo")
+    suffixFilters = getFilters(args.suffix_filters, log)
+
+    # Lendo Filtros da capitalização
+    log.info("Lendo filtros da capitalização")
+    capFilters = getFilters(args.cap_filters, log)
+
+    if withCharWNN and (useSuffixFeatures or useCapFeatures):
+        raise Exception("It's impossible to use hand-crafted features with Charwnn.")
+
+    # Read word lexicon and create word embeddings
+    if args.load_model:
+        wordLexicon = Lexicon.fromPersistentManager(persistentManager, "word_lexicon")
+        vectors = EmbeddingLayer.getEmbeddingFromPersistenceManager(persistentManager, "word_embedding_layer")
+
+        wordEmbedding = Embedding(wordLexicon, vectors)
+
+    elif args.word_embedding:
+        wordLexicon, wordEmbedding = Embedding.fromWord2Vec(args.word_embedding, "UUUNKKK", "word_lexicon")
+    # elif args.word_lexicon:
+    #     wordLexicon = Lexicon.fromTextFile(args.word_lexicon, True, "word_lexicon")
+    #     wordEmbedding = Embedding(wordLexicon, vectors=None, embeddingSize=embeddingSize)
+    else:
+        log.error("You need to set one of these parameters: load_model, word_embedding or word_lexicon")
+        return
+
+    # Read char lexicon and create char embeddings
+    if withCharWNN:
+        if args.load_model:
+            charLexicon = Lexicon.fromPersistentManager(persistentManager, "char_lexicon")
+            vectors = EmbeddingConvolutionalLayer.getEmbeddingFromPersistenceManager(persistentManager,
+                                                                                     "char_convolution_layer")
+
+            charEmbedding = Embedding(charLexicon, vectors)
+        elif args.char_lexicon:
+            charLexicon = Lexicon.fromTextFile(args.char_lexicon, True, "char_lexicon")
+            charEmbedding = Embedding(charLexicon, vectors=None, embeddingSize=charEmbeddingSize)
+        else:
+            log.error("You need to set one of these parameters: load_model or char_lexicon")
+            return
+    else:
+        # Read suffix lexicon if suffix size is greater than 0
+        if useSuffixFeatures:
+            if args.load_model:
+                suffixLexicon = Lexicon.fromPersistentManager(persistentManager, "suffix_lexicon")
+                vectors = EmbeddingConvolutionalLayer.getEmbeddingFromPersistenceManager(persistentManager,
+                                                                                         "suffix_embedding")
+
+                suffixEmbedding = Embedding(suffixLexicon, vectors)
+            elif args.suffix_lexicon:
+                suffixLexicon = Lexicon.fromTextFile(args.suffix_lexicon, True, "suffix_lexicon")
+                suffixEmbedding = Embedding(suffixLexicon, vectors=None, embeddingSize=suffixEmbSize)
+            else:
+                log.error("You need to set one of these parameters: load_model or suffix_lexicon")
+                return
+
+        # Read capitalization lexicon
+        if useCapFeatures:
+            if args.load_model:
+                capLexicon = Lexicon.fromPersistentManager(persistentManager, "cap_lexicon")
+                vectors = EmbeddingConvolutionalLayer.getEmbeddingFromPersistenceManager(persistentManager,
+                                                                                         "cap_embedding")
+
+                capEmbedding = Embedding(capLexicon, vectors)
+            elif args.cap_lexicon:
+                capLexicon = Lexicon.fromTextFile(args.cap_lexicon, True, "cap_lexicon")
+                capEmbedding = Embedding(capLexicon, vectors=None, embeddingSize=capEmbSize)
+            else:
+                log.error("You need to set one of these parameters: load_model or cap_lexicon")
+                return
+
+    # Read labels
+    if args.load_model:
+        labelLexicon = Lexicon.fromPersistentManager(persistentManager, "label_lexicon")
+    elif args.label_file:
+        labelLexicon = Lexicon.fromTextFile(args.label_file, False, lexiconName="label_lexicon")
+    else:
+        log.error("You need to set one of these parameters: load_model, word_embedding or word_lexicon")
+        return
+
+    # Normalize the word embedding
+    if not normalizeMethod:
+        pass
+    elif normalizeMethod == "minmax":
+        log.info("Normalization: minmax")
+        wordEmbedding.minMaxNormalization()
+    elif normalizeMethod == "mean":
+        log.info("Normalization: mean normalization")
+        wordEmbedding.meanNormalization()
+    else:
+        log.error("Unknown normalization method: %s" % normalizeMethod)
+        sys.exit(1)
+
+    if normalizeMethod is not None and args.load_model is not None:
+        log.warn("The word embedding of model was normalized. This can change the result of test.")
+
+    if withCharWNN and (useSuffixFeatures or useCapFeatures):
+        raise Exception("It's impossible to use hand-crafted features with Charwnn.")
+
+    if args.decay.lower() == "normal":
         decay = 0.0
-    elif kwargs["decay"].lower() == "divide_epoch":
+    elif args.decay.lower() == "divide_epoch":
         decay = 1.0
 
     # Add the lexicon of target
@@ -187,235 +361,176 @@ def main(**kwargs):
     domainLexicon.put("1")
     domainLexicon.stopAdd()
 
-    log.info("Reading W2v File1")
-    wordEmbedding = EmbeddingFactory().createFromW2V(kwargs["word_embedding"], RandomUnknownStrategy())
+    # Build neural network
+    wordWindow = T.lmatrix("word_window")
+    inputModel = [wordWindow]
 
-    log.info("Reading training examples")
-    # Generators
-    inputGenerators = [WordWindowGenerator(wordWindowSize, wordEmbedding, filters, startSymbol)]
-    outputGeneratorTag = LabelGenerator(tagLexicon)
-
-    if withCharWNN:
-        # Create the character embedding
-        charEmbedding = EmbeddingFactory().createRandomEmbedding(charEmbeddingSize)
-
-        # Insert the padding of the character window
-        charEmbedding.put(startSymbolChar)
-
-        # Insert the character that will be used to fill the matrix
-        # with a dimension lesser than chosen dimension.This enables that the convolution is performed by a matrix multiplication.
-        artificialChar = "ART_CHAR"
-        charEmbedding.put(artificialChar)
-
-        inputGenerators.append(
-            CharacterWindowGenerator(charEmbedding, numMaxChar, charWindowSize, wordWindowSize, artificialChar,
-                                     startSymbolChar, startPaddingWrd=startSymbol, endPaddingWrd=endSymbol))
-
-    unsupervisedLabelSource = ConstantLabel(domainLexicon, "0")
-
-    # Reading supervised and unsupervised data sets.
-    trainSupervisedDatasetReader = TokenLabelReader(kwargs["train_source"], kwargs["token_label_separator"])
-    trainSupervisedBatch = SyncBatchIterator(trainSupervisedDatasetReader, inputGenerators,
-                                             [outputGeneratorTag, unsupervisedLabelSource], batchSize[0],
-                                             shuffle=shuffle)
-
-    # Get Unsupervised Input
-    unsupervisedLabelTarget = ConstantLabel(domainLexicon, "1")
-
-    trainUnsupervisedDatasetReader = TokenReader(kwargs["train_target"])
-    trainUnsupervisedDatasetBatch = SyncBatchIterator(trainUnsupervisedDatasetReader,
-                                                      inputGenerators,
-                                                      [unsupervisedLabelTarget], batchSize[1], shuffle=shuffle)
-
-    # Stopping to add new words, labels and chars
-    wordEmbedding.stopAdd()
-    tagLexicon.stopAdd()
-    domainLexicon.stopAdd()
+    wordEmbeddingLayer = EmbeddingLayer(wordWindow, wordEmbedding.getEmbeddingMatrix(), trainable=True,
+                                        name="word_embedding_layer")
+    flatten = FlattenLayer(wordEmbeddingLayer)
 
     if withCharWNN:
-        charEmbedding.stopAdd()
-
-    # Printing embedding information
-    dictionarySize = wordEmbedding.getNumberOfVectors()
-    embeddingSize = wordEmbedding.getEmbeddingSize()
-    log.info("Size of  word dictionary and word embedding size: %d and %d" % (dictionarySize, embeddingSize))
-    log.info("Size of  char dictionary and char embedding size: %d and %d" % (
-        charEmbedding.getNumberOfVectors(), charEmbedding.getEmbeddingSize()))
-
-    # Word Embedding Normalization
-    if normalization == "zscore":
-        wordEmbedding.zscoreNormalization()
-    elif normalization == "minmax":
-        wordEmbedding.minMaxNormalization()
-    elif normalization == "mean":
-        wordEmbedding.meanNormalization()
-    elif normalization == "none" or not normalization:
-        pass
-    else:
-        raise Exception()
-
-    # Source input
-    wordWindowSource = T.lmatrix(name="windowSource")
-    sourceInput = [wordWindowSource]
-
-    # Create the layers related with the extractor of features
-    embeddingLayerSrc = EmbeddingLayer(wordWindowSource, wordEmbedding.getEmbeddingMatrix(), trainable=True)
-    flattenSrc = FlattenLayer(embeddingLayerSrc)
-
-    if withCharWNN:
+        # Use the convolution
         log.info("Using charwnn")
+        convSize = args.conv_size
 
-        # Create the charwn
-        charWindowIdxSrc = T.ltensor4(name="char_window_idx_source")
-        sourceInput.append(charWindowIdxSrc)
+        if args.charwnn_with_act:
+            charAct = tanh
+        else:
+            charAct = None
 
-        charEmbeddingConvLayerSrc = EmbeddingConvolutionalLayer(charWindowIdxSrc, charEmbedding.getEmbeddingMatrix(),
-                                                                numMaxChar, convSize, charWindowSize, charEmbeddingSize,
-                                                                charAct)
-        layerBeforeLinearSrc = ConcatenateLayer([flattenSrc, charEmbeddingConvLayerSrc])
-        sizeLayerBeforeLinearSrc = wordWindowSize * (wordEmbedding.getEmbeddingSize() + convSize)
+        charWindowIdxs = T.ltensor4(name="char_window_idx")
+        inputModel.append(charWindowIdxs)
+
+        charEmbeddingConvLayer = EmbeddingConvolutionalLayer(charWindowIdxs, charEmbedding.getEmbeddingMatrix(),
+                                                             numMaxChar, convSize, charWindowSize,
+                                                             charEmbeddingSize, charAct,
+                                                             name="char_convolution_layer")
+        layerBeforeLinear = ConcatenateLayer([flatten, charEmbeddingConvLayer])
+        sizeLayerBeforeLinear = wordWindowSize * (wordEmbedding.getEmbeddingSize() + convSize)
+    elif useSuffixFeatures or useCapFeatures:
+        # Use hand-crafted features
+        concatenateInputs = [flatten]
+        nmFetauresByWord = wordEmbedding.getEmbeddingSize()
+
+        if useSuffixFeatures:
+            log.info("Using suffix features")
+
+            suffixInput = T.lmatrix("suffix_input")
+            suffixEmbLayer = EmbeddingLayer(suffixInput, suffixEmbedding.getEmbeddingMatrix(),
+                                            name="suffix_embedding")
+            suffixFlatten = FlattenLayer(suffixEmbLayer)
+            concatenateInputs.append(suffixFlatten)
+
+            nmFetauresByWord += suffixEmbedding.getEmbeddingSize()
+            inputModel.append(suffixInput)
+
+        if useCapFeatures:
+            log.info("Using capitalization features")
+
+            capInput = T.lmatrix("capitalization_input")
+            capEmbLayer = EmbeddingLayer(capInput, capEmbedding.getEmbeddingMatrix(),
+                                         name="cap_embedding")
+            capFlatten = FlattenLayer(capEmbLayer)
+            concatenateInputs.append(capFlatten)
+
+            nmFetauresByWord += capEmbedding.getEmbeddingSize()
+            inputModel.append(capInput)
+
+        layerBeforeLinear = ConcatenateLayer(concatenateInputs)
+        sizeLayerBeforeLinear = wordWindowSize * nmFetauresByWord
     else:
-        layerBeforeLinearSrc = flattenSrc
-        sizeLayerBeforeLinearSrc = wordWindowSize * wordEmbedding.getEmbeddingSize()
+        # Use only the word embeddings
+        layerBeforeLinear = flatten
+        sizeLayerBeforeLinear = wordWindowSize * wordEmbedding.getEmbeddingSize()
 
-    if activationHiddenExtractor == "tanh":
-        log.info("Using tanh in the hidden layer of extractor")
+    # The rest of the NN
+    if args.with_hidden:
+        hiddenActFunction = method_name(hiddenActFunctionName)
+        weightInit = SigmoidGlorot() if hiddenActFunction == sigmoid else GlorotUniform()
 
-        linear1 = LinearLayer(layerBeforeLinearSrc, sizeLayerBeforeLinearSrc, hiddenLayerSize,
-                              weightInitialization=GlorotUniform())
-        act1 = ActivationLayer(linear1, tanh)
-    elif activationHiddenExtractor == "sigmoid":
-        log.info("Using sigmoid in the hidden layer of extractor")
+        linear1 = LinearLayer(layerBeforeLinear, sizeLayerBeforeLinear, hiddenLayerSize,
+                              weightInitialization=weightInit, name="linear1")
+        act1 = ActivationLayer(linear1, hiddenActFunction)
 
-        linear1 = LinearLayer(layerBeforeLinearSrc, sizeLayerBeforeLinearSrc, hiddenLayerSize,
-                              weightInitialization=SigmoidGenerator())
-        act1 = ActivationLayer(linear1, sigmoid)
+        layerBeforeSoftmax = act1
+        sizeLayerBeforeSoftmax = hiddenLayerSize
+        log.info("Using hidden layer")
     else:
-        raise Exception()
+        layerBeforeSoftmax = layerBeforeLinear
+        sizeLayerBeforeSoftmax = sizeLayerBeforeLinear
+        log.info("Not using hidden layer")
 
-    # Create the layers with the Tagger
-    if supHiddenLayerSize == 0:
-        layerBeforeSupSoftmax = act1
-        layerSizeBeforeSupSoftmax = hiddenLayerSize
-        log.info("It didn't insert the layer before the supervised softmax.")
-    else:
-        linear2 = LinearLayer(act1, hiddenLayerSize, supHiddenLayerSize,
-                              weightInitialization=GlorotUniform())
-        act2 = ActivationLayer(linear2, tanh)
-
-        layerBeforeSupSoftmax = act2
-        layerSizeBeforeSupSoftmax = supHiddenLayerSize
-
-        log.info("It inserted the layer before the supervised softmax.")
-
-    supervisedLinear = LinearLayer(layerBeforeSupSoftmax, layerSizeBeforeSupSoftmax, tagLexicon.getLen(),
-                                   weightInitialization=ZeroWeightGenerator())
+    supervisedLinear = LinearLayer(layerBeforeSoftmax, sizeLayerBeforeSoftmax, labelLexicon.getLen(),
+                                   weightInitialization=ZeroWeightGenerator(),
+                                   name="linear_softmax")
     supervisedSoftmax = ActivationLayer(supervisedLinear, softmax)
 
     # Create the layers with the domain classifier
-    gradientReversalSource = GradientReversalLayer(act1, _lambda)
+    gradientReversalSource = GradientReversalLayer(layerBeforeSoftmax, _lambda)
 
-    if unsupHiddenLayerSize == 0:
-        layerBeforeUnsupSoftmax = gradientReversalSource
-        layerSizeBeforeUnsupSoftmax = hiddenLayerSize
-        log.info("It didn't insert the layer before the unsupervised softmax.")
-    else:
-        unsupervisedSourceLinearBf = LinearLayer(gradientReversalSource, hiddenLayerSize, unsupHiddenLayerSize,
-                                                 weightInitialization=GlorotUniform())
-        actUnsupervisedSourceBf = ActivationLayer(unsupervisedSourceLinearBf, tanh)
+    unsupervisedLinear = LinearLayer(gradientReversalSource, sizeLayerBeforeSoftmax, domainLexicon.getLen(),
+                                     weightInitialization=ZeroWeightGenerator(), name="linear_softmax_unsupervised")
 
-        layerBeforeUnsupSoftmax = actUnsupervisedSourceBf
-        layerSizeBeforeUnsupSoftmax = unsupHiddenLayerSize
-
-        log.info("It inserted the layer before the unsupervised softmax.")
-
-    unsupervisedSourceLinear = LinearLayer(layerBeforeUnsupSoftmax, layerSizeBeforeUnsupSoftmax, domainLexicon.getLen(),
-                                           weightInitialization=ZeroWeightGenerator())
-    unsupervisedSourceSoftmax = ActivationLayer(unsupervisedSourceLinear, softmax)
-
-    ## Target Part
-    windowTarget = T.lmatrix(name="windowTarget")
-    targetInput = [windowTarget]
-
-    # Create the layers related with the extractor of features
-    embeddingLayerUnsuper1 = EmbeddingLayer(windowTarget, embeddingLayerSrc.getParameters()[0], trainable=True)
-    flattenUnsuper1 = FlattenLayer(embeddingLayerUnsuper1)
-
-    if withCharWNN:
-        log.info("Using charwnn")
-
-        # Create the charwn
-        charWindowIdxTgt = T.ltensor4(name="char_window_idx_target")
-        targetInput.append(charWindowIdxTgt)
-
-        charEmbeddingConvLayerTgt = EmbeddingConvolutionalLayer(charWindowIdxTgt,
-                                                                charEmbeddingConvLayerSrc.getParameters()[0],
-                                                                numMaxChar, convSize, charWindowSize, charEmbeddingSize,
-                                                                charAct, trainable=True)
-        layerBeforeLinearTgt = ConcatenateLayer([flattenUnsuper1, charEmbeddingConvLayerTgt])
-        sizeLayerBeforeLinearTgt = wordWindowSize * (wordEmbedding.getEmbeddingSize() + convSize)
-    else:
-        layerBeforeLinearTgt = flattenUnsuper1
-        sizeLayerBeforeLinearTgt = wordWindowSize * wordEmbedding.getEmbeddingSize()
-
-    w, b = linear1.getParameters()
-    linearUnsuper1 = LinearLayer(layerBeforeLinearTgt, sizeLayerBeforeLinearTgt, hiddenLayerSize,
-                                 W=w, b=b, trainable=True)
-
-    if activationHiddenExtractor == "tanh":
-        log.info("Using tanh in the hidden layer of extractor")
-        actUnsupervised1 = ActivationLayer(linearUnsuper1, tanh)
-    elif activationHiddenExtractor == "sigmoid":
-        log.info("Using sigmoid in the hidden layer of extractor")
-        actUnsupervised1 = ActivationLayer(linearUnsuper1, sigmoid)
-    else:
-        raise Exception()
-
-    # Create the layers with the domain classifier
-    grandientReversalTarget = GradientReversalLayer(actUnsupervised1, _lambda)
-
-    if unsupHiddenLayerSize == 0:
-        layerBeforeUnsupSoftmax = grandientReversalTarget
-        layerSizeBeforeUnsupSoftmax = hiddenLayerSize
-        log.info("It didn't insert the layer before the unsupervised softmax.")
-    else:
-        w, b = unsupervisedSourceLinearBf.getParameters()
-        unsupervisedTargetLinearBf = LinearLayer(grandientReversalTarget, hiddenLayerSize, unsupHiddenLayerSize, W=w,
-                                                 b=b, trainable=True)
-        actUnsupervisedTargetLinearBf = ActivationLayer(unsupervisedTargetLinearBf, tanh)
-
-        layerBeforeUnsupSoftmax = actUnsupervisedTargetLinearBf
-        layerSizeBeforeUnsupSoftmax = unsupHiddenLayerSize
-
-        log.info("It inserted the layer before the unsupervised softmax.")
-
-    w, b = unsupervisedSourceLinear.getParameters()
-    unsupervisedTargetLinear = LinearLayer(layerBeforeUnsupSoftmax, layerSizeBeforeUnsupSoftmax, domainLexicon.getLen(),
-                                           W=w, b=b,
-                                           trainable=True)
-    unsupervisedTargetSoftmax = ActivationLayer(unsupervisedTargetLinear, softmax)
+    unsupervisedSoftmax = ActivationLayer(unsupervisedLinear, softmax)
 
     # Set loss and prediction and retrieve all layers
     supervisedLabel = T.lvector("supervisedLabel")
-    unsupervisedLabelSource = T.lvector("unsupervisedLabelSource")
-    unsupervisedLabelTarget = T.lvector("unsupervisedLabelTarget")
+    unsupervisedLabel = T.lvector("unsupervisedLabel")
 
     supervisedOutput = supervisedSoftmax.getOutput()
     supervisedPrediction = ArgmaxPrediction(1).predict(supervisedOutput)
     supervisedLoss = NegativeLogLikelihood().calculateError(supervisedOutput, supervisedPrediction, supervisedLabel)
 
-    unsupervisedOutputSource = unsupervisedSourceSoftmax.getOutput()
-    unsupervisedPredSource = ArgmaxPrediction(1).predict(unsupervisedOutputSource)
-    unsupervisedLossSource = NegativeLogLikelihood().calculateError(unsupervisedOutputSource, None,
-                                                                    unsupervisedLabelSource)
+    unsupervisedOutput = unsupervisedSoftmax.getOutput()
+    unsupervisedPred = ArgmaxPrediction(1).predict(unsupervisedOutput)
+    unsupervisedLossSource = NegativeLogLikelihood().calculateError(unsupervisedOutput, None,
+                                                                    unsupervisedLabel)
+    unsupervisedLossTarget = NegativeLogLikelihood().calculateError(unsupervisedOutput, None,
+                                                                    unsupervisedLabel)
 
-    unsupervisedOutputTarget = unsupervisedTargetSoftmax.getOutput()
-    unsupervisedPredTarget = ArgmaxPrediction(1).predict(unsupervisedOutputTarget)
-    unsupervisedLossTarget = NegativeLogLikelihood().calculateError(unsupervisedOutputTarget, None,
-                                                                    unsupervisedLabelTarget)
+    # Load the model
+    if args.load_model:
+        alreadyLoaded = set([wordEmbeddingLayer])
+
+        for o in ((unsupervisedSoftmax.getLayerSet() | supervisedSoftmax.getLayerSet()) - alreadyLoaded):
+            if o.getName():
+                persistentManager.load(o)
+
+    # Set the input and output
+    inputGenerators = [WordWindowGenerator(wordWindowSize, wordLexicon, wordFilters, startSymbol, endSymbol)]
+
+    if withCharWNN:
+        inputGenerators.append(
+            CharacterWindowGenerator(charLexicon, numMaxChar, charWindowSize, wordWindowSize, artificialChar,
+                                     startSymbolChar, startPaddingWrd=startSymbol, endPaddingWrd=endSymbol,
+                                     filters=charFilters))
+    else:
+        if useSuffixFeatures:
+            inputGenerators.append(
+                SuffixFeatureGenerator(args.suffix_size, wordWindowSize, suffixLexicon, suffixFilters))
+
+        if useCapFeatures:
+            inputGenerators.append(CapitalizationFeatureGenerator(wordWindowSize, capLexicon, capFilters))
+
+    outputGeneratorLabel = LabelGenerator(labelLexicon)
+    unsupervisedLabelSource = ConstantLabel(domainLexicon, "0")
+    unsupervisedLabelTarget = ConstantLabel(domainLexicon, "1")
+
+    log.info("Reading training examples")
+
+    if args.train_source:
+        # Reading supervised and unsupervised data sets.
+        trainSupervisedDatasetReader = TokenLabelReader(args.train_source, args.token_label_separator)
+        trainSupervisedBatch = SyncBatchIterator(trainSupervisedDatasetReader, inputGenerators,
+                                                 [outputGeneratorLabel, unsupervisedLabelSource], batchSize[0],
+                                                 shuffle=shuffle)
+
+        # Get Unsupervised Input
+        trainUnsupervisedDatasetReader = TokenReader(args.train_target)
+        trainUnsupervisedDatasetBatch = SyncBatchIterator(trainUnsupervisedDatasetReader,
+                                                          inputGenerators,
+                                                          [unsupervisedLabelTarget], batchSize[1], shuffle=shuffle)
+
+    # Printing embedding information
+    dictionarySize = wordEmbedding.getNumberOfVectors()
+
+    log.info("Size of  word dictionary and word embedding size: %d and %d" % (
+        dictionarySize, wordEmbedding.getEmbeddingSize()))
+
+    if withCharWNN:
+        log.info("Size of  char dictionary and char embedding size: %d and %d" % (
+            charEmbedding.getNumberOfVectors(), charEmbedding.getEmbeddingSize()))
+
+    if useSuffixFeatures:
+        log.info("Size of  suffix dictionary and suffix embedding size: %d and %d" % (
+            suffixEmbedding.getNumberOfVectors(), suffixEmbedding.getEmbeddingSize()))
+
+    if useCapFeatures:
+        log.info("Size of  capitalization dictionary and capitalization embedding size: %d and %d" % (
+            capEmbedding.getNumberOfVectors(), capEmbedding.getEmbeddingSize()))
 
     # Creates model
-
     if useAdagrad:
         log.info("Using ADAGRAD")
         opt = Adagrad(lr=lr, decay=decay)
@@ -423,54 +538,97 @@ def main(**kwargs):
         log.info("Using SGD")
         opt = SGD(lr=lr, decay=decay)
 
-    allLayersSource = supervisedSoftmax.getLayerSet() | unsupervisedSourceSoftmax.getLayerSet()
-    allLayersTarget = unsupervisedTargetSoftmax.getLayerSet()
+    allLayersSource = supervisedSoftmax.getLayerSet() | unsupervisedSoftmax.getLayerSet()
+    allLayersTarget = unsupervisedSoftmax.getLayerSet()
     unsupervisedLossTarget *= float(trainSupervisedBatch.size()) / trainUnsupervisedDatasetBatch.size()
 
     supervisedTrainMetrics = [
         LossMetric("TrainSupervisedLoss", supervisedLoss),
         AccuracyMetric("TrainSupervisedAcc", supervisedLabel, supervisedPrediction),
         LossMetric("TrainUnsupervisedLoss", unsupervisedLossSource),
-        AccuracyMetric("TrainUnsupervisedAccuracy", unsupervisedLabelSource, unsupervisedPredSource)
+        AccuracyMetric("TrainUnsupervisedAccuracy", unsupervisedLabel, unsupervisedPred)
     ]
-    unsupervisedTrainMetrics =[
+    unsupervisedTrainMetrics = [
         LossMetric("TrainUnsupervisedLoss", unsupervisedLossTarget),
-        AccuracyMetric("TrainUnsupervisedAccuracy", unsupervisedLabelTarget, unsupervisedPredTarget)
+        AccuracyMetric("TrainUnsupervisedAccuracy", unsupervisedLabel, unsupervisedPred)
     ]
 
     evalMetrics = [
         AccuracyMetric("EvalAcc", supervisedLabel, supervisedPrediction)
     ]
 
-    testMetrics = [ AccuracyMetric("TestAcc", supervisedLabel, supervisedPrediction)]
+    testMetrics = [AccuracyMetric("TestAcc", supervisedLabel, supervisedPrediction)]
 
-    #TODO: Não tive tempo de testar o código depois das modificações
-    GradientReversalModel(sourceInput, targetInput, supervisedLabel, unsupervisedLabelSource, unsupervisedLabelTarget,
-                          allLayersSource, allLayersTarget, opt, supervisedPrediction, supervisedLoss,
-                          unsupervisedLossSource, unsupervisedLossTarget, supervisedTrainMetrics,
-                          unsupervisedTrainMetrics, evalMetrics, testMetrics,
-                          mode=None)
-
+    model = GradientReversalModel(inputModel, supervisedLabel, unsupervisedLabel,
+                                  allLayersSource, allLayersTarget, opt, supervisedPrediction, supervisedLoss,
+                                  unsupervisedLossSource, unsupervisedLossTarget, supervisedTrainMetrics,
+                                  unsupervisedTrainMetrics, evalMetrics, testMetrics,
+                                  mode=None)
 
     # Get dev inputs and output
     log.info("Reading development examples")
-    devDatasetReader = TokenLabelReader(kwargs["dev"], kwargs["token_label_separator"])
-    devReader = SyncBatchIterator(devDatasetReader, inputGenerators, [outputGeneratorTag], sys.maxint,
+    devDatasetReader = TokenLabelReader(args.dev, args.token_label_separator)
+    devReader = SyncBatchIterator(devDatasetReader, inputGenerators, [outputGeneratorLabel], sys.maxint,
                                   shuffle=False)
 
-    callbacks = []
-    # log.info("Usando lambda fixo: " + str(_lambda.get_value()))
-    log.info("Usando lambda variado. alpha=" + str(kwargs["alpha"]) + " height=" + str(kwargs["height"]))
-    callbacks.append(ChangeLambda(_lambda, kwargs["alpha"], numEpochs, kwargs["height"]))
+    if args.train_source:
+        callbacks = []
+        log.info("Usando lambda fixo: " + str(_lambda.get_value()))
+        # log.info("Usando lambda variado. alpha=" + str(args.alpha) + " height=" + str(args.height))
+        # callbacks.append(ChangeLambda(_lambda, args.alpha, numEpochs, args.height))
 
-    if kwargs["additional_dev"]:
-        callbacks.append(
-            AdditionalDevDataset(model, kwargs["additional_dev"], kwargs["token_label_separator"], inputGenerators,
-                                 outputGeneratorTag))
+        if args.save_model:
+            savePath = args.save_model
+            objsToSave = list(supervisedSoftmax.getLayerSet() | unsupervisedSoftmax.getLayerSet()) + [wordLexicon,
+                                                                                                      labelLexicon]
 
-    # Training Model
-    model.train([trainSupervisedBatch, trainUnsupervisedDatasetBatch], numEpochs, devReader,
-                callbacks=callbacks)
+            if withCharWNN:
+                objsToSave.append(charLexicon)
+
+            if useSuffixFeatures:
+                objsToSave.append(suffixLexicon)
+
+            if useCapFeatures:
+                objsToSave.append(capLexicon)
+
+            modelWriter = ModelWriter(savePath, objsToSave, args, parametersToSaveOrLoad)
+
+        if args.aux_devs:
+            callbacks.append(
+                DevCallback(model, args.aux_devs, args.token_label_separator, inputGenerators, [outputGeneratorLabel]))
+
+        log.info("Training")
+        # Training Model
+        model.train([trainSupervisedBatch, trainUnsupervisedDatasetBatch], numEpochs, devReader,
+                    callbacks=callbacks)
+
+        if args.save_model:
+            modelWriter.save()
+
+            # Testing
+    if args.test:
+        if isinstance(args.test, (basestring, unicode)):
+            tests = [args.test]
+        else:
+            tests = args.test
+
+        for test in tests:
+            log.info("Reading test examples")
+            testDatasetReader = TokenLabelReader(test, args.token_label_separator)
+            testReader = SyncBatchIterator(testDatasetReader, inputGenerators, [outputGeneratorLabel], sys.maxint,
+                                           shuffle=False)
+
+            log.info("Testing")
+            model.test(testReader)
+
+
+def method_name(hiddenActFunction):
+    if hiddenActFunction == "tanh":
+        return tanh
+    elif hiddenActFunction == "sigmoid":
+        return sigmoid
+    else:
+        raise Exception("'hidden_activation_function' value don't valid.")
 
 
 if __name__ == '__main__':
@@ -479,5 +637,5 @@ if __name__ == '__main__':
 
     logging.config.fileConfig(os.path.join(path, 'logging.conf'))
 
-    parameters = JsonArgParser(UNSUPERVISED_BACKPROPAGATION_PARAMETERS).parse(sys.argv[1])
-    main(**parameters)
+    parameters = dict2obj(JsonArgParser(UNSUPERVISED_BACKPROPAGATION_PARAMETERS).parse(sys.argv[1]))
+    main(parameters)

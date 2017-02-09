@@ -18,7 +18,7 @@ from data.Lexicon import Lexicon
 from data.TokenDatasetReader import TokenLabelReader, TokenLabelPerLineReader
 from data.WordWindowGenerator import WordWindowGenerator
 from model.BasicModel import BasicModel
-from model.Metric import LossMetric, AccuracyMetric, FMetric
+from model.Metric import LossMetric, AccuracyMetric, FMetric, CustomMetric
 from model.Objective import NegativeLogLikelihood
 from model.Prediction import ArgmaxPrediction
 from nnet.ActivationLayer import ActivationLayer, softmax, tanh, sigmoid
@@ -212,13 +212,15 @@ def mainWnnNer(args):
     evalMetrics = [
         LossMetric("LossDev", loss, True),
         AccuracyMetric("AccDev", y, prediction),
-        FMetric("FMetricDev", y, prediction)
+        FMetric("FMetricDev", y, prediction),
+        CustomMetric("CustomMetricDev", y, prediction),
     ]
 
     testMetrics = [
         LossMetric("LossTest", loss, True),
         AccuracyMetric("AccTest", y, prediction),
-        FMetric("FMetricTest", y, prediction)
+        FMetric("FMetricTest", y, prediction),
+        CustomMetric("CustomMetricTest", y, prediction),
     ]
 
     log.info("Compiling the network...")

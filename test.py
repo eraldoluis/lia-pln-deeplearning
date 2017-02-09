@@ -6,7 +6,7 @@ import numpy as np
 
 import theano
 import theano.tensor as T
-from EmbeddingConvolutionalLayer import *
+from nnet.EmbeddingConvolutionalLayer import *
 
 # O tamanho do batch
 batchSize = theano.shared(1,'batchSize')

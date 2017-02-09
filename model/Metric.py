@@ -285,6 +285,196 @@ class FMetric(Metric):
         }
 
 
+class CustomMetric(Metric):
+    """
+    Compute precision and recall values for each class and summarize them using (macro and micro) F-measure.
+    """
+
+    def __init__(self, name, correct, prediction, labels=None, beta=1.0):
+        """
+        Create a F-measure metric object. It needs two variables: the correct and the predicted tensors. These can be
+        1-D arrays (in case of (mini-) batch processing) or scalars (in case of online training).
+
+        :param correct: tensor variable representing the correct outputs.
+        :param prediction: tensor variable representing the predicted outputs.
+        :param labels: list of labels. When not given, it is assumed to be the list of seen labels.
+        :param beta: F-measure parameter that balances between precision (values lower than one) and recall (values
+            higher than one).
+        """
+        # Super-class constructor.
+        super(CustomMetric, self).__init__(name)
+
+        # Required values to compute this metric (correct and predicted labels).
+        self.__correct = correct
+        self.__prediction = prediction
+
+        # List of labels.
+        self.__labels = labels
+
+        # F-measure beta argument.
+        self.beta = beta
+
+        # Initialize counters.
+        self.__reset()
+
+    def __reset(self):
+        # Number of examples seen so far.
+        self.numExamples = 0
+        # True positive counts (per label).
+        self.tp = {}
+        # False positive counts (per label).
+        self.fp = {}
+        # False negative counts (per label).
+        self.fn = {}
+
+        if self.__labels:
+            for l in self.__labels:
+                self.tp[l] = 0
+                self.fp[l] = 0
+                self.fn[l] = 0
+
+    def getRequiredVariables(self):
+        return [self.__correct, self.__prediction]
+
+    def update(self, numExamples, *values):
+
+        (correct, prediction) = values
+        gCorrect, gPrediction = {}, {}
+
+        # In some networks, the output is a scalar, not an array of scalars.
+        if correct.ndim == 0:
+            correct = [correct.item()]
+            prediction = [prediction.item()]
+
+        correct = np.append(correct, [0])
+        prediction = np.append(prediction, [0])
+        
+        lastValue, lastStart = -1, -1
+        for i, val in enumerate(correct):
+            if val != lastValue:
+                if lastValue > 0:
+                    if lastValue in gCorrect.keys():
+                        gCorrect[lastValue].append((lastStart, i - 1))
+                    else:
+                        gCorrect[lastValue] = [(lastStart, i - 1)]
+                lastValue = val
+                lastStart = i
+
+        lastValue, lastStart = -1, -1
+        for i, val in enumerate(prediction):
+            if val != lastValue:
+                if lastValue > 0:
+                    if lastValue in gPrediction.keys():
+                        gPrediction[lastValue].append((lastStart, i - 1))
+                    else:
+                        gPrediction[lastValue] = [(lastStart, i - 1)]
+                lastValue = val
+                lastStart = i
+        
+        for l in gCorrect:
+            # True positives: all in correct and in prediction
+            tp = len([v for v in gCorrect[l] if v in gPrediction[l]]) if l in gPrediction else 0
+            # False negatives: all in correct and not in prediction
+            fn = len([v for v in gCorrect[l] if v not in gPrediction[l]]) if l in gPrediction else len(gCorrect)
+            
+            self.tp[l] = self.tp.get(l, 0) + tp
+            self.fn[l] = self.fn.get(l, 0) + fn
+            self.numExamples += tp + fn
+
+        for l in gPrediction:
+            # False positives: all in prediction and not in correct
+            fp = len([v for v in gPrediction[l] if v not in gCorrect[l]]) if l in gCorrect else len(gPrediction)
+            
+            self.fp[l] = self.fp.get(l, 0) + fp
+            self.numExamples += fp
+            
+    def reset(self):
+        self.__reset()
+
+    def getValues(self):
+        # Aliases.
+        tp = self.tp
+        fp = self.fp
+        fn = self.fn
+        beta = self.beta
+
+        # Per-label metrics.
+        p = {}
+        r = {}
+        f = {}
+        tpAccum = 0
+        fpAccum = 0
+        fnAccum = 0
+
+        # Macro-averaged metrics.
+        macroP = 0.0
+        macroR = 0.0
+
+        labels = set(tp.keys() + fp.keys() + fn.keys())
+        for label in labels:
+            # Obtain values from dicts.
+            tpv = tp.get(label, 0)
+            fpv = fp.get(label, 0)
+            fnv = fn.get(label, 0)
+
+            # Compute precision, recall and f-measure for the label.
+            pv = tpv / (tpv + fpv) if (tpv + fpv) > 0 else 0
+            rv = tpv / (tpv + fnv) if (tpv + fnv) > 0 else 0
+            fv = (1 + beta) * pv * rv / (beta * pv + rv) if (pv + rv) > 0 else 0
+
+            # Set precision and recall dicts.
+            p[label] = pv
+            r[label] = rv
+            f[label] = fv
+
+            # Update accumulated values (fro macro-averaged metrics).
+            macroP += pv
+            macroR += rv
+
+            # Update accumulated counts (for micro-averaged metrics).
+            tpAccum += tpv
+            fpAccum += fpv
+            fnAccum += fnv
+
+        # Macro-averaged metrics.
+        numLabels = len(labels)
+        macroP /= numLabels
+        macroR /= numLabels
+        macroF = (1 + beta) * macroP * macroR / (beta * macroP + macroR)
+
+        # Micro-averaged metrics.
+        microP = tpAccum / (tpAccum + fpAccum)
+        microR = tpAccum / (tpAccum + fnAccum)
+        microF = (1 + beta) * microP * microR / (beta * microP + microR)
+
+        return {
+            "numExamples": self.numExamples,
+            "numLabels": numLabels,
+            "beta": beta,
+            "truePositives": tpAccum,
+            "falsePositives": tpAccum,
+            "falseNegatives": fnAccum,
+            "macro": {
+                "precision": macroP,
+                "recall": macroR,
+                "f": macroF
+            },
+            "micro": {
+                "precision": microP,
+                "recall": microR,
+                "f": microF
+            },
+            "perLabel": {
+                "truePositives": tp,
+                "falsePositives": fp,
+                "falseNegatives": fn,
+                "precision": p,
+                "recall": r,
+                "f": f
+            }
+        }
+
+
 class ActivationMetric(Metric):
     """
     Get the activations of one layer.

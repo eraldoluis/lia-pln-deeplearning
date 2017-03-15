@@ -25,6 +25,7 @@ from data.SuffixFeatureGenerator import SuffixFeatureGenerator
 from data.TokenDatasetReader import TokenLabelReader
 from data.WordWindowGenerator import WordWindowGenerator
 from model.BasicModel import BasicModel
+from model.Callback import Callback
 from model.Metric import LossMetric, AccuracyMetric, DerivativeMetric, ActivationMetric
 from model.ModelWriter import ModelWriter
 from model.Objective import NegativeLogLikelihood
@@ -76,6 +77,10 @@ WNN_PARAMETERS = {
     "train": {"desc": "Training File Path"},
     "dev": {"desc": "Development File Path"},
     "test": {"desc": "Test File Path"},
+
+    "aux_devs": {
+        "desc": "The parameter 'dev' represents the main dev and this parameter represents the auxiliary devs that"
+                " will be use to evaluate the model."},
 
     # Save and load
     "load_hidden_layer": {"desc": "the file which contains weights and bias of pre-trainned hidden layer"},
@@ -134,6 +139,22 @@ WNN_PARAMETERS = {
     "enable_derivative_statistics": {
         "desc": "Enable to track the derivative of some parameters and activation functions. ", "default": False},
 }
+
+class DevCallback(Callback):
+    def __init__(self, model, devs, tokenLabelSep, inputGenerators, outputGenerators):
+        self.__datasetIterators = []
+        self.__model = model
+
+        for devFile in devs:
+            devDatasetReader = TokenLabelReader(devFile, tokenLabelSep)
+            devIterator = SyncBatchIterator(devDatasetReader, inputGenerators, outputGenerators, sys.maxint,
+                                            shuffle=False)
+
+            self.__datasetIterators.append(devIterator)
+
+    def onEpochEnd(self, epoch, logs={}):
+        for it in self.__datasetIterators:
+            self.__model.test(it)
 
 def mainWnn(args):
     ################################################
@@ -627,6 +648,10 @@ def mainWnn(args):
             if args.save_by_acc:
                 callback.append(SaveModelCallback(modelWriter, evalMetrics[1], "accuracy", True))
 
+        if args.aux_devs:
+            callback.append(
+                DevCallback(wnnModel, args.aux_devs, args.token_label_separator, inputGenerators, [outputGenerator]))
+
         log.info("Training")
         wnnModel.train(trainReader, numEpochs, devReader, callbacks=callback)
 
@@ -636,12 +661,31 @@ def mainWnn(args):
 
     # Testing
     if args.test:
-        log.info("Reading test examples")
-        testDatasetReader = TokenLabelReader(args.test, args.token_label_separator)
-        testReader = SyncBatchIterator(testDatasetReader, inputGenerators, [outputGenerator], sys.maxint, shuffle=False)
+        if isinstance(args.test, (basestring, unicode)):
+            tests = [args.test]
+        else:
+            tests = args.test
 
-        log.info("Testing")
-        wnnModel.test(testReader)
+        for test in tests:
+            log.info("Reading test examples")
+            testDatasetReader = TokenLabelReader(test, args.token_label_separator)
+            testReader = SyncBatchIterator(testDatasetReader, inputGenerators, [outputGenerator], sys.maxint,
+                                           shuffle=False)
+
+            log.info("Testing")
+            wnnModel.test(testReader)
+
+            if args.print_prediction:
+                f = codecs.open(args.print_prediction, "w", encoding="utf-8")
+
+                for x, labels in testReader:
+                    inputs = x
+
+                    predictions = wnnModel.prediction(inputs)
+
+                    for prediction in predictions:
+                        f.write(labelLexicon.getLexicon(prediction))
+                        f.write("\n")
 
         if args.print_prediction:
             f = codecs.open(args.print_prediction, "w", encoding="utf-8")

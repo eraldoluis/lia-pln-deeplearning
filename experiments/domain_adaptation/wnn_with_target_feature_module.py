@@ -366,9 +366,25 @@ def mainWnn(args):
     # Read target lexicon and target word embeddings
     if args.load_model:
         # todo: implement
-        raise NotImplementedError()
-        targetWindowSize = targetHiddenParameters.shape[0] / targetWordEmbedding.getEmbeddingSize()
+        log.warn("Loading target module direct from the target_module parameter")
 
+        h5pyTarget = H5py(args.target_module)
+
+        targetLexicon = Lexicon.fromPersistentManager(h5pyTarget, "lexicon")
+        vectors = EmbeddingLayer.getEmbeddingFromPersistenceManager(h5pyTarget, "embedding")
+
+        targetWordEmbedding = Embedding(targetLexicon, vectors)
+
+        # Setting parameters of target module
+        if h5pyTarget.objectExist("linear1"):
+            targetHiddenParameters = LinearLayer.getParametersFromPersistenceManager(h5pyTarget, "linear1")
+            targetHiddenSize = targetHiddenParameters[0].shape[1]
+        else:
+            targetHiddenParameters = None
+
+        pars = json.loads(h5pyTarget.getAttribute("parameters"))
+        targetWindowSize = pars["window_size"]
+        targetStartSymbol = pars["start_symbol"]
     elif args.target_module:
         h5pyTarget = H5py(args.target_module)
 
@@ -660,8 +676,8 @@ def mainWnn(args):
 
     if args.lambda_L2:
         _lambda = args.lambda_L2
-        log.info("Using L2 with lambda= %.2f", _lambda)
-        loss += _lambda * (T.sum(T.square(linear1.getParameters()[0])))
+        log.info("Using L2 with lambda= %.4f", _lambda)
+        loss += _lambda * (T.sum(T.square(linear1.getParameters()[0])) + T.sum(T.square(linear2.getParameters()[0])))
 
     trainMetrics = [
         LossMetric("LossTrain", loss, True),
@@ -743,24 +759,30 @@ def mainWnn(args):
 
     # Testing
     if args.test:
-        log.info("Reading test examples")
-        testDatasetReader = TokenLabelReader(args.test, args.token_label_separator)
-        testReader = SyncBatchIterator(testDatasetReader, inputGenerators, [outputGenerator], sys.maxint, shuffle=False)
+        if isinstance(args.test, (basestring, unicode)):
+            tests = [args.test]
+        else:
+            tests = args.test
 
-        log.info("Testing")
-        wnnModel.evaluate(testReader, True)
+        for test in tests:
+            log.info("Reading test examples")
+            testDatasetReader = TokenLabelReader(test, args.token_label_separator)
+            testReader = SyncBatchIterator(testDatasetReader, inputGenerators, [outputGenerator], sys.maxint, shuffle=False)
 
-        if args.print_prediction:
-            f = codecs.open(args.print_prediction, "w", encoding="utf-8")
+            log.info("Testing")
+            wnnModel.test(testReader)
 
-            for x, labels in testReader:
-                inputs = x
+            if args.print_prediction:
+                f = codecs.open(args.print_prediction, "w", encoding="utf-8")
 
-                predictions = wnnModel.prediction(inputs)
+                for x, labels in testReader:
+                    inputs = x
 
-                for prediction in predictions:
-                    f.write(labelLexicon.getLexicon(prediction))
-                    f.write("\n")
+                    predictions = wnnModel.prediction(inputs)
+
+                    for prediction in predictions:
+                        f.write(labelLexicon.getLexicon(prediction))
+                        f.write("\n")
 
 
 def getFilters(param, log):

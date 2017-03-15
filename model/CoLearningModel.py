@@ -1,188 +1,150 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
-import itertools
 import logging
-from numpy import random
 
 import theano
-import theano.tensor as T
-from model.Model import Metric, Model
+from numpy import random
+
+from model.Model import Model
 
 
 class CoLearningModel(Model):
-    def __init__(self, lossUnsupervisedEpoch):
-        super(CoLearningModel, self).__init__()
+    def __init__(self, x, y, allLayers, optimizer, prediction, ls, lu, lossUnsEpoch, supervisedTrainMetrics,
+                 unsupervisedTrainMetrics, evalMetrics, testMetrics, mode=None):
+
+        evalInput = x + [y]
+        trainInputs = supervisedTrainMetrics + unsupervisedTrainMetrics
+
+        super(CoLearningModel, self).__init__(evalInput, evalInput, x, prediction, True, trainInputs, evalMetrics,
+                                              testMetrics, mode)
 
         self.log = logging.getLogger(__name__)
+        self.__optimizer = optimizer
 
-        self.__optimizers = None
+        self.__trainFuncs = []
+        self.__trainingMetrics = []
+        self.__lossUnsEpoch = lossUnsEpoch
 
-        self.__trainFunction = None
-        self.__evaluateFunction = None
-        self.__predictionFunction = None
+        optimizerInput = optimizer.getInputTensors()
 
-        self.__modelUnitsToTraining = []
-        self.__modelUnitEvaluate = None
+        trainableLayers = []
 
-        self.trainingMetrics = []
-        self.evaluateMetrics = []
+        # Set the supervised part of the trainning
+        for l in allLayers:
+            if l.isTrainable():
+                trainableLayers.append(l)
 
-        self.__theanoTrainFunction = []
-        self.__lossUnsupervisedEpoch = lossUnsupervisedEpoch
+        if supervisedTrainMetrics:
+            # List of inputs for training function.
+            sourceFuncInput = x + [y] + optimizerInput
 
-    def addTrainingModelUnit(self, modelUnit, metrics=[]):
-        self.__modelUnitsToTraining.append((modelUnit, metrics))
+            # Include the ouputs of each metrics in a list.
+            supTrainOutputs = []
 
-    def setEvaluatedModelUnit(self, modelUnit, metrics=[]):
-        self.__modelUnitEvaluate = (modelUnit, metrics)
+            for m in unsupervisedTrainMetrics:
+                supTrainOutputs += m.getRequiredVariables()
 
-    def compile(self, optimizersAndLayers):
-        allLayers = []
-        self.__optimizers = []
+            self.__trainingMetrics.append(supervisedTrainMetrics)
 
-        for optimizer, layers in optimizersAndLayers:
-            self.__optimizers.append(optimizer)
+            # Training updates are given by the optimizer object.
+            updates = optimizer.getUpdates(ls, trainableLayers)
 
-        for modelUnit, metrics in self.__modelUnitsToTraining:
-            funInputsTrain = []  # Inputs of the training function
+            # Training function.
+            self.__trainFuncs.append(
+                theano.function(inputs=sourceFuncInput, outputs=supTrainOutputs, updates=updates, mode=self.mode))
 
-            # Adding all layers to a same set
-            funInputsTrain += modelUnit.x
+        if unsupervisedTrainMetrics:
+            # List of inputs for training function.
+            targetFuncInput = x + optimizerInput
 
-            if modelUnit.yWillBeReceived:
-                funInputsTrain.append(modelUnit.y)
+            # Include the variables required by all training metrics in the output list of the training function.
+            unsTrainOutputs = []
 
-            m = []
-            _trainingOutputFunc = []  # Functions that will be calculated by theano
+            for m in unsupervisedTrainMetrics:
+                unsTrainOutputs += m.getRequiredVariables()
 
-            for metricName in metrics:
-                m.append(Metric(modelUnit.name, metricName))
+            self.__trainingMetrics.append(unsupervisedTrainMetrics)
 
-                if metricName == "acc":
-                    _trainingOutputFunc.append(T.mean(T.eq(modelUnit.prediction, modelUnit.y)))
-                elif metricName == "loss":
-                    _trainingOutputFunc.append(modelUnit.loss)
-                    loss = modelUnit.loss
+            # Training updates are given by the optimizer object.
+            updates = optimizer.getUpdates(lu, trainableLayers)
 
-            self.trainingMetrics.append(m)
-            updates = []
+            # Training function.
+            self.__trainFuncs.append(theano.function(inputs=targetFuncInput, outputs=unsTrainOutputs, updates=updates))
 
-            for optimizer, d in optimizersAndLayers:
-                layers = d[modelUnit]
-                trainableLayers = []
+    def doEpoch(self, trainIterator, epoch, iteration, devIterator, evalPerIteration, callbacks):
+        lr = self.__optimizer.getInputValues(epoch)
 
-                for l in layers:
-                    if l.isTrainable():
-                        trainableLayers.append(l)
+        self.log.info("Lr: %f" % lr[0])
 
-                updates += optimizer.getUpdates(loss, trainableLayers)
-                funInputsTrain += optimizer.getInputTensors()
+        self.log.info({
+            "epoch": epoch,
+            "iteration": iteration,
+            "learn_rate": lr[0]
+        })
 
-            self.__theanoTrainFunction.append(
-                theano.function(inputs=funInputsTrain, outputs=_trainingOutputFunc, updates=updates))
+        trainBatchIterators = list(trainIterator)
 
-        funInputsEvaluate = []  # Inputs of the evaluation function
-        _testOutputFunc = []  # Functions that will be calculated by theano
-
-        if self.__modelUnitEvaluate is not None:
-            modelUnit, metrics = self.__modelUnitEvaluate
-
-            funInputsEvaluate += modelUnit.x
-
-            funInputsPrediction = modelUnit.x
-            _prediction = modelUnit.prediction
-
-            if modelUnit.yWillBeReceived:
-                funInputsEvaluate.append(modelUnit.y)
-
-            for metricName in metrics:
-                self.evaluateMetrics.append(Metric(modelUnit.name, metricName))
-
-                if metricName == "acc":
-                    _testOutputFunc.append(T.mean(T.eq(modelUnit.prediction, modelUnit.y)))
-                elif metricName == "loss":
-                    _testOutputFunc.append(modelUnit.loss)
-
-        if self.__modelUnitEvaluate is not None:
-            self.__evaluateFunction = theano.function(inputs=funInputsEvaluate, outputs=_testOutputFunc)
-            self.__predictionFunction = theano.function(inputs=funInputsPrediction, outputs=_prediction)
-
-    def getTrainingMetrics(self):
-        l = []
-
-        for m1 in self.trainingMetrics:
-            for m2 in m1:
-                l.append(m2)
-
-        return l
-
-    def getEvaluateMetrics(self):
-        return self.evaluateMetrics
-
-    def evaluateFuncUseY(self):
-        modelUnit = self.__modelUnitEvaluate[0]
-
-        return modelUnit.yWillBeReceived
-
-    def getEvaluateFunction(self):
-        return self.__evaluateFunction
-
-    def doEpoch(self, trainIterator, epoch, callbacks):
-        lr = []
-
-        for optimizer in self.__optimizers:
-            lr += optimizer.getInputValues(epoch)
-
-        self.log.info("Lr: %s" % str(lr))
-
-        trainBatchGeneratorsCp = list(trainIterator)
-        t = {}
-
+        # if epoch value is less than the parameter lossUnsupervisedEpoch, so it isn't the time to apply the unsupervised training
         if epoch < self.__lossUnsupervisedEpoch:
-            trainBatchGeneratorsCp.pop()
+            # Discard BatchIterator with non-annotated examples.
+            trainBatchIterators.pop()
             self.log.info("Não lendo exemplos não supervisionados ")
         else:
             self.log.info("Lendo exemplos não supervisionados ")
 
-        for i, batchGen in enumerate(trainBatchGeneratorsCp):
-            t[batchGen] = i
+        # Keep the index of each batch iterator. I'll need this to know example origin
+        indexBybatchIterator = {}
 
-        while len(trainBatchGeneratorsCp) != 0:
+        for i, batchGen in enumerate(trainBatchIterators):
+            indexBybatchIterator[batchGen] = i
+
+        # Training iteration
+        while len(trainBatchIterators) != 0:
             inputs = []
-            batchSizes = {}
 
-            i = random.randint(0, len(trainBatchGeneratorsCp))
-            inputGenerator = trainBatchGeneratorsCp[i]
+            i = random.randint(0, len(trainBatchIterators))
+            batchIterator = trainBatchIterators[i]
 
             try:
-                _input = inputGenerator.next()
+                _input = batchIterator.next()
             except StopIteration:
-                trainBatchGeneratorsCp.pop(i)
+                trainBatchIterators.pop(i)
                 continue
 
-            idx = t[inputGenerator]
-
-            modelUnitPlusMetrics = self.__modelUnitsToTraining[idx]
-            modelUnit = modelUnitPlusMetrics[0]
+            # Get the index of the batchIterator. If batchIteratorIdx == 0 so batchIterator contains annotated examples.
+            # If batchIteratorIdx == 1 so batchIterator doesn't contain annotated examples.
+            batchIteratorIdx = indexBybatchIterator[batchIterator]
 
             x, y = _input
+            batchSize = len(x[0])
             inputs += x
 
-            batchSize = len(x[0])
-            batchSizes[modelUnit.name] = batchSize
-
-            if modelUnit.yWillBeReceived:
-                # Theano function receives 'y' as an input
+            # If the examples is not anotated, so there isn't label
+            if batchIteratorIdx == 0:
                 inputs += y
 
             inputs += lr
 
+            # CallbackBegin
             self.callbackBatchBegin(inputs, callbacks)
 
-            outputs = self.__theanoTrainFunction[idx](*inputs)
-            trainingMetrics = self.trainingMetrics[idx]
+            # Train the NN. trainFuncs[0] = supervised training; trainFuncs[1] = unsupervised training
+            outputs = self.__trainFuncs[batchIteratorIdx](*inputs)
 
-            for m, _output in itertools.izip(trainingMetrics, outputs):
-                m.update(_output, batchSizes[m.modelUnitName])
+            # Update the metrics. trainingMetrics[0] = supervised metrics; trainingMetrics[1] = unsupervised metrics
+            for m in self.__trainingMetrics[batchIteratorIdx]:
+                numOuputs = len(m.getRequiredVariables())
+                mOut = []
+                for _ in xrange(numOuputs):
+                    mOut.append(outputs.pop(0))
 
+                    # Update metric values.
+                    m.update(batchSize, *mOut)
+
+            # CallbackEnd
             self.callbackBatchEnd(inputs, callbacks)
+
+            # Development per-iteration evaluation
+            if devIterator and evalPerIteration and (iteration % evalPerIteration) == 0:
+                # Perform evaluation.
+                self.__evaluate(devIterator, self.getEvaluationFunction(), self.__evalMetrics, epoch, iteration)

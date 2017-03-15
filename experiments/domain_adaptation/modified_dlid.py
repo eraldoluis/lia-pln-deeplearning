@@ -22,6 +22,7 @@ import os
 import random
 import sys
 import time
+from copy import copy, deepcopy
 from time import time
 
 import numpy as np
@@ -73,7 +74,7 @@ WNN_PARAMETERS = {
     "word_embedding_target": {"required": True,
                               "desc": "a list which contains the filters. Each filter is describe by your module name + . + class name"},
 
-    "train_word_embedding": {"default": True},
+    "train_word_embedding": {"default": False},
 
     # Filters
     "suffix_filters": {"default": [],
@@ -387,6 +388,10 @@ def mainWnn(args):
 
         wordEmbeddingIntermediary = Embedding(wordLexiconIntermediary, vectorsIntermediary)
 
+        vectorsSourceHidden = EmbeddingLayer.getEmbeddingFromPersistenceManager(persistentManager,
+                                                                                "word_embedding_layer_source_hidden")
+        wordEmbeddingSourceHidden = Embedding(wordLexiconSource, vectorsSourceHidden)
+
     elif args.word_embedding_source and args.word_embedding_target:
         wordLexiconSource, wordEmbeddingSource = Embedding.fromWord2Vec(args.word_embedding_source, "UUUNKKK",
                                                                         "word_lexicon_source")
@@ -400,6 +405,9 @@ def mainWnn(args):
         else:
             wordLexiconIntermediary, wordEmbeddingIntermediary = createAverageIntermediary(wordEmbeddingSource,
                                                                                            wordEmbeddingTarget)
+
+        vectorsSourceHidden = deepcopy(wordEmbeddingSource.getEmbeddingMatrix())
+        wordEmbeddingSourceHidden = Embedding(wordLexiconSource, vectorsSourceHidden)
     else:
         log.error("You need to set one of these parameters: load_model, word_embedding or word_lexicon")
         return
@@ -504,8 +512,17 @@ def mainWnn(args):
         flattenTarget = FlattenLayer(wordEmbeddingLayerTarget)
 
         concatenateWordEmb = ConcatenateLayer([flattenSource, flattenTarget, flattenIntermediary])
+        actWords = ActivationLayer(concatenateWordEmb, tanh)
+
         wordEmbeddingTotal = wordEmbeddingSource.getEmbeddingSize() + wordEmbeddingTarget.getEmbeddingSize() + \
                              wordEmbeddingIntermediary.getEmbeddingSize()
+
+        wordEmbeddingLayerSourceHidden = EmbeddingLayer(wordWindowSource,
+                                                        wordEmbeddingSourceHidden.getEmbeddingMatrix(),
+                                                        trainable=True,
+                                                        name="word_embedding_layer_source_hidden")
+        flattenSourceHidden = FlattenLayer(wordEmbeddingLayerSourceHidden)
+        wordEmbeddingSourceSize = wordEmbeddingSourceHidden.getEmbeddingSize()
 
         if withCharWNN:
             # Use the convolution
@@ -524,12 +541,12 @@ def mainWnn(args):
                                                                  numMaxChar, convSize, charWindowSize,
                                                                  charEmbeddingSize, charAct,
                                                                  name="char_convolution_layer")
-            layerBeforeLinear = ConcatenateLayer([concatenateWordEmb, charEmbeddingConvLayer])
-            sizeLayerBeforeLinear = wordWindowSize * (wordEmbeddingTotal + convSize)
+            layerBeforeLinear = ConcatenateLayer([flattenSourceHidden, charEmbeddingConvLayer])
+            sizeLayerBeforeLinear = wordWindowSize * (wordEmbeddingSourceSize + convSize)
         elif useSuffixFeatures or useCapFeatures:
             # Use hand-crafted features
-            concatenateInputs = [concatenateWordEmb]
-            nmFetauresByWord = wordEmbeddingTotal
+            concatenateInputs = [flattenSourceHidden]
+            nmFetauresByWord = wordEmbeddingSourceSize
 
             if useSuffixFeatures:
                 log.info("Using suffix features")
@@ -559,8 +576,8 @@ def mainWnn(args):
             sizeLayerBeforeLinear = wordWindowSize * nmFetauresByWord
         else:
             # Use only the word embeddings
-            layerBeforeLinear = concatenateWordEmb
-            sizeLayerBeforeLinear = wordWindowSize * wordEmbeddingTotal
+            layerBeforeLinear = flattenSourceHidden
+            sizeLayerBeforeLinear = wordWindowSize * wordEmbeddingSourceSize
 
         # The rest of the NN
         if args.with_hidden:
@@ -580,8 +597,11 @@ def mainWnn(args):
             sizeLayerBeforeSoftmax = sizeLayerBeforeLinear
             log.info("Not using hidden layer")
 
+        concat = ConcatenateLayer([layerBeforeSoftmax, actWords])
+        sizeConcat = wordWindowSize * wordEmbeddingTotal + sizeLayerBeforeSoftmax
+
         # Softmax
-        linear2 = LinearLayer(layerBeforeSoftmax, sizeLayerBeforeSoftmax, labelLexicon.getLen(),
+        linear2 = LinearLayer(concat, sizeConcat, labelLexicon.getLen(),
                               weightInitialization=ZeroWeightGenerator(),
                               name="linear_softmax")
         act2 = ActivationLayer(linear2, softmax)
@@ -589,7 +609,8 @@ def mainWnn(args):
 
     # Load the model
     if args.load_model:
-        alreadyLoaded = set([wordEmbeddingLayerSource, wordEmbeddingLayerTarget, wordEmbeddingLayerIntermediary])
+        alreadyLoaded = set([wordEmbeddingLayerSource, wordEmbeddingLayerTarget, wordEmbeddingLayerIntermediary,
+                             wordEmbeddingLayerSourceHidden])
 
         for o in (act2.getLayerSet() - alreadyLoaded):
             if o.getName():
@@ -722,7 +743,7 @@ def mainWnn(args):
 
         if args.save_model:
             savePath = args.save_model
-            objsToSave = list(act2.getLayerSet()) + [wordLexiconSource, wordLexiconIntermediary, wordLexiconTarget,
+            objsToSave = list(act2.getLayerSet()) + [wordLexiconSource, wordEmbeddingIntermediary, wordEmbeddingTarget,
                                                      labelLexicon]
 
             if withCharWNN:

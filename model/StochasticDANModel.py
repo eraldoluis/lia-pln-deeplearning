@@ -6,42 +6,9 @@ from numpy import random
 
 import theano
 import theano.tensor as T
+
+from data.DataSetUnion import DataSetUnion
 from model.Model import Model
-
-
-class ConcatenatorDataset(object):
-    """
-    Treats a set of examples from differents dataset as unique dataset
-    """
-
-    def __init__(self, listSyncBatchList):
-        """
-        :type inputGenerators: list[DataOperation.InputGenerator.BatchIterator.SyncBatchIterator]
-        :param listSyncBatchList: list that contains SyncBatchIterator from every dataset
-        """
-        self.__list = listSyncBatchList
-
-        total = 0
-        self.__ranges = []
-
-        for d in self.__list:
-            begin = total
-
-            self.__ranges.append((begin, begin + d.size() - 1))
-
-            total += d.size()
-
-        self.__total = total
-
-    def getSize(self):
-        return self.__total
-
-    def getRandomly(self):
-        i = random.randint(0, self.getSize())
-
-        for idx, range in enumerate(self.__ranges):
-            if range[0] <= i <= range[1]:
-                return idx, self.__list[idx].get(i - range[0])
 
 
 class StochasticDANModel(Model):
@@ -195,7 +162,7 @@ class StochasticDANModel(Model):
             "learn_rate": lr[0]
         })
 
-        trainingExamples = ConcatenatorDataset(trainIterator)
+        trainingExamples = DataSetUnion(trainIterator)
 
         for i in xrange(trainingExamples.getSize()):
             idx, example = trainingExamples.getRandomly()

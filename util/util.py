@@ -77,4 +77,3 @@ def getFilters(filterNames, log):
         filters.append(getattr(module_, className)())
 
     return filters
-

@@ -2,12 +2,10 @@
 # -*- coding: utf-8 -*-
 from __future__ import division
 
-from collections import OrderedDict
+import math
 from itertools import izip
 
-import math
 import theano.tensor as T
-import numpy as np
 
 
 class Metric(object):

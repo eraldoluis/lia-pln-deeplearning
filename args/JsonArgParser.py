@@ -8,8 +8,6 @@ class JsonArgParser:
 
     def __init__(self, parameterRule):
         """
-
-        :type parameterRule: basestring
         :param parameterRule: Its a json string which contains description and default values of some parameters.
             Besides that, it's possible specific if a parameter is required or not. If nothing is stipulate, so
             the parameter will be consider not required.

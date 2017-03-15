@@ -31,7 +31,7 @@ from data.Lexicon import Lexicon
 from data.SuffixFeatureGenerator import SuffixFeatureGenerator
 from data.TokenDatasetReader import TokenLabelReader, TokenReader
 from data.WordWindowGenerator import WordWindowGenerator
-from model.Callback import Callback
+from model.Callback import Callback, DevCallback
 from model.DANModel import DANModel
 from model.Metric import LossMetric, AccuracyMetric
 from model.ModelWriter import ModelWriter
@@ -149,23 +149,6 @@ class ChangeLambda(Callback):
         _lambda = 2. * self.height / (1. + math.exp(-self.alpha * progress)) - self.height + self.lowerBound;
 
         self.lambdaShared.set_value(_lambda)
-
-
-class DevCallback(Callback):
-    def __init__(self, model, devs, tokenLabelSep, inputGenerators, outputGenerators):
-        self.__datasetIterators = []
-        self.__model = model
-
-        for devFile in devs:
-            devDatasetReader = TokenLabelReader(devFile, tokenLabelSep)
-            devIterator = SyncBatchIterator(devDatasetReader, inputGenerators, outputGenerators, sys.maxint,
-                                            shuffle=False)
-
-            self.__datasetIterators.append(devIterator)
-
-    def onEpochEnd(self, epoch, logs={}):
-        for it in self.__datasetIterators:
-            self.__model.test(it)
 
 
 

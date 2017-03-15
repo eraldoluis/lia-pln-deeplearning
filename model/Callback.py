@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
-import logging
-from time import time
+from data.BatchIterator import SyncBatchIterator
+from data.TokenDatasetReader import TokenLabelReader
 
 
 class Callback(object):
@@ -53,58 +53,32 @@ class Callback(object):
         pass
 
 
-class BaseLogger(Callback):
-    """Callback that accumulates epoch averages of
-    the metrics being monitored.
-
-    This callback is automatically applied to
-    every model.
+class DevCallback(Callback):
+    """
+    Apply the model in auxiliar development datasets.
     """
 
-    def __init__(self, metrics, verbose=True):
-        self.__metrics = metrics
-        self.__seen = 0
-        self.__verbose = verbose
-        self.log = logging.getLogger(__name__)
+    def __init__(self, model, devs, tokenLabelSep, inputGenerators, outputGenerators):
+        """
 
-        self.__epochBeginTime = -1
-        self.__lastBatchProcessedTime = -1
-        self.__totals = {}
-        for metric in self.__metrics:
-            self.__totals[metric] = 0.0
+        :param model: Model class
+        :param devs: list with the file path of each development datasets
+        :param tokenLabelSep: specify the character that is being used to separate the token from the label in the dataset.
+        :param inputGenerators: a list of InputGenerators
+        :param outputGenerators: a list of OutputGenerators
+        """
+        self.__datasetIterators = []
+        self.__model = model
 
-    def onEpochBegin(self, epoch, logs={}):
-        self.__seen = 0
-        self.__totals = {}
-        self.__epochBeginTime = int(time())
+        for devFile in devs:
+            devDatasetReader = TokenLabelReader(devFile, tokenLabelSep)
+            devIterator = SyncBatchIterator(devDatasetReader, inputGenerators, outputGenerators, sys.maxint,
+                                            shuffle=False)
 
-        for metric in self.__metrics:
-            self.__totals[metric] = 0.0
-
-    def onBatchEnd(self, batch, logs={}):
-        batch_size = logs.get('batchSize', 0)
-        self.__seen += batch_size
-        self.__lastBatchProcessedTime = int(time())
-
-        for k, v in logs.items():
-            if k in self.__totals:
-                self.__totals[k] += v * batch_size
+            self.__datasetIterators.append(devIterator)
 
     def onEpochEnd(self, epoch, logs={}):
-
-        for k in self.__metrics:
-            if k in self.__totals:
-                # make value available to next callbacks
-                logs[k] = self.__totals[k] / self.__seen
-
-        if self.__verbose:
-            info = "epoch %d" % epoch
-            info += " [%ds]" % (self.__lastBatchProcessedTime - self.__epochBeginTime)
-
-            for k, v in logs.iteritems():
-                info += ' - %s:' % k
-                info += ' %.6f' % v
-
-            self.log.info(info)
+        for it in self.__datasetIterators:
+            self.__model.test(it)
 
 

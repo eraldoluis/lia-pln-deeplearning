@@ -40,7 +40,7 @@ class Embedding(object):
         """
         self.__lexicon = lexicon
 
-        if not vectors:
+        if vectors is None:
             generatorWeight = FeatureVectorsGenerator()
             numVectors = lexicon.getLen()
             vectors = []

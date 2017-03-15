@@ -129,6 +129,6 @@ class LowerCaseSANCLFilter:
             if x != token.count("#dig"):
                 raise "The word contains one variant of the symbol #DIG"
 
-            token.replace("#dig", "#DIG")
+            return token.replace("#dig", "#DIG")
 
         return token.lower()

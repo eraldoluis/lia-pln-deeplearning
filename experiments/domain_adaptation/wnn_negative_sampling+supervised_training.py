@@ -33,11 +33,14 @@ PARAMETERS = {
         "required": True, "desc": "learning rate of the final neural network"
     },
     "noise_rate": {"required": True, "desc": "Number of noise examples",},
-
+    "hidden_size": {"required": False, "desc": "", "default":None},
+    "window_size": {"required": False, "desc": "", "default":None},
     "num_epochs": {"required": True, "desc": "Number of epochs in negative sampling"},
     "t": {"required": True,
           "desc": "Set threshold for occurrence of words. Those that appear with higher frequency in the training data "
                   "will be randomly down-sampled; default is 1e-5, useful range is (0, 1e-10)"},
+
+    "lambda_L2": {"desc": "Set the value of L2 coefficient"},
 
     "power": {"required": True, "desc": "q(w)^power, where q(w) is the unigram distribution."},
     "min_count": {"required": True,
@@ -59,9 +62,19 @@ def main(args):
     jsonNs["min_count"] = args.min_count
     jsonNs["save_model"] = args.save_model
 
+    if args.hidden_size:
+        jsonNs["hidden_size"] = args.hidden_size
+
+    if args.window_size:
+        jsonNs["window_size"] = args.window_size
+
+
     jsonWnn = JsonArgParser(wt.WNN_PARAMETERS).parse(args.wnn_with_target_json_base)
     jsonWnn["lr"] = args.lr_wnn
     jsonWnn["target_module"] = args.save_model
+
+    if args.lambda_L2:
+        jsonWnn["lambda_L2"] = args.lambda_L2
 
 
     log = logging.getLogger(__name__)

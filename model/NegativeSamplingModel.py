@@ -192,7 +192,7 @@ class NegativeSamplingModel(Model):
             # List of input variables.
             inputs = [
                 np.asarray(windowWords),
-                np.asarray(words),
+                # np.asarray(words),
                 np.asarray(labels),
                 lr
             ]

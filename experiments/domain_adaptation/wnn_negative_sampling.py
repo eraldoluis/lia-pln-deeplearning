@@ -49,6 +49,7 @@ from util.jsontools import dict2obj
 PARAMETERS = {
     # Required
     "train": {"required": True, "desc": "Use text data from file to train the model",},
+    
     "lr": {"required": True, "desc": "Set the starting learning rate"},
     "hidden_size": {"required": True, "desc": "size of the hidden layer"},
     "num_epochs": {"required": True,
@@ -182,7 +183,7 @@ def mainWnnNegativeSampling(args):
 
     # Create a random embedding for each word
     inputWordEmbedding = Embedding(wordLexicon, None, wordEmbeddingSize)
-    outputWordEmbedding = Embedding(wordLexicon, None, hiddenLayerSize)
+    # outputWordEmbedding = Embedding(wordLexicon, None, hiddenLayerSize)
     # biasWordEmbedding = Embedding(wordLexicon, None, 1)
 
     log.info("Lexicon size: %d" % (wordLexicon.getLen()))
@@ -199,17 +200,17 @@ def mainWnnNegativeSampling(args):
     act1 = ActivationLayer(linear1, tanh)
 
     # A logistic regression
-    outputWordEmbeddingLayer = EmbeddingLayer(words, outputWordEmbedding.getEmbeddingMatrix(), name="output_embedding")
+    # outputWordEmbeddingLayer = EmbeddingLayer(words, outputWordEmbedding.getEmbeddingMatrix(), name="output_embedding")
     # biasWordEmbedding = EmbeddingLayer(words, biasWordEmbedding.getEmbeddingMatrix(), name="bias_embedding")
     # biasFlatten = FlattenLayer(biasWordEmbedding,1)
 
-    scoreUnormalized = DotLayer(act1, outputWordEmbeddingLayer, b=None, useDiagonal=True)
+    # scoreUnormalized = DotLayer(act1, outputWordEmbeddingLayer, b=None, useDiagonal=True)
 
-    # linear2 = LinearLayer(act1, hiddenLayerSize, 1,
-    #                       weightInitialization=ZeroWeightGenerator(),
-    #                       name="linear_softmax_regresion")
+    linear2 = LinearLayer(act1, hiddenLayerSize, 1,
+                          weightInitialization=ZeroWeightGenerator(),
+                          name="linear_softmax_regresion")
 
-    act2 = ActivationLayer(scoreUnormalized, sigmoid)
+    act2 = ActivationLayer(linear2, sigmoid)
     # We clip the output of -sigmoid, because this output can be 0  and ln(0) is infinite, which can cause problems.
     output = T.flatten(T.clip(act2.getOutput(), 10 ** -5, 1 - 10 ** -5))
 
@@ -260,7 +261,7 @@ def mainWnnNegativeSampling(args):
         opt = SGD(lr=lr, decay=decay)
 
     model = NegativeSamplingModel(args.t, noiseRate, sampler, minLr, numExUpdLr, totalNumOfTokens, numEpochs,
-                                  [x, words], [y],
+                                  [x], [y],
                                   allLayers, opt, negativeSamplingLoss, trainMetrics, isWord2vecDecay)
     # Save Model
     if args.save_model:

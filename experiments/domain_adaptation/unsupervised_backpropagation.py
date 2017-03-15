@@ -66,7 +66,7 @@ UNSUPERVISED_BACKPROPAGATION_PARAMETERS = {
     "batch_size": {"required": True},
     "lambda_gradient": {"desc": "", "required": True},
 
-    "alpha": {"desc": "", "required": True},
+    "alpha": {"desc": "", "required": False},
     "height": {"default": 1, "desc": "", "required": False},
     "train_source": {"desc": "Supervised Training File Path"},
     "train_target": {"desc": "Unsupervised Training File Path"},
@@ -237,10 +237,6 @@ def main(args):
     # TODO: the maximum number of characters of word is fixed in 20.
     numMaxChar = 20
 
-
-    isSentenceModel = True
-    batchSize = -1 if isSentenceModel else args.batch_size
-
     # Lendo Filtros do wnn
     log.info("Lendo filtros básicos")
     wordFilters = getFilters(args.word_filters, log)
@@ -355,7 +351,7 @@ def main(args):
         decay = 1.0
 
     # Add the lexicon of target
-    domainLexicon = Lexicon()
+    domainLexicon = Lexicon(None)
 
     domainLexicon.put("0")
     domainLexicon.put("1")
@@ -512,6 +508,8 @@ def main(args):
                                                           inputGenerators,
                                                           [unsupervisedLabelTarget], batchSize[1], shuffle=shuffle)
 
+
+
     # Printing embedding information
     dictionarySize = wordEmbedding.getNumberOfVectors()
 
@@ -540,7 +538,9 @@ def main(args):
 
     allLayersSource = supervisedSoftmax.getLayerSet() | unsupervisedSoftmax.getLayerSet()
     allLayersTarget = unsupervisedSoftmax.getLayerSet()
-    unsupervisedLossTarget *= float(trainSupervisedBatch.size()) / trainUnsupervisedDatasetBatch.size()
+
+    if args.train_source:
+        unsupervisedLossTarget *= float(trainSupervisedBatch.size()) / trainUnsupervisedDatasetBatch.size()
 
     supervisedTrainMetrics = [
         LossMetric("TrainSupervisedLoss", supervisedLoss),
@@ -566,10 +566,11 @@ def main(args):
                                   mode=None)
 
     # Get dev inputs and output
-    log.info("Reading development examples")
-    devDatasetReader = TokenLabelReader(args.dev, args.token_label_separator)
-    devReader = SyncBatchIterator(devDatasetReader, inputGenerators, [outputGeneratorLabel], sys.maxint,
-                                  shuffle=False)
+    if args.dev:
+        log.info("Reading development examples")
+        devDatasetReader = TokenLabelReader(args.dev, args.token_label_separator)
+        devReader = SyncBatchIterator(devDatasetReader, inputGenerators, [outputGeneratorLabel], sys.maxint,
+                                      shuffle=False)
 
     if args.train_source:
         callbacks = []

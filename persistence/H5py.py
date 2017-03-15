@@ -9,10 +9,10 @@ import h5py
 
 from persistence.PersistentManager import PersistentManager
 
-
+11
 class H5py(PersistentManager):
     def __init__(self, filePath):
-        self.__f = h5py.File(filePath, "a")
+        self.__f = h5py.File(filePath, "r")
 
     def getObjAttributesByObjName(self, objName):
         if not objName:

@@ -42,6 +42,7 @@ from optim.Adagrad import Adagrad
 from optim.SGD import SGD
 from persistence.H5py import H5py
 from util.jsontools import dict2obj
+from util.util import getFilters
 
 WNN_PARAMETERS = {
     # Required
@@ -698,19 +699,6 @@ def mainWnn(args):
                 for prediction in predictions:
                     f.write(labelLexicon.getLexicon(prediction))
                     f.write("\n")
-
-
-def getFilters(param, log):
-    filters = []
-
-    for filterName in param:
-        moduleName, className = filterName.rsplit('.', 1)
-        log.info("Usando o filtro: " + moduleName + " " + className)
-
-        module_ = importlib.import_module(moduleName)
-        filters.append(getattr(module_, className)())
-
-    return filters
 
 
 def method_name(hiddenActFunction):

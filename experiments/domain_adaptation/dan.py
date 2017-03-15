@@ -1,5 +1,12 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
+
+"""
+Script roda um modelo, chamado de DAN,
+    baseado no trabalho Unsupervised Domain Adaptation by Backpropagation.
+"""
+
+
 import importlib
 import logging
 import logging.config
@@ -25,7 +32,7 @@ from data.SuffixFeatureGenerator import SuffixFeatureGenerator
 from data.TokenDatasetReader import TokenLabelReader, TokenReader
 from data.WordWindowGenerator import WordWindowGenerator
 from model.Callback import Callback
-from model.GradientReversalModel import GradientReversalModel
+from model.DANModel import DANModel
 from model.Metric import LossMetric, AccuracyMetric
 from model.ModelWriter import ModelWriter
 from model.Objective import NegativeLogLikelihood
@@ -42,6 +49,7 @@ from optim.Adagrad import Adagrad
 from optim.SGD import SGD
 from persistence.H5py import H5py
 from util.jsontools import dict2obj
+from util.util import getFilters
 
 UNSUPERVISED_BACKPROPAGATION_PARAMETERS = {
     "token_label_separator": {"required": True,
@@ -159,18 +167,6 @@ class DevCallback(Callback):
         for it in self.__datasetIterators:
             self.__model.test(it)
 
-
-def getFilters(param, log):
-    filters = []
-
-    for filterName in param:
-        moduleName, className = filterName.rsplit('.', 1)
-        log.info("Usando o filtro: " + moduleName + " " + className)
-
-        module_ = importlib.import_module(moduleName)
-        filters.append(getattr(module_, className)())
-
-    return filters
 
 
 def main(args):
@@ -359,6 +355,9 @@ def main(args):
 
     # Build neural network
     wordWindow = T.lmatrix("word_window")
+    supervisedLabel = T.lvector("supervisedLabel")
+    unsupervisedLabel = T.lvector("unsupervisedLabel")
+
     inputModel = [wordWindow]
 
     wordEmbeddingLayer = EmbeddingLayer(wordWindow, wordEmbedding.getEmbeddingMatrix(), trainable=True,
@@ -437,33 +436,29 @@ def main(args):
         sizeLayerBeforeSoftmax = sizeLayerBeforeLinear
         log.info("Not using hidden layer")
 
-    supervisedLinear = LinearLayer(layerBeforeSoftmax, sizeLayerBeforeSoftmax, labelLexicon.getLen(),
+    supervisedBatches = layerBeforeSoftmax.getOutput()[:supervisedLabel.shape[0]]
+
+    supervisedLinear = LinearLayer(supervisedBatches, sizeLayerBeforeSoftmax, labelLexicon.getLen(),
                                    weightInitialization=ZeroWeightGenerator(),
                                    name="linear_softmax")
     supervisedSoftmax = ActivationLayer(supervisedLinear, softmax)
 
     # Create the layers with the domain classifier
-    gradientReversalSource = GradientReversalLayer(layerBeforeSoftmax, _lambda)
+    gradientReversalSource = GradientReversalLayer(layerBeforeLinear, _lambda)
 
-    unsupervisedLinear = LinearLayer(gradientReversalSource, sizeLayerBeforeSoftmax, domainLexicon.getLen(),
+    unsupervisedLinear = LinearLayer(gradientReversalSource, sizeLayerBeforeLinear, domainLexicon.getLen(),
                                      weightInitialization=ZeroWeightGenerator(), name="linear_softmax_unsupervised")
 
     unsupervisedSoftmax = ActivationLayer(unsupervisedLinear, softmax)
 
     # Set loss and prediction and retrieve all layers
-    supervisedLabel = T.lvector("supervisedLabel")
-    unsupervisedLabel = T.lvector("unsupervisedLabel")
-
     supervisedOutput = supervisedSoftmax.getOutput()
     supervisedPrediction = ArgmaxPrediction(1).predict(supervisedOutput)
     supervisedLoss = NegativeLogLikelihood().calculateError(supervisedOutput, supervisedPrediction, supervisedLabel)
 
     unsupervisedOutput = unsupervisedSoftmax.getOutput()
     unsupervisedPred = ArgmaxPrediction(1).predict(unsupervisedOutput)
-    unsupervisedLossSource = NegativeLogLikelihood().calculateError(unsupervisedOutput, None,
-                                                                    unsupervisedLabel)
-    unsupervisedLossTarget = NegativeLogLikelihood().calculateError(unsupervisedOutput, None,
-                                                                    unsupervisedLabel)
+    unsupervisedLoss = NegativeLogLikelihood().calculateError(unsupervisedOutput, None, unsupervisedLabel)
 
     # Load the model
     if args.load_model:
@@ -508,8 +503,6 @@ def main(args):
                                                           inputGenerators,
                                                           [unsupervisedLabelTarget], batchSize[1], shuffle=shuffle)
 
-
-
     # Printing embedding information
     dictionarySize = wordEmbedding.getNumberOfVectors()
 
@@ -536,20 +529,16 @@ def main(args):
         log.info("Using SGD")
         opt = SGD(lr=lr, decay=decay)
 
-    allLayersSource = supervisedSoftmax.getLayerSet() | unsupervisedSoftmax.getLayerSet()
-    allLayersTarget = unsupervisedSoftmax.getLayerSet()
+    allLayers = supervisedSoftmax.getLayerSet() | unsupervisedSoftmax.getLayerSet()
 
-    if args.train_source:
-        unsupervisedLossTarget *= float(trainSupervisedBatch.size()) / trainUnsupervisedDatasetBatch.size()
-
-    supervisedTrainMetrics = [
+    supTrainMetrics = [
         LossMetric("TrainSupervisedLoss", supervisedLoss),
         AccuracyMetric("TrainSupervisedAcc", supervisedLabel, supervisedPrediction),
-        LossMetric("TrainUnsupervisedLoss", unsupervisedLossSource),
-        AccuracyMetric("TrainUnsupervisedAccuracy", unsupervisedLabel, unsupervisedPred)
+        LossMetric("TrainUnsupervisedLoss", unsupervisedLoss),
     ]
-    unsupervisedTrainMetrics = [
-        LossMetric("TrainUnsupervisedLoss", unsupervisedLossTarget),
+
+    unsTrainMetrics = [
+        LossMetric("TrainUnsupervisedLoss", unsupervisedLoss),
         AccuracyMetric("TrainUnsupervisedAccuracy", unsupervisedLabel, unsupervisedPred)
     ]
 
@@ -559,11 +548,10 @@ def main(args):
 
     testMetrics = [AccuracyMetric("TestAcc", supervisedLabel, supervisedPrediction)]
 
-    model = GradientReversalModel(inputModel, supervisedLabel, unsupervisedLabel,
-                                  allLayersSource, allLayersTarget, opt, supervisedPrediction, supervisedLoss,
-                                  unsupervisedLossSource, unsupervisedLossTarget, supervisedTrainMetrics,
-                                  unsupervisedTrainMetrics, evalMetrics, testMetrics,
-                                  mode=None)
+    model = DANModel(inputModel, supervisedLabel, unsupervisedLabel,
+                     allLayers, opt, supervisedPrediction, supervisedLoss,
+                     unsupervisedLoss, supTrainMetrics, unsTrainMetrics, evalMetrics, testMetrics,
+                     mode=None)
 
     # Get dev inputs and output
     if args.dev:

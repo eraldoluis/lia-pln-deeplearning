@@ -1,6 +1,6 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
-
+import importlib
 import logging.config
 import os
 import subprocess
@@ -58,3 +58,23 @@ def loadConfigLogging():
     path, filename = os.path.split(full_path)
 
     logging.config.fileConfig(os.path.join(path, 'logging.conf'))
+
+
+def getFilters(filterNames, log):
+    """
+    Load and return all the filters in "filterNames" list.
+    :param filterNames: a list with the filter names.
+    :param log: log object.
+    :return: the filters
+    """
+    filters = []
+
+    for filterName in filterNames:
+        moduleName, className = filterName.rsplit('.', 1)
+        log.info("Usando o filtro: " + moduleName + " " + className)
+
+        module_ = importlib.import_module(moduleName)
+        filters.append(getattr(module_, className)())
+
+    return filters
+

@@ -14,15 +14,12 @@ domain using unlabeled data from target.
 """
 
 import codecs
-import importlib
 import json
 import logging
 import logging.config
 import os
 import random
 import sys
-import time
-from time import time
 
 import numpy as np
 import theano.tensor as T
@@ -40,7 +37,7 @@ from data.TokenDatasetReader import TokenLabelReader
 from data.WordWindowGenerator import WordWindowGenerator
 from model.BasicModel import BasicModel
 from model.Callback import Callback
-from model.Metric import LossMetric, AccuracyMetric, ActivationMetric, DerivativeMetric
+from model.Metric import LossMetric, AccuracyMetric, DerivativeMetric
 from model.ModelWriter import ModelWriter
 from model.Objective import NegativeLogLikelihood
 from model.Prediction import ArgmaxPrediction
@@ -56,6 +53,7 @@ from optim.Adagrad import Adagrad
 from optim.SGD import SGD
 from persistence.H5py import H5py
 from util.jsontools import dict2obj
+from util.util import getFilters
 
 WNN_PARAMETERS = {
     # Required
@@ -778,19 +776,6 @@ def mainWnn(args):
                     for prediction in predictions:
                         f.write(labelLexicon.getLexicon(prediction))
                         f.write("\n")
-
-
-def getFilters(param, log):
-    filters = []
-
-    for filterName in param:
-        moduleName, className = filterName.rsplit('.', 1)
-        log.info("Usando o filtro: " + moduleName + " " + className)
-
-        module_ = importlib.import_module(moduleName)
-        filters.append(getattr(module_, className)())
-
-    return filters
 
 
 def method_name(hiddenActFunction):

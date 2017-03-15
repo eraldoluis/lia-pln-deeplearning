@@ -44,17 +44,15 @@ class ConcatenatorDataset(object):
                 return idx, self.__list[idx].get(i - range[0])
 
 
-class GradientReversalModel(Model):
+class StochasticDANModel(Model):
     """
     Modelo baseado no trabalho Domain-Adversarial Training of Neural Networks.
     Diferente do paper que treina o modelo usando mini-batch, nós treinamos a rede de forma estocástica.
-    Para isso, foi necessário criar duas entradas para a rede, sendo que a primeira recebe os exemplos do source e
-        a segunda recebe os exemplos do target.
-    Quando a rede recebe os exemplos do source, nós treinamos o classificador de domínios e o tagger ao mesmo tempo e
-        quando nós recebemos os exemplos do target, nós treinamos somente o classificador de domínios.
-    Devido a esta arquitetura e múltiplas saídas, foi necessário criar 3 saídas da rede: uma relacionada a saída do tagger
-        e duas relacionadas a saída do classificador de domínios quando recebem, respectivamente, os exemplos
-        do source e do target.
+    Para isto, os dados do target e do source foram unidos artificialmente em único dataset,
+        sendo que o programa distinguir a origem de cada exemplo.
+    Quando a rede recebe os exemplos do source, nós atualizamos os parâmetros do classificador de domínios, do tagger e
+        do extrator de atributos, porém quando a rede recebe exemplos do target, nós atualizamos o classificador de domínios.
+        do extrator de atributos.
     """
 
     def __init__(self, input, sourceSupLabel, unsLabel, allLayersSource,
@@ -118,8 +116,8 @@ class GradientReversalModel(Model):
 
         evalInput = input + [sourceSupLabel]
 
-        super(GradientReversalModel, self).__init__(evalInput, evalInput, input, predictionSup, False,
-                                                    trainMetricsByName.values(), evalMetrics, testMetrics, mode)
+        super(StochasticDANModel, self).__init__(evalInput, evalInput, input, predictionSup, False,
+                                                 trainMetricsByName.values(), evalMetrics, testMetrics, mode)
 
         self.log = logging.getLogger(__name__)
         self.__optimizer = optimizer

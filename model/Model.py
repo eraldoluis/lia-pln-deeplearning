@@ -85,7 +85,6 @@ class Model(object):
         if prediction:
             self.__predictionFunction = theano.function(inputs=predictionInput, outputs=prediction, mode=self.mode)
 
-
     def getEvaluationFunction(self):
         return self.__evaluateFunction
 
@@ -148,7 +147,7 @@ class Model(object):
         # Thus, it corresponds to the process of one mini-batch of examples.
         iteration = 0
 
-        for epoch in xrange(numEpochs):
+        for epoch in xrange(1, numEpochs + 1):
             for cb in callbacks:
                 cb.onEpochBegin(epoch)
 
@@ -262,7 +261,7 @@ class Model(object):
             # do que 1 (várias palavras).
 
             if self.isYProducedByNN():
-               batchSize = len(x[0])
+                batchSize = len(x[0])
             elif y[0].ndim > 0:
                 batchSize = len(y[0])
             else:

@@ -41,7 +41,13 @@ class LossMetric(Metric):
     Compute mean loss over a sequence of mini-batches.
     """
 
-    def __init__(self, name, loss, isAvgLoss=False):
+    def __init__(self, name, loss, isMean=False):
+        """
+
+        :param name: metric name
+        :param loss: the theano function which represents the loss
+        :param isMean: if the loss is a mean or not
+        """
         # Super-class constructor.
         super(LossMetric, self).__init__(name)
 
@@ -56,7 +62,7 @@ class LossMetric(Metric):
 
         # If the loss is the average of all errors
         # Normally, methods use the average instead of the sum
-        self.__isAvgLoss = isAvgLoss
+        self.__isMean = isMean
 
     def getRequiredVariables(self):
         return [self.__loss]
@@ -66,7 +72,7 @@ class LossMetric(Metric):
 
         value = values[0][0] if isinstance(values[0], (set, list)) else values[0]
 
-        if self.__isAvgLoss:
+        if self.__isMean:
             self.accumLoss += value * numExamples
         else:
             self.accumLoss += value

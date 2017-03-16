@@ -81,7 +81,10 @@ class LossMetric(Metric):
 
     def getValues(self):
         return {
-            "loss": self.accumLoss / self.numExamples,
+            # There are some metrics which aren't used in some epochs. Thus, these metrics can have the numExamples
+            #    equal to 0 and that generates ZeroDivisionError.
+            # In those case, we return NaN.
+            "loss": self.accumLoss / self.numExamples if self.numExamples > 0 else float('NaN'),
             "accumLoss": self.accumLoss,
             "numExamples": self.numExamples
         }
@@ -116,7 +119,10 @@ class AccuracyMetric(Metric):
 
     def getValues(self):
         return {
-            "accuracy": self.accumAccuracy / self.numExamples,
+            # There are some metrics which aren't used in some epochs. Thus, these metrics can have the numExamples
+            #    equal to 0 and that generates ZeroDivisionError.
+            # In those case, we return NaN.
+            "accuracy": self.accumAccuracy / self.numExamples if self.numExamples > 0 else float('NaN'),
             "accumAccuracy": self.accumAccuracy,
             "numExamples": self.numExamples
         }

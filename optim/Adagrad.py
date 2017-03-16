@@ -30,7 +30,7 @@ class Adagrad(Optimizer):
 
     def getInputValues(self, nrEpochsDone):
         """
-        :param nmEpochDone:
+        :param nrEpochsDone:
         :return: new value of learning rate.
         """
         lrValue = self.lrValue * (1 / (1 + self.decay * nrEpochsDone))

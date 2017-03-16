@@ -11,7 +11,7 @@ class BasicModel(Model):
     def __init__(self, x, y, allLayers, optimizer, prediction, loss, yExist=False, trainMetrics=None, evalMetrics=None,
                  testMetrics=None, mode=None):
         """
-            :param x: list of tensors that represent the inputs.
+            :param x: list of tensors that represents the inputs.
 
             :param y: list of tensor that represents the corrects outputs.
 

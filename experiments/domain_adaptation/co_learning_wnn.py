@@ -45,7 +45,8 @@ CO_LEARNING_PARAMETERS = {
     "word_filters": {"required": True,
                      "desc": "list contains the filter which is going to be applied in the words. "
                              "Each filter is describe by your module name + . + class name"},
-    "lambda": {"desc": "", "required": True},
+    "lambda_uns": {"desc": "the value of the variable which multiplies the unsupervised loss. This variable controls "
+                           "how much the training is affected by the  unsupervised loss.", "required": True},
 
     # Lexicons
     "label_file": {"desc": "file with all possible labels"},
@@ -68,7 +69,7 @@ CO_LEARNING_PARAMETERS = {
 
     # Training parameters
     "loss_uns_epoch": {"default": 0},
-    "lr": {"desc": "learning rate value"},
+    "lr": {"desc": "List with the learning rate values of each classifiers."},
     "l2": {"default": [None, None]},
 
     "shuffle": {"default": True, "desc": "able or disable the shuffle of training examples."},
@@ -83,7 +84,7 @@ CO_LEARNING_PARAMETERS = {
                               "The possible values are: minmax or mean"},
     "hidden_size": {"default": 300, "desc": "The number of neurons in the hidden layer"},
     "word_window_size": {"default": 5, "desc": "The size of words for the wordsWindow"},
-    "with_hidden": {"default": True,
+    "with_hidden": {"default": [True,True],
                     "desc": "A list of boolean values. If the value of a index i is true, so the classifier i will have hidden layer, "
                             "otherwise the classifier i won't have a hidden layer."
                     },
@@ -221,7 +222,7 @@ def mainColearning(args):
     batchSize = args.batch_size
     startSymbol = args.start_symbol
     numEpochs = args.num_epochs
-    lr = args.lr
+    lrs = args.lr
     normalizeMethod = args.normalization.lower() if args.normalization is not None else None
     withHidden = args.with_hidden
 
@@ -258,7 +259,7 @@ def mainColearning(args):
         vectors = EmbeddingLayer.getEmbeddingFromPersistenceManager(persistentManager, "word_embedding_layer_c2")
 
         wordEmbeddingC2 = Embedding(wordLexiconC2, vectors)
-    elif args.word_embedding:
+    elif args.word_embeddings:
         # Load word lexicon and word embedding of the first classifier
         wordLexiconC1, wordEmbeddingC1 = Embedding.fromWord2Vec(args.word_embeddings[0], "UUUNKKK", "word_lexicon_C1")
 
@@ -315,7 +316,7 @@ def mainColearning(args):
     inputC1 = T.lmatrix(name="input1")
     inputC2 = T.lmatrix(name="input2")
     y = T.lvector("y")
-    _lambdaShared = theano.shared(value=args["lambda"], name='lambda', borrow=True)
+    _lambdaShared = theano.shared(value=args.lambda_uns, name='lambda', borrow=True)
 
     # First Classifier
     embeddingLayerC1 = EmbeddingLayer(inputC1, wordEmbeddingC1.getEmbeddingMatrix(), trainable=True,
@@ -369,13 +370,13 @@ def mainColearning(args):
     ls2 = NegativeLogLikelihood().calculateError(outputC2, predictionC2, y)
 
     # Regularization L2
-    if args["l2"][0] and withHidden[0]:
-        _lambda1 = args["l2"][0]
+    if args.l2[0] and withHidden[0]:
+        _lambda1 = args.l2[0]
         log.info("Using L2 with lambda= %.2f", _lambda1)
         ls1 += _lambda1 * (T.sum(T.square(linearC11.getParameters()[0])))
 
-    if args["l2"][1] and withHidden[1]:
-        _lambda2 = args["l2"][1]
+    if args.l2[1] and withHidden[1]:
+        _lambda2 = args.l2[1]
         log.info("Using L2 with lambda= %.2f", _lambda2)
         ls2 += _lambda2 * (T.sum(T.square(linearC21.getParameters()[0])))
 
@@ -401,8 +402,8 @@ def mainColearning(args):
     ###################################################
 
     # Generators
-    inputGenerator1 = WordWindowGenerator(wordWindowSize, wordEmbeddingC1, wordFilters, startSymbol)
-    inputGenerator2 = WordWindowGenerator(wordWindowSize, wordEmbeddingC2, wordFilters, startSymbol)
+    inputGenerator1 = WordWindowGenerator(wordWindowSize, wordLexiconC1, wordFilters, startSymbol)
+    inputGenerator2 = WordWindowGenerator(wordWindowSize, wordLexiconC2, wordFilters, startSymbol)
     outputGenerator = LabelGenerator(labelLexicon)
     inputGenerators = [inputGenerator1, inputGenerator2]
 
@@ -415,7 +416,7 @@ def mainColearning(args):
                                                     inputGenerators,
                                                     [outputGenerator], batchSize[0])
 
-        trainUnsupervisedDataset = TokenReader(args["train_unsupervised"])
+        trainUnsupervisedDataset = TokenReader(args.train_unsupervised)
         unsupervisedBatchIterator = SyncBatchIterator(trainUnsupervisedDataset,
                                                       inputGenerators,
                                                       None, batchSize[1])
@@ -439,13 +440,13 @@ def mainColearning(args):
     elif args.decay.lower() == "divide_epoch":
         decay = 1.0
 
-    # Optimization algorithms
+    # Optimization algorithms. Each classifier has your own learning rate
     if args.adagrad:
         log.info("Using Adagrad")
-        opt = Adagrad(lr=lr, decay=decay)
+        optmizers = [Adagrad(lr=lrs[0], decay=decay),Adagrad(lr=lrs[1], decay=decay)]
     else:
         log.info("Using SGD")
-        opt = SGD(lr=lr, decay=decay)
+        optmizers = [SGD(lr=lrs[0], decay=decay), SGD(lr=lrs[1], decay=decay)]
 
     # Metrics
     supervisedTrainMetrics = [
@@ -471,9 +472,9 @@ def mainColearning(args):
     ]
 
     # Create the model
-    allLayers = actC22 + actC12
+    classifierLayers = [actC22.getLayerSet(), actC12.getLayerSet()]
 
-    colearninModel = CoLearningModel([inputC1, inputC2], y, allLayers, opt, prediction, ls, lu, args.loss_uns_epoch,
+    colearninModel = CoLearningModel([inputC1, inputC2], y, classifierLayers, optmizers, prediction, ls, lu, args.loss_uns_epoch,
                                      supervisedTrainMetrics, unsupervisedTrainMetrics, evalMetrics, testMetrics, )
 
     # Training

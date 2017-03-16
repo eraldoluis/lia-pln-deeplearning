@@ -9,45 +9,74 @@ from model.Model import Model
 
 
 class CoLearningModel(Model):
-    def __init__(self, x, y, allLayers, optimizer, prediction, ls, lu, lossUnsEpoch, supervisedTrainMetrics,
+    def __init__(self, x, y, classifierLayers, optimizers, prediction, ls, lu, lossUnsEpoch, supervisedTrainMetrics,
                  unsupervisedTrainMetrics, evalMetrics, testMetrics, mode=None):
+        """
+
+        :param x: list of tensors that represents the inputs.
+        :param y: list of tensor that represents the corrects outputs.
+
+        :type classifierLayers: [[nnet.Layer]]
+        :param classifierLayers: a list with the layers of each classifier
+
+        :type optimizer: [Optimizer.Optimizer]
+        :param optimizer: optimizers for each classifier
+
+        :type prediction: T.var.TensorVariable
+        :param prediction: It's the function which will responsible to predict labels
+
+        :param ls: tensor that represents the supervised loss
+        :param lu: tensor that represents the unsupervised loss
+        :param lossUnsEpoch: the variable that controls when the lu will begin to be used.
+        :param supervisedTrainMetrics:  list of Metric objects to be applied on the supervised training dataset.
+        :param unsupervisedTrainMetrics: list of Metric objects to be applied on the unsupervised training dataset.
+        :param evalMetrics: list of Metric objects to be applied on the evaluation dataset.
+        :param testMetrics: list of Metric objects to be applied on test datasets.
+        :param mode: compilation mode for Theano.
+        """
 
         evalInput = x + [y]
         trainInputs = supervisedTrainMetrics + unsupervisedTrainMetrics
 
-        super(CoLearningModel, self).__init__(evalInput, evalInput, x, prediction, True, trainInputs, evalMetrics,
+        super(CoLearningModel, self).__init__(evalInput, evalInput, x, prediction, False, trainInputs, evalMetrics,
                                               testMetrics, mode)
 
         self.log = logging.getLogger(__name__)
-        self.__optimizer = optimizer
+        self.__optimizers = optimizers
 
         self.__trainFuncs = []
         self.__trainingMetrics = []
         self.__lossUnsEpoch = lossUnsEpoch
 
-        optimizerInput = optimizer.getInputTensors()
+        optimizerInput = optimizers[0].getInputTensors() + optimizers[1].getInputTensors()
 
+        # Contains the layers of each classifier
         trainableLayers = []
 
         # Set the supervised part of the trainning
-        for l in allLayers:
-            if l.isTrainable():
-                trainableLayers.append(l)
+        for layers in classifierLayers:
+            aux = []
+
+            for l in layers:
+                if l.isTrainable():
+                    aux.append(l)
+
+            trainableLayers.append(aux)
 
         if supervisedTrainMetrics:
             # List of inputs for training function.
             sourceFuncInput = x + [y] + optimizerInput
 
-            # Include the ouputs of each metrics in a list.
+            # Include the ouputs of each metric in a list.
             supTrainOutputs = []
 
-            for m in unsupervisedTrainMetrics:
+            for m in supervisedTrainMetrics:
                 supTrainOutputs += m.getRequiredVariables()
 
             self.__trainingMetrics.append(supervisedTrainMetrics)
 
-            # Training updates are given by the optimizer object.
-            updates = optimizer.getUpdates(ls, trainableLayers)
+            # Training updates are given by the optimizer object. Each classifier has its own learning rate.
+            updates = optimizers[0].getUpdates(ls, trainableLayers[0]) + optimizers[1].getUpdates(ls, trainableLayers[1])
 
             # Training function.
             self.__trainFuncs.append(
@@ -66,26 +95,27 @@ class CoLearningModel(Model):
             self.__trainingMetrics.append(unsupervisedTrainMetrics)
 
             # Training updates are given by the optimizer object.
-            updates = optimizer.getUpdates(lu, trainableLayers)
+            updates = optimizers[0].getUpdates(lu, trainableLayers[0]) + optimizers[1].getUpdates(lu,
+                                                                                                  trainableLayers[1])
 
             # Training function.
             self.__trainFuncs.append(theano.function(inputs=targetFuncInput, outputs=unsTrainOutputs, updates=updates))
 
     def doEpoch(self, trainIterator, epoch, iteration, devIterator, evalPerIteration, callbacks):
-        lr = self.__optimizer.getInputValues(epoch)
+        lrs = self.__optimizers[0].getInputValues(epoch) + self.__optimizers[1].getInputValues(epoch)
 
-        self.log.info("Lr: %f" % lr[0])
+        self.log.info("Lr: [%f, %f]" % (lrs[0], lrs[1]))
 
         self.log.info({
             "epoch": epoch,
             "iteration": iteration,
-            "learn_rate": lr[0]
+            "learn_rate": lrs
         })
 
         trainBatchIterators = list(trainIterator)
 
         # if epoch value is less than the parameter lossUnsupervisedEpoch, so it isn't the time to apply the unsupervised training
-        if epoch < self.__lossUnsupervisedEpoch:
+        if epoch < self.__lossUnsEpoch:
             # Discard BatchIterator with non-annotated examples.
             trainBatchIterators.pop()
             self.log.info("Não lendo exemplos não supervisionados ")
@@ -123,7 +153,7 @@ class CoLearningModel(Model):
             if batchIteratorIdx == 0:
                 inputs += y
 
-            inputs += lr
+            inputs += lrs
 
             # CallbackBegin
             self.callbackBatchBegin(inputs, callbacks)

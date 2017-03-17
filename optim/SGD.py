@@ -27,8 +27,9 @@ class SGD(Optimizer):
         return [self.lr]
 
     def getInputValues(self, nrEpochsDone):
-        lrValue = self.lrValue * (1 / (1 + self.decay * nrEpochsDone))
-
+        lrValue = self.lrValue
+        if self.decay != 0:
+            lrValue /= 1 + self.decay * nrEpochsDone
         return [lrValue]
 
     def getUpdates(self, cost, layers):

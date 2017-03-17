@@ -19,8 +19,10 @@ class Adagrad(Optimizer):
         self.__sumsSqDefGrads = []
         self.__sumsSqStructGrads = []
 
-        if decay == 0.0:
-            decay = 1
+        # @eraldo: não sei a razão do código abaixo.
+        #          como estava, a estratégia NORMAL não funcionava.
+        # if decay == 0.0:
+        #     decay = 1.0
 
         self.decay = decay
 
@@ -32,8 +34,9 @@ class Adagrad(Optimizer):
         :param nmEpochDone:
         :return: new value of learning rate.
         """
-        lrValue = self.lrValue * (1 / (1 + self.decay * nrEpochsDone))
-
+        lrValue = self.lrValue
+        if self.decay != 0:
+            lrValue /= 1 + self.decay * nrEpochsDone
         return [lrValue]
 
     def getUpdates(self, cost, layers):

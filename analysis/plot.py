@@ -3,6 +3,7 @@
 import json
 import codecs
 import logging
+from IPython.core.display import display, HTML
 
 log = logging.Logger(__name__)
 
@@ -53,3 +54,58 @@ def readSequence(filename, filter, properties):
 #                                "message.iteration",
 #                                "message.values.macro.f",
 #                                "message.values.micro.f"))
+
+def plotToHTML(filename, headers, filter, properties):
+    """
+    Read and return a HTML table for a sequence of properties from a JSON log file.
+    :param filename: name of a JSON log file.
+    :param headers:
+    :param filter: a tuple (or sequence) with two values: filter[0] is the property name and filter[1] is the property
+        value. Only entries whose given property is equal to the given value are considered.
+    :param properties: list of properties whose values are appended to the output sequence.
+    :return: HTML table for requested data.
+    """
+    data = readSequence(filename, filter, properties)
+    
+    html  = "<html><body><table><tr>"
+    html += " ".join(["<th>%s</th>" % h for h in headers])
+    html += "</tr>"
+    
+    for line in data:
+        html += "<tr>"
+        html += " ".join(["<td>%s</td>" % val for val in line])
+        html += "</tr>"
+        
+    html += "</table></body></html>"
+
+    display(HTML(html))
+    
+def plotManyToHTML(filenames, headers, filter, properties):
+    """
+	Read and return a HTML table for a sequence of properties from a JSON log file.
+	:param filenames: names of a JSON log files.
+	:param headers:
+	:param filter: a tuple (or sequence) with two values: filter[0] is the property name and filter[1] is the property
+		value. Only entries whose given property is equal to the given value are considered.
+	:param properties: list of properties whose values are appended to the output sequence.
+	:return: HTML table for requested data.
+	"""
+    filenames = filenames if type(filenames) is list else [filenames]
+    
+    html  = "<html><body><table><tr>"
+    html += "<th>file</th>"
+    html += " ".join(["<th>%s</th>" % h for h in headers])
+    html += "</tr>"
+    
+    for file in filenames:
+        data = readSequence(file, filter, properties)
+        
+        for line in data:
+            html += "<tr>"
+            html += "<td>%s</td>" % file
+            html += " ".join(["<td>%s</td>" % val for val in line])
+            html += "</tr>"
+
+    html += "</table></body></html>"
+
+    display(HTML(html))

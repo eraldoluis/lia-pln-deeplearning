@@ -25,7 +25,7 @@ class Embedding(object):
     This class has a matrix with all vectors and lexicon.
     """
 
-    def __init__(self, lexicon, vectors, embeddingSize=None):
+    def __init__(self, lexicon, vectors=None, embeddingSize=None):
         """
         Creates a embedding object from lexicon and vectors.
         If vectors is none, so each word in the lexicon will be represented by a random vector with embeddingSize dimensions.
@@ -56,10 +56,6 @@ class Embedding(object):
             raise Exception("The number of embeddings is different of lexicon size ")
 
         lexicon.stopAdd()
-
-        if not lexicon.isReadOnly():
-            raise Exception(
-                "It's possible to insert in the lexicon. Please, transform the lexicon to only read.")
 
     def exist(self, obj):
         return self.__lexicon.exist(obj)
@@ -150,7 +146,7 @@ class Embedding(object):
             word = splitLine[0]
 
             if len(word) == 0:
-                log.warning("Insert in the embedding a empty string. This embeddings will be thrown out.")
+                log.warning("Found an empty word in the embedding. Its vector will be ignored.")
                 nmEmptyWords += 1
                 continue
 
@@ -158,7 +154,7 @@ class Embedding(object):
 
             if word == unknownSymbol:
                 if len(vectors[0]) != 0:
-                    raise Exception("A unknown symbol was already inserted.")
+                    raise Exception("An unknown symbol was already inserted.")
 
                 vectors[0] = vec
             else:
@@ -168,7 +164,7 @@ class Embedding(object):
         if len(vectors[0]) == 0:
             vectors[0] = FeatureVectorsGenerator().generateVector(embeddingSize)
 
-        if int(nmWords) != lexicon.getLen() - 1 + nmEmptyWords:
+        if int(nmWords) != lexicon.getLen() + nmEmptyWords:
             raise Exception("The size of lexicon is different of number of vectors")
 
         fVec.close()

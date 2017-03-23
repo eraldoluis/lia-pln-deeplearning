@@ -1,5 +1,7 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
+import sys
+
 from data.BatchIterator import SyncBatchIterator
 from data.TokenDatasetReader import TokenLabelReader
 

@@ -26,8 +26,13 @@ class SGD(Optimizer):
     def getInputTensors(self):
         return [self.lr]
 
-    def getInputValues(self, nrEpochsDone):
-        lrValue = self.lrValue * (1 / (1 + self.decay * nrEpochsDone))
+    def getInputValues(self, currentEpoch):
+        """
+
+        :param currentEpoch: the value of current epoch. We assume that the first epoch has value 1.
+        :return: new value of learning rate.
+        """
+        lrValue = self.lrValue * (1 / (1 + self.decay * (currentEpoch - 1)))
 
         return [lrValue]
 
@@ -46,6 +51,6 @@ class SGD(Optimizer):
         grads = self.defaultGradParam(cost, defaultGradParams)
 
         updates += [(param, param - self.lr * grad)
-                   for param, grad in zip(defaultGradParams, grads)]
+                    for param, grad in zip(defaultGradParams, grads)]
 
         return updates

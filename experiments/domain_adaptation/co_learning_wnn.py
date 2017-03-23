@@ -96,6 +96,7 @@ CO_LEARNING_PARAMETERS = {
     "start_symbol": {"default": "</s>", "desc": "Object that will be place when the initial limit of list is exceeded"},
     "end_symbol": {"default": "</s>", "desc": "Object that will be place when the end limit of list is exceeded"},
     "seed": {"desc": ""},
+    "print_prediction": {"desc": "File which the model prediction of the test examples will be written.", "default": None}
 }
 
 
@@ -330,9 +331,11 @@ def mainColearning(args):
 
         layerBeforeSoftmaxC1 = actC11
         sizeLayerBeforeSoftmaxC1 = hiddenLayerSize
+        log.info("Classifier 1 with hidden layer")
     else:
         layerBeforeSoftmaxC1 = flattenC1
         sizeLayerBeforeSoftmaxC1 = wordWindowSize * wordEmbeddingC1.getEmbeddingSize()
+        log.info("Classifier 1 without hidden layer")
 
     linearC12 = LinearLayer(layerBeforeSoftmaxC1, sizeLayerBeforeSoftmaxC1, labelLexicon.getLen(),
                             weightInitialization=ZeroWeightGenerator(), name="linear_c21")
@@ -350,9 +353,11 @@ def mainColearning(args):
 
         layerBeforeSoftmaxC2 = actC21
         sizeLayerBeforeSoftmaxC2 = hiddenLayerSize
+        log.info("Classifier 2 with hidden layer")
     else:
         layerBeforeSoftmaxC2 = flattenC2
         sizeLayerBeforeSoftmaxC2 = wordWindowSize * wordEmbeddingC2.getEmbeddingSize()
+        log.info("Classifier 2 without hidden layer")
 
     linearC22 = LinearLayer(layerBeforeSoftmaxC2, sizeLayerBeforeSoftmaxC2, labelLexicon.getLen(),
                             weightInitialization=ZeroWeightGenerator(), name="linear_c22")

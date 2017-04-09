@@ -158,7 +158,7 @@ def mainWnnNegativeSampling(args):
 
     totalNumOfTokens = 0
     for tokens, labels in trainReader.read():
-        # we don't count the </s>, because this token is only insert in the sentence to count its frequency.
+        # we don't count the </s>
         totalNumOfTokens += len(tokens)
 
         # Word2vec considers that the number of lines is the frequency of </s>

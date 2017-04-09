@@ -156,7 +156,32 @@ def main():
             r = param["round"]
             a = param["a"]
             b = param["b"]
-            parametersValue[name] = [round(10 ** (scipy.stats.uniform.rvs() * b - a), r) for _ in xrange(nm)]
+
+            """
+            If dim is 1, so the scripts generates numbers. Otherwise, it generates vectors with "dim"
+            dimensions. By default, dim = 1.
+            """
+            if "dim" in param:
+                dimension = param["dim"]
+
+                if dimension < 1:
+                    dimension = 1
+            else:
+                dimension = 1
+
+            if dimension == 1:
+                parametersValue[name] = [round(10 ** (scipy.stats.uniform.rvs() * b - a), r) for _ in xrange(nm)]
+            else:
+                parametersValue[name] = []
+
+                for _ in xrange(nm):
+                    aux = []
+
+                    for _ in xrange(dimension):
+                        aux.append(round(10 ** (scipy.stats.uniform.rvs() * b - a), r))
+
+                    parametersValue[name].append(aux)
+
         elif param["type"] == "int":
             min = param["min"]
             max = param["max"]

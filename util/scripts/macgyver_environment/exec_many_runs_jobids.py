@@ -7,7 +7,7 @@ import time
 import uuid
 from ast import literal_eval
 
-from experiments.domain_adaptation.random_search import executeSub
+from util.scripts.macgyver_environment.random_search import executeSub
 
 
 def readParametersFromLog(logPath):

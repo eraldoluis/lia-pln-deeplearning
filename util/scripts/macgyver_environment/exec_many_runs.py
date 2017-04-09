@@ -6,7 +6,7 @@ import sys
 import time
 import uuid
 
-from experiments.domain_adaptation.random_search import executeSub
+from util.scripts.macgyver_environment.random_search import executeSub
 
 
 def main():

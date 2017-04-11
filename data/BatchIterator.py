@@ -120,7 +120,7 @@ class SyncBatchIterator(object):
             Thus each TrainingInputGenerator has to pass the batch through the generate method.
             If this parameter has a value bigger than zero, so will treat treat each output of generate method as a normal example.
 
-        :param shuffle: is to shufle or not the batches
+        :param shuffle: shufle or not the batches
         """
         self.__batches = []
         self.__batchIdxs = []

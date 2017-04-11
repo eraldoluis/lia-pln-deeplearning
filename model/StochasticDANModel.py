@@ -7,7 +7,7 @@ from numpy import random
 import theano
 import theano.tensor as T
 
-from data.DataSetUnion import DataSetUnion
+from data.BatchIteratorUnion import BatchIteratorUnion
 from model.Model import Model
 
 
@@ -162,7 +162,7 @@ class StochasticDANModel(Model):
             "learn_rate": lr[0]
         })
 
-        trainingExamples = DataSetUnion(trainIterator)
+        trainingExamples = BatchIteratorUnion(trainIterator)
 
         for i in xrange(trainingExamples.getSize()):
             idx, example = trainingExamples.getRandomly()

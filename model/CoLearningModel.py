@@ -5,6 +5,8 @@ import logging
 import theano
 from numpy import random
 
+from data import BatchIteratorUnion
+from data.BatchIteratorUnion import BatchIteratorUnion
 from model.Model import Model
 
 
@@ -102,6 +104,24 @@ class CoLearningModel(Model):
             self.__trainFuncs.append(theano.function(inputs=targetFuncInput, outputs=unsTrainOutputs, updates=updates))
 
     def doEpoch(self, trainIterator, epoch, iteration, devIterator, evalPerIteration, callbacks):
+        """
+
+        :param trainIterator: a list of batch iterator objects. The first element of this list contains annotated examples
+        and the second contains non-annotated examples.
+
+        :param epochs: current epoch.
+
+        :param iteration: number of iterations done so far
+
+        :param devIterator: batch generator for the development dataset.
+
+        :param callbacks: list of callbacks.
+
+        :param evalPerIteration: indicates whether evaluation on the development
+            dataset will be performed on a per-iteration basis.
+
+        :return number of iterations done so far
+        """
         lrs = self.__optimizers[0].getInputValues(epoch) + self.__optimizers[1].getInputValues(epoch)
 
         self.log.info("Lr: [%f, %f]" % (lrs[0], lrs[1]))
@@ -122,34 +142,19 @@ class CoLearningModel(Model):
         else:
             self.log.info("Lendo exemplos não supervisionados ")
 
-        # Keep the index of each batch iterator. I'll need this to know example origin
-        indexBybatchIterator = {}
 
-        for i, batchGen in enumerate(trainBatchIterators):
-            indexBybatchIterator[batchGen] = i
+        # Join annotated and non-annotated dataset.
+        trainingIterator = BatchIteratorUnion(trainBatchIterators)
 
         # Training iteration
-        while len(trainBatchIterators) != 0:
+        for batchIteratorIdx, _input in trainingIterator:
             inputs = []
-
-            i = random.randint(0, len(trainBatchIterators))
-            batchIterator = trainBatchIterators[i]
-
-            try:
-                _input = batchIterator.next()
-            except StopIteration:
-                trainBatchIterators.pop(i)
-                continue
-
-            # Get the index of the batchIterator. If batchIteratorIdx == 0 so batchIterator contains annotated examples.
-            # If batchIteratorIdx == 1 so batchIterator doesn't contain annotated examples.
-            batchIteratorIdx = indexBybatchIterator[batchIterator]
 
             x, y = _input
             batchSize = len(x[0])
             inputs += x
 
-            # If the examples is not anotated, so there isn't label
+            # If batchIteratorIdx == 1 so the example is not annotated and thus there isn't a label.
             if batchIteratorIdx == 0:
                 inputs += y
 

@@ -388,6 +388,8 @@ class CustomMetric(Metric):
             self.fp[l] = self.fp.get(l, 0) + fp
             self.numExamples += fp
             
+        return prediction
+            
     def reset(self):
         self.__reset()
 

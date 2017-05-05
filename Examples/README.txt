@@ -1,3 +1,5 @@
+Os datasets e modelos estão salvos no notebook do Eraldo ~/lia/src/lia-pln-datasets-models
+
 ####################################################################
 Treinando e testando modelo com script
 ####################################################################

@@ -23,6 +23,8 @@ from model.Objective import NegativeLogLikelihood
 from model.Prediction import ArgmaxPrediction
 from nnet.ActivationLayer import ActivationLayer, softmax, tanh, sigmoid
 from nnet.EmbeddingLayer import EmbeddingLayer
+from nnet.EmbeddingConvolutionalLayer import EmbeddingConvolutionalLayer
+from nnet.ConcatenateLayer import ConcatenateLayer
 from nnet.FlattenLayer import FlattenLayer
 from nnet.LinearLayer import LinearLayer
 from nnet.WeightGenerator import ZeroWeightGenerator, GlorotUniform, SigmoidGlorot
@@ -44,7 +46,11 @@ WNN_PARAMETERS = {
     "word_lexicon": {
         "desc": "word lexicon"
     },
-
+    
+    "char_lexicon": {
+        "desc": "char lexicon"
+    },
+    
     # Datasets.
     "train": {
         "required": True,
@@ -75,7 +81,11 @@ WNN_PARAMETERS = {
     "word_emb_size": {"default": 100, "desc": "size of word embedding"},
     "word_embedding": {"desc": "word embedding File Path"},
     "word_window_size": {"default": 5, "desc": "The size of words for the wordsWindow"},
-
+    
+    "conv_size": {"default": 50, "desc": "The number of neurons in the convolutional layer"},
+    "char_emb_size": {"default": 10, "desc": "The size of char embedding"},
+    "char_window_size": {"default": 5, "desc": "The size of character windows."},
+    
     # Other parameter
     "start_symbol": {"default": "</s>", "desc": "Object that will be place when the initial limit of list is exceeded"},
     "end_symbol": {"default": "</s>", "desc": "Object that will be place when the end limit of list is exceeded"},
@@ -106,6 +116,10 @@ def mainWnnNer(args):
     embeddingSize = args.word_emb_size
     batchSize = args.batch_size
 
+    charEmbeddingSize = args.char_emb_size
+    charWindowSize = args.char_window_size
+    charConvSize = args.conv_size
+
     # Word filters.
     log.info("Loading word filters...")
     wordFilters = getFilters(args.word_filters, log)
@@ -120,6 +134,15 @@ def mainWnnNer(args):
         wordEmbedding = Embedding(wordLexicon, vectors=None, embeddingSize=embeddingSize)
     else:
         log.error("You need to set one of these parameters: load_model, word_embedding or word_lexicon")
+        sys.exit(1)
+
+    # Loading char lexicon
+    if args.char_lexicon:
+        log.info("Loading char lexicon...")
+        charLexicon = Lexicon.fromTextFile(args.char_lexicon, True, "char_lexicon")
+        charEmbedding = Embedding(charLexicon, vectors=None, embeddingSize=charEmbeddingSize)
+    else:
+        log.error("You need to set the parameter: char_lexicon")
         sys.exit(1)
 
     # Loading label lexicon.
@@ -152,12 +175,21 @@ def mainWnnNer(args):
     wordEmbeddingLayer = EmbeddingLayer(wordWindow, wordEmbedding.getEmbeddingMatrix(), trainable=True,
                                         name="word_embedding_layer")
     flatWordEmbedding = FlattenLayer(wordEmbeddingLayer)
-    sizeLayerBeforeLinear = wordWindowSize * wordEmbedding.getEmbeddingSize()
+
+    charWindowIdxs = T.ltensor4(name="char_window_idx")
+    inputModel.append(charWindowIdxs)
+
+    charEmbeddingConvLayer = EmbeddingConvolutionalLayer(charWindowIdxs, charEmbedding.getEmbeddingMatrix(), 20,
+                                                         charConvSize, charWindowSize, charEmbeddingSize, tanh,
+                                                         name="char_convolution_layer")
+    
+    layerBeforeLinear = ConcatenateLayer([flatWordEmbedding, charEmbeddingConvLayer])
+    sizeLayerBeforeLinear = wordWindowSize * (wordEmbedding.getEmbeddingSize() + charConvSize)
 
     hiddenActFunction = method_name(hiddenActFunctionName)
     weightInit = SigmoidGlorot() if hiddenActFunction == sigmoid else GlorotUniform()
 
-    linearHidden = LinearLayer(flatWordEmbedding, sizeLayerBeforeLinear, hiddenLayerSize,
+    linearHidden = LinearLayer(layerBeforeLinear, sizeLayerBeforeLinear, hiddenLayerSize,
                                weightInitialization=weightInit,
                                name="linear1")
     actHidden = ActivationLayer(linearHidden, hiddenActFunction)

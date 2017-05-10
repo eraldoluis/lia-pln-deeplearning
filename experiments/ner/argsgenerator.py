@@ -77,6 +77,8 @@ if __name__ == "__main__":
 		"dev": directory + "/harem/first.txt_dev.txt",
 		"test": directory + "/test_set_2.txt",
 		"word_embedding": directory + "/ptwiki_cetenfolha_cetempublico.trunk.voc5.100wv.ctw5.sample1e_1.5k_vectors",
+		"word_lexicon": directory + "/word_lexicon.txt",
+		"char_lexicon": directory + "/char_lexicon.txt",
 		"lr": args.lr[0],
 		"batch_size": args.batchsize[0],
 		"decay": args.decay[0],
@@ -84,9 +86,6 @@ if __name__ == "__main__":
 		"shuffle": args.shuffle[0],
 		"normalization": args.normalization[0],
 		"seed": args.seed[0],
-		"hidden_size": 300,
-		"word_emb_size": 100,
-		"word_window_size": 5
 	}
 
 	json = JSONEncoder()

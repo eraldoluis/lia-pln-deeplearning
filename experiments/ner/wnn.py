@@ -168,6 +168,15 @@ def mainWnnNer(args):
     dictionarySize = wordEmbedding.getNumberOfVectors()
     log.info("Size of word lexicon is %d and word embedding size is %d" % (dictionarySize, embeddingSize))
 
+    # Setup the input and (golden) output generators (readers).
+    inputGenerators = [WordWindowGenerator(wordWindowSize, wordLexicon, wordFilters, startSymbol, endSymbol)]
+    outputGenerator = LabelGenerator(labelLexicon)
+
+    log.info("Reading training examples")
+
+    trainDatasetReader = TokenLabelPerLineReader(args.train, labelTknSep='\t')
+    trainReader = SyncBatchIterator(trainDatasetReader, inputGenerators, [outputGenerator], batchSize, shuffle=shuffle)
+
     # Build neural network
     wordWindow = T.lmatrix("word_window")
     inputModel = [wordWindow]
@@ -178,6 +187,12 @@ def mainWnnNer(args):
 
     charWindowIdxs = T.ltensor4(name="char_window_idx")
     inputModel.append(charWindowIdxs)
+
+    # # TODO: debug
+    # theano.config.compute_test_value = 'warn'
+    # ex = trainIterator.next()
+    # inWords.tag.test_value = ex[0][0]
+    # outLabel.tag.test_value = ex[1][0]
 
     charEmbeddingConvLayer = EmbeddingConvolutionalLayer(charWindowIdxs, charEmbedding.getEmbeddingMatrix(), 20,
                                                          charConvSize, charWindowSize, charEmbeddingSize, tanh,
@@ -199,15 +214,6 @@ def mainWnnNer(args):
                                 name="linear_softmax")
     actSoftmax = ActivationLayer(linearSoftmax, softmax)
     prediction = ArgmaxPrediction(1).predict(actSoftmax.getOutput())
-
-    # Setup the input and (golden) output generators (readers).
-    inputGenerators = [WordWindowGenerator(wordWindowSize, wordLexicon, wordFilters, startSymbol, endSymbol)]
-    outputGenerator = LabelGenerator(labelLexicon)
-
-    log.info("Reading training examples")
-
-    trainDatasetReader = TokenLabelPerLineReader(args.train, labelTknSep='\t')
-    trainReader = SyncBatchIterator(trainDatasetReader, inputGenerators, [outputGenerator], batchSize, shuffle=shuffle)
 
     # Get dev inputs and (golden) outputs.
     if args.dev is not None:
@@ -235,6 +241,9 @@ def mainWnnNer(args):
     # Training loss function.
     loss = NegativeLogLikelihood().calculateError(actSoftmax.getOutput(), prediction, y)
 
+    # # TODO: debug
+    # opt.lr.tag.test_value = 0.02
+
     # Metrics.
     trainMetrics = [
         LossMetric("LossTrain", loss, True),
@@ -256,8 +265,11 @@ def mainWnnNer(args):
     ]
 
     log.info("Compiling the network...")
+    # # TODO: debug
+    # mode = theano.compile.debugmode.DebugMode(optimizer=None)
+    mode = None
     wnnModel = BasicModel(inputModel, [y], actSoftmax.getLayerSet(), opt, prediction, loss, trainMetrics=trainMetrics,
-                          evalMetrics=evalMetrics, testMetrics=testMetrics, mode=None)
+                          evalMetrics=evalMetrics, testMetrics=testMetrics, mode=mode)
 
     log.info("Training...")
     wnnModel.train(trainReader, numEpochs, devReader)

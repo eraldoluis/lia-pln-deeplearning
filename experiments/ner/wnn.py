@@ -17,6 +17,7 @@ from data.LabelGenerator import LabelGenerator
 from data.Lexicon import Lexicon
 from data.TokenDatasetReader import TokenLabelReader, TokenLabelPerLineReader
 from data.WordWindowGenerator import WordWindowGenerator
+from data.CharacterWindowGenerator import CharacterWindowGenerator
 from model.BasicModel import BasicModel
 from model.Metric import LossMetric, AccuracyMetric, FMetric, CustomMetric
 from model.Objective import NegativeLogLikelihood
@@ -169,7 +170,12 @@ def mainWnnNer(args):
     log.info("Size of word lexicon is %d and word embedding size is %d" % (dictionarySize, embeddingSize))
 
     # Setup the input and (golden) output generators (readers).
-    inputGenerators = [WordWindowGenerator(wordWindowSize, wordLexicon, wordFilters, startSymbol, endSymbol)]
+    inputGenerators = [
+	    WordWindowGenerator(wordWindowSize, wordLexicon, wordFilters, startSymbol, endSymbol),
+	    CharacterWindowGenerator(charLexicon, 20, charWindowSize, wordWindowSize, "ART_CHAR", "</s>",
+	                             startPaddingWrd=startSymbol, endPaddingWrd=endSymbol,
+	                             filters=getFilters([], log))
+    ]
     outputGenerator = LabelGenerator(labelLexicon)
 
     log.info("Reading training examples")

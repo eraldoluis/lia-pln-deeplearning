@@ -25,7 +25,7 @@ class Embedding(object):
     This class has a matrix with all vectors and lexicon.
     """
 
-    def __init__(self, lexicon, vectors, embeddingSize=None):
+    def __init__(self, lexicon, vectors=None, embeddingSize=None):
         """
         Creates a embedding object from lexicon and vectors.
         If vectors is none, so each word in the lexicon will be represented by a random vector with embeddingSize dimensions.

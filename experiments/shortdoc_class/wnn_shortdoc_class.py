@@ -37,47 +37,51 @@ PARAMETERS = {
     "filters": {"default": ['data.Filters.TransformLowerCaseFilter',
                             'data.Filters.TransformNumberToZeroFilter'],
                 "desc": "list contains the filters. Each filter is describe by your module name + . + class name"},
-    "train": {"desc": "Training File Path"},
-    "num_epochs": {"desc": "Number of epochs: how many iterations over the training set."},
-    "lr": {"desc": "learning rate value"},
-    "test": {"desc": "Test set file path"},
-    "dev": {"desc": "Development set file path"},
-    "eval_per_iteration": {"default": 0,
-                           "desc": "Eval model after this number of iterations."},
-    "hidden_size": {"default": 300,
-                    "desc": "The number of neurons in the hidden layer"},
-    "word_window_size": {"default": 5,
-                         "desc": "The size of words for the wordsWindow"},
-    "word_emb_size": {"default": 100,
-                      "desc": "size of word embedding"},
-    "word_lexicon": {"desc": "word embedding File Path"},
-    "word_embedding": {"desc": "word embedding File Path"},
-    "start_symbol": {"default": "</s>",
-                     "desc": "Object that will be place when the initial limit of list is exceeded"},
-    "end_symbol": {"default": "</s>",
-                   "desc": "Object that will be place when the end limit of list is exceeded"},
-    "seed": {"desc": "Random number generator seed."},
-    "alg": {"default": "sgd",
-            "desc": "Optimization algorithm to be used. Options are: 'sgd', 'adagrad'."},
-    "decay": {"default": "linear",
-              "desc": "Set the learning rate update strategy (none or linear)."},
-    "shuffle": {"default": True,
-                "desc": "Enable or disable shuffling of the training examples."},
-    "normalization": {"desc": "Choose the normalization method to be applied on  word embeddings. " +
-                              "The possible values are: 'minmax', 'mean', 'zscore'."},
     "label_lexicon": {"desc": "File containing the list of labels. " +
                               "The index used for each label will be given by the order in this file."},
     "labels": {"desc": "List of labels." +
                        "The index used for each label will be given by the order in this list."},
+    # Datasets.
+    "train": {"desc": "Training File Path"},
+    "load_method": {"default": "sync",
+                    "desc": "Method for loading the training dataset (sync or async)."},
+    "test": {"desc": "Test set file path"},
+    "dev": {"desc": "Development set file path"},
+    "eval_per_iteration": {"default": 0,
+                           "desc": "Eval model after this number of iterations."},
+    # Layer: input (word embedding).
+    "word_window_size": {"default": 5,
+                         "desc": "The size of words for the wordsWindow"},
+    "word_lexicon": {"desc": "word embedding File Path"},
+    "word_emb_size": {"default": 100,
+                      "desc": "size of word embedding"},
+    "word_embedding": {"desc": "word embedding File Path"},
+    "normalization": {"desc": "Choose the normalization method to be applied on  word embeddings. " +
+                              "The possible values are: 'minmax', 'mean', 'zscore'."},
+    "fix_word_embedding": {
+        "default": False,
+        "desc": "Fix the word embedding (do not update it during training)."},
+    "start_symbol": {"default": "</s>",
+                     "desc": "Object that will be place when the initial limit of list is exceeded"},
+    "end_symbol": {"default": "</s>",
+                   "desc": "Object that will be place when the end limit of list is exceeded"},
+    # Layer: convolution.
     "conv_size": {"required": True,
                   "desc": "Size of the convolution layer (number of filters)."},
-    "load_method": {"default": "sync",
-                    "desc": "Method for loading the training dataset." +
-                            "The possible values are: 'sync' and 'async'."},
-    "fix_word_embedding": {
-        "desc": "Fix the word embedding (do not update it during training).",
-        "default": False
-    }
+    # Layer: hidden.
+    "hidden_size": {"default": 300,
+                    "desc": "The number of neurons in the hidden layer"},
+    # Learning algorithm.
+    "alg": {"default": "sgd",
+            "desc": "Optimization algorithm to be used. Options are: 'sgd', 'adagrad'."},
+    "num_epochs": {"desc": "Number of epochs: how many iterations over the training set."},
+    "lr": {"desc": "learning rate value"},
+    "decay": {"default": "linear",
+              "desc": "Set the learning rate update strategy (none or linear)."},
+    "shuffle": {"default": True,
+                "desc": "Enable or disable shuffling of the training examples."},
+    "label_weights": {"desc": "List of weights for each label. These weights are used in the loss function."},
+    "seed": {"desc": "Random number generator seed."}
 }
 
 
@@ -118,6 +122,9 @@ class ShortDocReader(DatasetReader):
                 continue
 
             (text, cls) = line.split('\t')
+
+            text = text.strip()
+            cls = cls.strip()
 
             numExs += 1
 
@@ -160,6 +167,10 @@ def main():
     path, filename = os.path.split(full_path)
     logging.config.fileConfig(os.path.join(path, 'logging.conf'), defaults={})
     log = logging.getLogger(__name__)
+
+    if len(sys.argv) != 2:
+        log.error("Missing argument: <JSON config file>")
+        exit(1)
 
     argsDict = JsonArgParser(PARAMETERS).parse(sys.argv[1])
     args = dict2obj(argsDict, 'ShortDocArguments')
@@ -288,13 +299,18 @@ def main():
     prediction = ArgmaxPrediction(None).predict(softmaxAct.getOutput())
 
     # Loss function.
-    loss = NegativeLogLikelihoodOneExample().calculateError(softmaxAct.getOutput()[0], prediction, outLabel)
+    if args.label_weights is not None and len(args.label_weights) != labelLexicon.getLen():
+        log.error("Number of label weights (%d) is different from number of labels (%d)!" % (
+            len(args.label_weights), labelLexicon.getLen()))
+    nlloe = NegativeLogLikelihoodOneExample(weights=args.label_weights)
+    loss = nlloe.calculateError(softmaxAct.getOutput()[0], prediction, outLabel)
 
     # Input generators: word window.
-    inputGenerators = [WordWindowGenerator(wordWindowSize, wordEmbedding, filters, startSymbol, endSymbol)]
+    inputGenerators = [WordWindowGenerator(wordWindowSize, wordLexicon, filters, startSymbol, endSymbol)]
 
     # Output generator: generate one label per offer.
-    outputGenerators = [lambda label: labelLexicon.put(label)]
+    outputGenerators = [TextLabelGenerator(labelLexicon)]
+    # outputGenerators = [lambda label: labelLexicon.put(label)]
 
     evalPerIteration = None
     if args.train:
@@ -306,7 +322,7 @@ def main():
                                               outputGenerators,
                                               - 1,
                                               shuffle=shuffle)
-            wordEmbedding.stopAdd()
+            wordLexicon.stopAdd()
         elif args.load_method == "async":
             log.info("Examples will be asynchronously loaded.")
             trainIterator = AsyncBatchIterator(trainDatasetReader,

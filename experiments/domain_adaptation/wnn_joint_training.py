@@ -4,35 +4,32 @@
 """
 This script trains .
 """
-#TODO: comentar
+# TODO: comentar
 
-import importlib
 import logging
 import logging.config
-import math
 import os
 import random
 import sys
 from itertools import izip
 
 import numpy as np
-import theano
 import theano.tensor as T
 from pandas import json
 
 from args.JsonArgParser import JsonArgParser
+from data import BatchIteratorUnion
 from data.BatchIterator import SyncBatchIterator
 from data.CapitalizationFeatureGenerator import CapitalizationFeatureGenerator
 from data.CharacterWindowGenerator import CharacterWindowGenerator
-from data.ConstantLabel import ConstantLabel
 from data.Embedding import Embedding
 from data.LabelGenerator import LabelGenerator
 from data.Lexicon import Lexicon
 from data.SuffixFeatureGenerator import SuffixFeatureGenerator
-from data.TokenDatasetReader import TokenLabelReader, TokenReader
+from data.TokenDatasetReader import TokenLabelReader
 from data.WordWindowGenerator import WordWindowGenerator
-from model.Callback import Callback, DevCallback
-from model.DANModel import DANModel
+from model.Callback import DevCallback
+from model.JointMultiTaskModel import JointMultiTaskModel
 from model.Metric import LossMetric, AccuracyMetric
 from model.ModelWriter import ModelWriter
 from model.Objective import NegativeLogLikelihood
@@ -42,7 +39,6 @@ from nnet.ConcatenateLayer import ConcatenateLayer
 from nnet.EmbeddingConvolutionalLayer import EmbeddingConvolutionalLayer
 from nnet.EmbeddingLayer import EmbeddingLayer
 from nnet.FlattenLayer import FlattenLayer
-from nnet.GradientReversalLayer import GradientReversalLayer
 from nnet.LinearLayer import LinearLayer
 from nnet.WeightGenerator import ZeroWeightGenerator, GlorotUniform, SigmoidGlorot
 from optim.Adagrad import Adagrad
@@ -55,18 +51,21 @@ JOINT_TRAINING_PARAMETERS = {
     # Required parameters
     "token_label_separator": {"required": True,
                               "desc": "specify the character used to separate the token from the label in the dataset."},
-    "word_filters": {"required": True,
-                     "desc": "a list which contains the filters. Each filter is describe by your module name + . + class name"},
+    "predict_idx": {"desc": "Softmax index that will be used to predict a new example.",
+                          "required": True},
 
     # General Parameters
     "seed": {"desc": "seed"},
+    "word_filters": {"required": False,
+                     "desc": "a list which contains the filters. Each filter is describe by your module name + . + class name"},
     "label_file": {"desc": "a list of files with labels of each task.",
-                   "required": True},
-    "sofmax_to_predict": {"desc": "Softmax index that will be used to predict a new example.",
-                          "required": True},
+                   "required": False},
     "training_file": {"desc": "List of file path names. We will use these files for train the NN."},
     "test": {"desc": "File path name or list of file path name. Those files will be used for evaluate our model."},
     "dev": {"desc": "File path name. Those files will be used for evaluate our model in each epoch."},
+    "num_tasks": {"required": False,
+                     "desc": "Total number of tasks. You need to set this parameter when you are training a model."},
+
 
     # Filters
     "suffix_filters": {"default": [],
@@ -144,17 +143,12 @@ def main(args):
                               "alg", "hidden_activation_function", "word_window_size", "char_window_size",
                               "hidden_size_unsupervised_part", "hidden_size_supervised_part", "with_charwnn",
                               "conv_size", "charwnn_with_act", "suffix_size", "use_capitalization",
-                              "start_symbol", "end_symbol", "with_hidden", "sofmax_to_predict"}
+                              "start_symbol", "end_symbol", "with_hidden", "predict_idx", 'num_tasks'}
 
     # Load model parameters
     if args.load_model:
         persistentManager = H5py(args.load_model)
         savedParameters = json.loads(persistentManager.getAttribute("parameters"))
-
-        if savedParameters.get("charwnn_filters", None) != None:
-            savedParameters["char_filters"] = savedParameters["charwnn_filters"]
-            savedParameters.pop("charwnn_filters")
-            print savedParameters
 
         log.info("Loading parameters of the model")
         args = args._replace(**savedParameters)
@@ -186,7 +180,8 @@ def main(args):
 
     useSuffixFeatures = args.suffix_size > 0
     useCapFeatures = args.use_capitalization
-    idxSoftmaxPredict = args.sofmax_to_predict
+    idxSoftmaxPredict = args.predict_idx
+    numTasks = args.num_tasks
 
     # Insert the character that will be used to fill the matrix with a dimension lesser than a chosen
     # dimension.This enables to perform convolution by a matrix multiplication.
@@ -275,11 +270,15 @@ def main(args):
                 log.error("You need to set one of these parameters: load_model or cap_lexicon")
                 return
 
-    # Load label lexicons
+    # Load label lexicons of each task.
+    labelLexiconList = []
+
     if args.load_model:
-        labelLexiconList = Lexicon.fromPersistentManager(persistentManager, "label_lexicon")
+        for i in range(numTasks):
+            labelLexiconList.append(Lexicon.fromPersistentManager(persistentManager, "label_lexicon_%d" % i))
     elif args.label_file:
-        labelLexiconList = Lexicon.fromTextFile(args.label_file, False, lexiconName="label_lexicon")
+        for i in range(numTasks):
+            labelLexiconList.append(Lexicon.fromTextFile(args.label_file, False, lexiconName="label_lexicon_%d" % i))
     else:
         log.error("You need to set one of these parameters: load_model, word_embedding or word_lexicon")
         return
@@ -392,24 +391,21 @@ def main(args):
         log.info("Not using hidden layer")
 
     softmaxLayerList = []
+
     for idx, labelLexicon in enumerate(labelLexiconList):
         supervisedLinear = LinearLayer(layerBeforeSoftmax, sizeLayerBeforeSoftmax, labelLexicon.getLen(),
                                        weightInitialization=ZeroWeightGenerator(),
                                        name="linear_softmax_%d" % (idx))
         softmaxLayerList.append(ActivationLayer(supervisedLinear, softmax))
 
-    # Get all layers
+    # Get all layers of each task
+    taskLayerList = []
     allLayers = set()
 
     for softmaxLayer in softmaxLayerList:
+        taskLayerList.append(softmaxLayer.getLayerSet())
         allLayers |= softmaxLayer.getLayerSet()
 
-    """
-    This is a boolean vector which each dimension is related to a task.
-    This vector control when a task loss will be turn on or off.
-    Since we are going to use online learning, only one dimension of this vector will be 1.
-    """
-    taskVector = T.lvector("task_vector")
 
     # Set loss function
     lossList = []
@@ -421,7 +417,7 @@ def main(args):
         predictionList.append(ArgmaxPrediction(1).predict(softmaxLayerList[idxSoftmaxPredict].getOuput()))
 
     # Global loss function
-    loss = T.prod(T.stack(lossList), taskVector.T)
+    # loss = T.prod(T.stack(lossList), taskVector.T)
 
     # Set prediction function
     mainPredictionFunc = predictionList[idxSoftmaxPredict]
@@ -494,12 +490,11 @@ def main(args):
         log.info("Using SGD")
         opt = SGD(lr=lr, decay=decay)
 
-    trainingMetrics = [LossMetric("Loss", loss)]
+    # trainingMetrics = [LossMetric("Loss", loss)]
     taskMetrics = []
     for taskLoss, taskPrediction in izip(lossList, predictionList):
         metrics = [LossMetric("Loss", taskLoss), AccuracyMetric("TrainSupervisedAcc", y, taskPrediction)]
         taskMetrics.append(metrics)
-        trainingMetrics += metrics
 
     evalMetrics = [
         AccuracyMetric("EvalAcc", y, mainPredictionFunc)
@@ -507,29 +502,22 @@ def main(args):
 
     testMetrics = [AccuracyMetric("TestAcc", y, mainPredictionFunc)]
 
-    # TODO: terminar
-    model = DANModel(inputModel, [y], unsupervisedLabel,
-                     allLayers, opt, supervisedPrediction, supervisedLoss,
-                     unsupervisedLoss, supTrainMetrics, unsTrainMetrics, evalMetrics, testMetrics,
-                     mode=None)
+    model = JointMultiTaskModel(inputModel, [y], taskLayerList, opt, mainPredictionFunc, lossList, taskMetrics,
+                                evalMetrics, testMetrics, mode=None)
 
     # Get dev inputs and output
     if args.dev:
         log.info("Reading development examples")
         devDatasetReader = TokenLabelReader(args.dev, args.token_label_separator)
-        devReader = SyncBatchIterator(devDatasetReader, inputGenerators, [outputGeneratorLabel], sys.maxint,
+        devReader = SyncBatchIterator(devDatasetReader, inputGenerators, [y], sys.maxint,
                                       shuffle=False)
 
-    if args.train_source:
+    if args.training_file:
         callbacks = []
-        log.info("Usando lambda fixo: " + str(_lambda.get_value()))
-        # log.info("Usando lambda variado. alpha=" + str(args.alpha) + " height=" + str(args.height))
-        # callbacks.append(ChangeLambda(_lambda, args.alpha, numEpochs, args.height))
 
         if args.save_model:
             savePath = args.save_model
-            objsToSave = list(supervisedSoftmax.getLayerSet() | unsupervisedSoftmax.getLayerSet()) + [wordLexicon,
-                                                                                                      labelLexiconList]
+            objsToSave = allLayers + [wordLexicon, labelLexiconList]
 
             if withCharWNN:
                 objsToSave.append(charLexicon)
@@ -544,31 +532,34 @@ def main(args):
 
         if args.aux_devs:
             callbacks.append(
-                DevCallback(model, args.aux_devs, args.token_label_separator, inputGenerators, [outputGeneratorLabel]))
+                DevCallback(model, args.aux_devs, args.token_label_separator, inputGenerators, [y]))
 
-        log.info("Training")
+
+        # Join all dataset in one dataset
+        iterator = BatchIteratorUnion(batchIteratorList)
+
         # Training Model
-        model.train([trainSupervisedBatch, trainUnsupervisedDatasetBatch], numEpochs, devReader,
-                    callbacks=callbacks)
+        log.info("Training")
+        model.train(iterator, numEpochs, devReader, callbacks=callbacks)
 
+        # Save model
         if args.save_model:
             modelWriter.save()
 
-            # Testing
-    if args.test:
-        if isinstance(args.test, (basestring, unicode)):
-            tests = [args.test]
-        else:
-            tests = args.test
+        # Testing
+        if args.test:
+            if isinstance(args.test, (basestring, unicode)):
+                tests = [args.test]
+            else:
+                tests = args.test
 
-        for test in tests:
-            log.info("Reading test examples")
-            testDatasetReader = TokenLabelReader(test, args.token_label_separator)
-            testReader = SyncBatchIterator(testDatasetReader, inputGenerators, [outputGeneratorLabel], sys.maxint,
-                                           shuffle=False)
+            for test in tests:
+                log.info("Reading test examples")
+                testDatasetReader = TokenLabelReader(test, args.token_label_separator)
+                testReader = SyncBatchIterator(testDatasetReader, inputGenerators, [y], sys.maxint, shuffle=False)
 
-            log.info("Testing")
-            model.test(testReader)
+                log.info("Testing")
+                model.test(testReader)
 
 
 def method_name(hiddenActFunction):

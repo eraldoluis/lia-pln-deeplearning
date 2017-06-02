@@ -45,7 +45,7 @@ class JointMultiTaskModel(Model):
         :param mode: compilation mode for Theano.
         """
         # Flat taskTrainingMetrics list
-        trainingMetrics = [metric for taskMetrics in taskTrainingMetrics for metric in taskMetrics]
+        trainingMetrics = [metric for trainingMetrics in taskTrainingMetrics for metric in trainingMetrics]
 
         # Theano function inputs
         inputs = x + y
@@ -65,19 +65,19 @@ class JointMultiTaskModel(Model):
             trainingInputs = inputs + optimizer.getInputTensors()
 
             # We create a theano function for each task. This function is used to calculate the metrics and update the parameters
-            for taskLayer, taskMetrics, taskLoss in izip(taskLayers, taskTrainingMetrics, taskLosses):
+            for layers, trainingMetrics, loss in izip(taskLayers, taskTrainingMetrics, taskLosses):
                 # List of trainable layers.
                 trainableLayers = []
-                for l in taskLayer:
+                for l in layers:
                     if l.isTrainable():
                         trainableLayers.append(l)
 
                 # For each task, we update shared and exclusive layers by meand of the task loss function and the optimizer object.
-                updates = optimizer.getUpdates(taskLayer, trainableLayers)
+                updates = optimizer.getUpdates(loss, trainableLayers)
 
                 # Include the variables required by all training metrics in the output list of the training function.
                 trainingOutputs = []
-                for m in taskMetrics:
+                for m in trainingMetrics:
                     trainingOutputs += m.getRequiredVariables()
 
                 # Training function.

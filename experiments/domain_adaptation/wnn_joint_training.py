@@ -18,8 +18,8 @@ import theano.tensor as T
 from pandas import json
 
 from args.JsonArgParser import JsonArgParser
-from data import BatchIteratorUnion
 from data.BatchIterator import SyncBatchIterator
+from data.BatchIteratorUnion import BatchIteratorUnion
 from data.CapitalizationFeatureGenerator import CapitalizationFeatureGenerator
 from data.CharacterWindowGenerator import CharacterWindowGenerator
 from data.Embedding import Embedding
@@ -52,7 +52,7 @@ JOINT_TRAINING_PARAMETERS = {
     "token_label_separator": {"required": True,
                               "desc": "specify the character used to separate the token from the label in the dataset."},
     "predict_idx": {"desc": "Softmax index that will be used to predict a new example.",
-                          "required": True},
+                    "required": True},
 
     # General Parameters
     "seed": {"desc": "seed"},
@@ -64,8 +64,7 @@ JOINT_TRAINING_PARAMETERS = {
     "test": {"desc": "File path name or list of file path name. Those files will be used for evaluate our model."},
     "dev": {"desc": "File path name. Those files will be used for evaluate our model in each epoch."},
     "num_tasks": {"required": False,
-                     "desc": "Total number of tasks. You need to set this parameter when you are training a model."},
-
+                  "desc": "Total number of tasks. You need to set this parameter when you are training a model."},
 
     # Filters
     "suffix_filters": {"default": [],
@@ -157,9 +156,13 @@ def main(args):
     log.info(str(args))
 
     # Initialize some variables
+    idxSoftmaxPredict = args.predict_idx
+    numTasks = args.num_tasks
+
     wordWindowSize = args.word_window_size
     hiddenLayerSize = args.hidden_size
     # batchSize = args.batch_size
+    wordEmbeddingSize = args.word_emb_size
     batchSize = 1
     startSymbol = args.start_symbol
     endSymbol = args.end_symbol
@@ -180,8 +183,7 @@ def main(args):
 
     useSuffixFeatures = args.suffix_size > 0
     useCapFeatures = args.use_capitalization
-    idxSoftmaxPredict = args.predict_idx
-    numTasks = args.num_tasks
+
 
     # Insert the character that will be used to fill the matrix with a dimension lesser than a chosen
     # dimension.This enables to perform convolution by a matrix multiplication.
@@ -218,9 +220,9 @@ def main(args):
 
     elif args.word_embedding:
         wordLexicon, wordEmbedding = Embedding.fromWord2Vec(args.word_embedding, "UUUNKKK", "word_lexicon")
-    # elif args.word_lexicon:
-    #     wordLexicon = Lexicon.fromTextFile(args.word_lexicon, True, "word_lexicon")
-    #     wordEmbedding = Embedding(wordLexicon, vectors=None, embeddingSize=embeddingSize)
+    elif args.word_lexicon:
+        wordLexicon = Lexicon.fromTextFile(args.word_lexicon, True, "word_lexicon")
+        wordEmbedding = Embedding(wordLexicon, vectors=None, embeddingSize=wordEmbeddingSize)
     else:
         log.error("You need to set one of these parameters: load_model, word_embedding or word_lexicon")
         return
@@ -277,8 +279,8 @@ def main(args):
         for i in range(numTasks):
             labelLexiconList.append(Lexicon.fromPersistentManager(persistentManager, "label_lexicon_%d" % i))
     elif args.label_file:
-        for i in range(numTasks):
-            labelLexiconList.append(Lexicon.fromTextFile(args.label_file, False, lexiconName="label_lexicon_%d" % i))
+        for i, f in enumerate(args.label_file):
+            labelLexiconList.append(Lexicon.fromTextFile(f, False, lexiconName="label_lexicon_%d" % i))
     else:
         log.error("You need to set one of these parameters: load_model, word_embedding or word_lexicon")
         return
@@ -406,15 +408,16 @@ def main(args):
         taskLayerList.append(softmaxLayer.getLayerSet())
         allLayers |= softmaxLayer.getLayerSet()
 
-
     # Set loss function
     lossList = []
     predictionList = []
 
     for softmaxLayer in softmaxLayerList:
         # Obs: Loglikelihood do not use prediction
-        lossList.append(NegativeLogLikelihood().calculateError(softmaxLayer, None, y))
-        predictionList.append(ArgmaxPrediction(1).predict(softmaxLayerList[idxSoftmaxPredict].getOuput()))
+        layerOutput = softmaxLayer.getOutput()
+
+        lossList.append(NegativeLogLikelihood().calculateError(layerOutput, None, y))
+        predictionList.append(ArgmaxPrediction(1).predict(layerOutput))
 
     # Global loss function
     # loss = T.prod(T.stack(lossList), taskVector.T)
@@ -430,7 +433,7 @@ def main(args):
             if o.getName():
                 persistentManager.load(o)
 
-    # Set the input and output
+    # Set input generators
     inputGenerators = [WordWindowGenerator(wordWindowSize, wordLexicon, wordFilters, startSymbol, endSymbol)]
 
     if withCharWNN:
@@ -446,20 +449,22 @@ def main(args):
         if useCapFeatures:
             inputGenerators.append(CapitalizationFeatureGenerator(wordWindowSize, capLexicon, capFilters))
 
+    # Set output generator of each task
     outputGeneratorList = []
 
     for labelLexicon in labelLexiconList:
         outputGeneratorList.append(LabelGenerator(labelLexicon))
 
+    # Reading examples
     log.info("Reading training examples")
 
     if args.training_file:
         # Reading supervised and unsupervised data sets.
         batchIteratorList = []
 
-        for file, outputGenerator in izip(args.training_file, outputGeneratorList):
-            log.info("Reading %s" % file)
-            trainingDatasetReader = TokenLabelReader(file, args.token_label_separator)
+        for f, outputGenerator in izip(args.training_file, outputGeneratorList):
+            log.info("Reading %s" % f)
+            trainingDatasetReader = TokenLabelReader(f, args.token_label_separator)
             batchIteratorList.append(
                 SyncBatchIterator(trainingDatasetReader, inputGenerators, [outputGenerator], batchSize,
                                   shuffle=shuffle))
@@ -492,8 +497,8 @@ def main(args):
 
     # trainingMetrics = [LossMetric("Loss", loss)]
     taskMetrics = []
-    for taskLoss, taskPrediction in izip(lossList, predictionList):
-        metrics = [LossMetric("Loss", taskLoss), AccuracyMetric("TrainSupervisedAcc", y, taskPrediction)]
+    for idx, (taskLoss, taskPrediction) in enumerate(izip(lossList, predictionList)):
+        metrics = [LossMetric("Loss_#%d" % idx , taskLoss), AccuracyMetric("TrainSupervisedAcc_#%d" % idx, y, taskPrediction)]
         taskMetrics.append(metrics)
 
     evalMetrics = [
@@ -509,8 +514,8 @@ def main(args):
     if args.dev:
         log.info("Reading development examples")
         devDatasetReader = TokenLabelReader(args.dev, args.token_label_separator)
-        devReader = SyncBatchIterator(devDatasetReader, inputGenerators, [y], sys.maxint,
-                                      shuffle=False)
+        devReader = SyncBatchIterator(devDatasetReader, inputGenerators, [outputGeneratorList[idxSoftmaxPredict]],
+                                      sys.maxint, shuffle=False)
 
     if args.training_file:
         callbacks = []
@@ -532,11 +537,11 @@ def main(args):
 
         if args.aux_devs:
             callbacks.append(
-                DevCallback(model, args.aux_devs, args.token_label_separator, inputGenerators, [y]))
-
+                DevCallback(model, args.aux_devs, args.token_label_separator, inputGenerators,
+                            [outputGeneratorList[idxSoftmaxPredict]]))
 
         # Join all dataset in one dataset
-        iterator = BatchIteratorUnion(batchIteratorList)
+        iterator = BatchIteratorUnion(batchIteratorList, shuffle)
 
         # Training Model
         log.info("Training")
@@ -556,7 +561,8 @@ def main(args):
             for test in tests:
                 log.info("Reading test examples")
                 testDatasetReader = TokenLabelReader(test, args.token_label_separator)
-                testReader = SyncBatchIterator(testDatasetReader, inputGenerators, [y], sys.maxint, shuffle=False)
+                testReader = SyncBatchIterator(testDatasetReader, inputGenerators,
+                                               [outputGeneratorList[idxSoftmaxPredict]], sys.maxint, shuffle=False)
 
                 log.info("Testing")
                 model.test(testReader)

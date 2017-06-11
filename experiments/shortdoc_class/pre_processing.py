@@ -30,21 +30,22 @@ if __name__ == "__main__":
         sys.exit(1)
 
     inFilename = sys.argv[1]
+
     inFile = sys.stdin
     if inFilename != "-":
-        inFile = open(inFilename, "rt", "utf8")
+        inFile = open(inFilename, "rt", "utf-8")
 
     outFilename = sys.argv[2]
     outFile = sys.stdout
     if outFilename != "-":
-        outFile = open(outFilename, "wt", "utf8")
+        outFile = open(outFilename, "wt", "utf-8")
 
     tokenizer = getTokenizer()
 
     # Skip header line.
     inFile.readline()
     numExs = 0
-    print 'Reading input examples...'
+    print("Reading input examples...")
     # Recognize digits.
     patDig = re.compile('[0-9]')
     # Recognize sequence of punctuations.
@@ -62,12 +63,14 @@ if __name__ == "__main__":
         # Apply filters.
         procTokens = []
         for token in tokens:
-            if token.startswith('http:') or token.startswith('www.'):
+            if token.startswith('http:') or token.startswith('https:') or token.startswith('www.'):
                 token = "##LINK##"
             elif token.startswith("#"):
                 token = "##HASHTAG##"
             elif token.startswith("@"):
                 token = "##REF##"
+            elif token.startswith(".."):
+                token = "..."
             else:
                 token = re.sub(patDig, '0', token)
                 token = token.lower()

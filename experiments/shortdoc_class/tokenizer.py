@@ -23,12 +23,12 @@ def getTokenizer():
     [a-zA-Z0-9_.+-]+@[a-zA-Z0-9-]+(?:\.[a-zA-Z0-9-]+)+|    # emails
     (?:https?://)?\w+(?:\.\w+)+(?:/\w+)*|                  # URLs
     (?:[\#@]\w+)|                     # Hashtags and twitter user names
-    (?:[^\W\d_]\.)+|                  # one letter abbreviations, e.g. E.U.A.
+    \.{2,}|             # ellipsis or sequences of dots
+    (?:[^\W\d_]\.[^.])+|       # one letter abbreviations, e.g. E.U.A.    
     (?:[DSds][Rr][Aa]?)\.|            # common abbreviations such as dr., sr., sra., dra.
-    (?:\B-)?\d+(?:[:.,]\d+)*(?:-?\w)*|
+    (?:\B-)?\d+(?:[:.,]\d+)*(?:-?\w)*| 
         # numbers in format 999.999.999,999, possibly followed by hyphen and alphanumerics
         # \B- avoids picks as F-14 as a negative number
-    \.{3,}|                           # ellipsis or sequences of dots
     \w+|                              # alphanumerics
     -+|                               # any sequence of dashes
     \S                                # any non-space character

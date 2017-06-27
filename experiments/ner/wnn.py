@@ -20,7 +20,7 @@ from data.WordWindowGenerator import WordWindowGenerator
 from data.CharacterWindowGenerator import CharacterWindowGenerator
 from model.BasicModel import BasicModel
 from model.Metric import LossMetric, AccuracyMetric, FMetric, CustomMetric
-from model.Objective import NegativeLogLikelihood
+from model.Objective import WeightedNegativeLogLikelihood
 from model.Prediction import ArgmaxPrediction
 from nnet.ActivationLayer import ActivationLayer, softmax, tanh, sigmoid
 from nnet.EmbeddingLayer import EmbeddingLayer
@@ -245,7 +245,7 @@ def mainWnnNer(args):
         opt = SGD(lr=lr, decay=decay)
 
     # Training loss function.
-    loss = NegativeLogLikelihood().calculateError(actSoftmax.getOutput(), prediction, y)
+    loss = WeightedNegativeLogLikelihood([0.1,1,1,1,1]).calculateError(actSoftmax.getOutput(), prediction, y)
 
     # # TODO: debug
     # opt.lr.tag.test_value = 0.02

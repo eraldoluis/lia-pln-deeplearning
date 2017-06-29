@@ -34,9 +34,10 @@ class WeightedNegativeLogLikelihood(Objective):
         weights = T.reshape(self.__weights, (1,-1))
         weights = T.repeat(weights, output.shape[0], axis = 0)
         
-        return -T.mean(T.log(
-            output[T.arange(ytrue.shape[0]), ytrue] * weights[T.arange(ytrue.shape[0]), ytrue]
-        ))
+        return -T.mean(
+            T.log(output[T.arange(ytrue.shape[0]), ytrue])
+            * weights[T.arange(ytrue.shape[0]), ytrue]
+        )
 
 class NegativeLogLikelihoodOneExample(Objective):
     def __init__(self, weights=None):

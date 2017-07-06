@@ -30,7 +30,7 @@ class Graphic:
 		self.labelX = None
 		self.labelY = None
 	
-	def addfile(self, filename, label, color = None):
+	def addfile(self, filename, label, color = None, **kparams):
 		"""
 		Adds a file to the fetching list.
 		:param filename: File name to be added to list.
@@ -48,8 +48,12 @@ class Graphic:
 		elif not isinstance(color, Color):
 			color = Color(*color)
 		
-		self.source.append(type('obj', (object,), {
-			'path': filename, 'label': label, 'color': color
+		if 'lw' not in kparams.keys():
+			kparams['lw'] = 2
+		
+		self.source.append(type('fileinfo', (object,), {
+			'path': filename, 'label': label, 'color': color,
+			'param': kparams
 		}))
 		
 		return True

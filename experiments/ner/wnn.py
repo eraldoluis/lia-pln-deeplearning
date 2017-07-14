@@ -12,20 +12,20 @@ import theano.tensor as T
 
 from args.JsonArgParser import JsonArgParser
 from data.BatchIterator import SyncBatchIterator
+from data.CharacterWindowGenerator import CharacterWindowGenerator
 from data.Embedding import Embedding
 from data.LabelGenerator import LabelGenerator
 from data.Lexicon import Lexicon
-from data.TokenDatasetReader import TokenLabelReader, TokenLabelPerLineReader
+from data.TokenDatasetReader import TokenLabelPerLineReader
 from data.WordWindowGenerator import WordWindowGenerator
-from data.CharacterWindowGenerator import CharacterWindowGenerator
 from model.BasicModel import BasicModel
 from model.Metric import LossMetric, AccuracyMetric, FMetric, CustomMetric
-from model.Objective import WeightedNegativeLogLikelihood
+from model.Objective import NegativeLogLikelihood
 from model.Prediction import ArgmaxPrediction
 from nnet.ActivationLayer import ActivationLayer, softmax, tanh, sigmoid
-from nnet.EmbeddingLayer import EmbeddingLayer
-from nnet.EmbeddingConvolutionalLayer import EmbeddingConvolutionalLayer
 from nnet.ConcatenateLayer import ConcatenateLayer
+from nnet.EmbeddingConvolutionalLayer import EmbeddingConvolutionalLayer
+from nnet.EmbeddingLayer import EmbeddingLayer
 from nnet.FlattenLayer import FlattenLayer
 from nnet.LinearLayer import LinearLayer
 from nnet.WeightGenerator import ZeroWeightGenerator, GlorotUniform, SigmoidGlorot
@@ -158,10 +158,10 @@ def mainWnnNer(args):
     if normalizeMethod is not None:
         if normalizeMethod == "minmax":
             log.info("Normalizing word embedding: minmax")
-            wordEmbedding.minMaxNormalization()
+            wordEmbedding.minMaxNormalization(0.1)
         elif normalizeMethod == "mean":
             log.info("Normalizing word embedding: mean")
-            wordEmbedding.meanNormalization()
+            wordEmbedding.meanNormalization(0.1)
         else:
             log.error("Unknown normalization method: %s" % normalizeMethod)
             sys.exit(1)
@@ -245,7 +245,7 @@ def mainWnnNer(args):
         opt = SGD(lr=lr, decay=decay)
 
     # Training loss function.
-    loss = WeightedNegativeLogLikelihood([0.1,1,1,1,1]).calculateError(actSoftmax.getOutput(), prediction, y)
+    loss = NegativeLogLikelihood().calculateError(actSoftmax.getOutput(), prediction, y)
 
     # # TODO: debug
     # opt.lr.tag.test_value = 0.02

@@ -59,7 +59,10 @@ class Plotter:
 		xval = range(*self.graphic.range.indices(xlen))
 
 		for d in data:
-			plt.plot(xval, d.data, color=d.file.color.raw(), lw=2, label=d.file.label)
+			plt.plot(
+				xval, d.data, color=d.file.color.raw(),
+				label=d.file.label, **d.file.param
+			)
 			
 		plt.axis((0, xlen) + axis)
 		self.labels()

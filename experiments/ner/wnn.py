@@ -38,20 +38,17 @@ WNN_PARAMETERS = {
         "required": False,
         "desc": "a list which contains the filters. Each filter is describe by your module name + . + class name"
     },
-
     "label_file": {
         "required": True,
         "desc": "file with all possible labels"
     },
-
     "word_lexicon": {
         "desc": "word lexicon"
     },
-    
     "char_lexicon": {
         "desc": "char lexicon"
     },
-    
+
     # Datasets.
     "train": {
         "required": True,
@@ -78,15 +75,16 @@ WNN_PARAMETERS = {
     # Basic NN parameters
     "normalization": {"desc": "Choose the normalize method to be applied on word embeddings. "
                               "The possible values are: minmax or mean"},
+    "normFactor": {"desc": "Factor to be multiplied by the normalized word vectors."},
     "hidden_size": {"default": 300, "desc": "The number of neurons in the hidden layer"},
     "word_emb_size": {"default": 100, "desc": "size of word embedding"},
     "word_embedding": {"desc": "word embedding File Path"},
     "word_window_size": {"default": 5, "desc": "The size of words for the wordsWindow"},
-    
+
     "conv_size": {"default": 50, "desc": "The number of neurons in the convolutional layer"},
     "char_emb_size": {"default": 10, "desc": "The size of char embedding"},
     "char_window_size": {"default": 5, "desc": "The size of character windows."},
-    
+
     # Other parameter
     "start_symbol": {"default": "</s>", "desc": "Object that will be place when the initial limit of list is exceeded"},
     "end_symbol": {"default": "</s>", "desc": "Object that will be place when the end limit of list is exceeded"},
@@ -156,25 +154,32 @@ def mainWnnNer(args):
 
     # Normalize the word embedding
     if normalizeMethod is not None:
+        normFactor = 1
+        if args.normFactor is not None:
+            normFactor = args.normFactor
+
         if normalizeMethod == "minmax":
             log.info("Normalizing word embedding: minmax")
-            wordEmbedding.minMaxNormalization(0.1)
+            wordEmbedding.minMaxNormalization(norm_coef=normFactor)
         elif normalizeMethod == "mean":
             log.info("Normalizing word embedding: mean")
-            wordEmbedding.meanNormalization(0.1)
+            wordEmbedding.meanNormalization(norm_coef=normFactor)
         else:
             log.error("Unknown normalization method: %s" % normalizeMethod)
             sys.exit(1)
+    elif args.normFactor is not None:
+        log.error("Parameter normFactor cannot be present without normalization.")
+        sys.exit(1)
 
     dictionarySize = wordEmbedding.getNumberOfVectors()
     log.info("Size of word lexicon is %d and word embedding size is %d" % (dictionarySize, embeddingSize))
 
     # Setup the input and (golden) output generators (readers).
     inputGenerators = [
-	    WordWindowGenerator(wordWindowSize, wordLexicon, wordFilters, startSymbol, endSymbol),
-	    CharacterWindowGenerator(charLexicon, 20, charWindowSize, wordWindowSize, "ART_CHAR", "</s>",
-	                             startPaddingWrd=startSymbol, endPaddingWrd=endSymbol,
-	                             filters=getFilters([], log))
+        WordWindowGenerator(wordWindowSize, wordLexicon, wordFilters, startSymbol, endSymbol),
+        CharacterWindowGenerator(charLexicon, 20, charWindowSize, wordWindowSize, "ART_CHAR", "</s>",
+                                 startPaddingWrd=startSymbol, endPaddingWrd=endSymbol,
+                                 filters=getFilters([], log))
     ]
     outputGenerator = LabelGenerator(labelLexicon)
 
@@ -203,7 +208,7 @@ def mainWnnNer(args):
     charEmbeddingConvLayer = EmbeddingConvolutionalLayer(charWindowIdxs, charEmbedding.getEmbeddingMatrix(), 20,
                                                          charConvSize, charWindowSize, charEmbeddingSize, tanh,
                                                          name="char_convolution_layer")
-    
+
     layerBeforeLinear = ConcatenateLayer([flatWordEmbedding, charEmbeddingConvLayer])
     sizeLayerBeforeLinear = wordWindowSize * (wordEmbedding.getEmbeddingSize() + charConvSize)
 

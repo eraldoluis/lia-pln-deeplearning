@@ -299,6 +299,7 @@ def mainWnnNer(args):
         log.info("Testing...")
         wnnModel.test(testReader)
 
+    log.info("Done!")
 
 def getFilters(param, log):
     filters = []

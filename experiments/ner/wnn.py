@@ -8,6 +8,7 @@ import os
 import random
 import sys
 
+import theano
 import theano.tensor as T
 
 from args.JsonArgParser import JsonArgParser
@@ -101,10 +102,10 @@ def mainWnnNer(args):
         np.random.seed(args.seed)
 
     log.info(str(args))
-    
+
     # GPU configuration.
-    log.info("floatX=", theano.config.floatX)
-    log.info("device=", theano.config.device)
+    log.info("floatX=%s" % str(theano.config.floatX))
+    log.info("device=%s" % str(theano.config.device))
 
     # Parameters.
     lr = args.lr

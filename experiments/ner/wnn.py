@@ -101,6 +101,10 @@ def mainWnnNer(args):
         np.random.seed(args.seed)
 
     log.info(str(args))
+    
+    # GPU configuration.
+    log.info("floatX=", theano.config.floatX)
+    log.info("device=", theano.config.device)
 
     # Parameters.
     lr = args.lr

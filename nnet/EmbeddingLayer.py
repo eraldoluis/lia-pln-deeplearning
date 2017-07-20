@@ -80,8 +80,7 @@ class EmbeddingLayer(Layer):
 
         # Matrix of the active parameters for the given examples.
         # Its shape is (numExs * szEx, szEmb).
-        input = self.getInput()
-        flat = T.flatten(input, 1)
+        flat = T.flatten(_input, 1)
         self.__activeVectors = self.__embedding[flat]
 
         #
@@ -91,17 +90,17 @@ class EmbeddingLayer(Layer):
         # This variable holds the same information as self.__activeVectors,
         # but with a different shape.
         #
-        self.__output = self.__embedding[input]
+        self.__output = self.__activeVectors.reshape((_input.shape[0], _input.shape[1], -1))
 
     def getUpdates(self, cost, learningRate, sumSqGrads=None):
         if self.__structGrad:
             # shape = (numExs, szEx * szEmb)
-            grad = T.grad(cost, self.__output)
+            grad = T.grad(cost, self.__activeVectors)
 
             # Reshape the gradient vector as self.__activeVectors, since these 
             # are the parameters to be updated, which follow the shape of the
             # embedding itself (in fact, a subtensor of the embedding).
-            grad = grad.reshape(self.__activeVectors.shape)
+            # grad = grad.reshape(self.__activeVectors.shape)
 
             # List of updates.
             updates = []

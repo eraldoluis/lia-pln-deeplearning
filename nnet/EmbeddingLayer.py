@@ -86,7 +86,7 @@ class EmbeddingLayer(Layer):
 
         #
         # Output of the layer for the given examples.
-        # Its shape is (numExs, szEx * szEmb).
+        # Its shape is (numExs, szEx, szEmb).
         #
         # This variable holds the same information as self.__activeVectors,
         # but with a different shape.

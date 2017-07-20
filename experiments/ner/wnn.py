@@ -68,23 +68,26 @@ WNN_PARAMETERS = {
     "batch_size": {"default": 1},
     "decay": {"default": "DIVIDE_EPOCH",
               "desc": "Set the learning rate update strategy. NORMAL and DIVIDE_EPOCH are the options available"},
-    "hidden_activation_function": {"default": "tanh",
-                                   "desc": "the activation function of the hidden layer. The possible values are: tanh and sigmoid"},
     "num_epochs": {"desc": "Number of epochs: how many iterations over the training set."},
     "shuffle": {"default": True, "desc": "enable the shuffle of training examples."},
 
-    # Basic NN parameters
+    # Word embedding.
     "normalization": {"desc": "Choose the normalize method to be applied on word embeddings. "
                               "The possible values are: minmax or mean"},
     "normFactor": {"desc": "Factor to be multiplied by the normalized word vectors."},
-    "hidden_size": {"default": 300, "desc": "The number of neurons in the hidden layer"},
     "word_emb_size": {"default": 100, "desc": "size of word embedding"},
     "word_embedding": {"desc": "word embedding File Path"},
     "word_window_size": {"default": 5, "desc": "The size of words for the wordsWindow"},
 
+    # Character embedding.
     "conv_size": {"default": 50, "desc": "The number of neurons in the convolutional layer"},
     "char_emb_size": {"default": 10, "desc": "The size of char embedding"},
     "char_window_size": {"default": 5, "desc": "The size of character windows."},
+
+    # Hidden layer.
+    "hidden_size": {"default": 300, "desc": "The number of neurons in the hidden layer"},
+    "hidden_activation_function": {"default": "tanh",
+                                   "desc": "the activation function of the hidden layer. The possible values are: tanh and sigmoid"},
 
     # Other parameter
     "start_symbol": {"default": "</s>", "desc": "Object that will be place when the initial limit of list is exceeded"},
@@ -188,10 +191,10 @@ def mainWnnNer(args):
     ]
     outputGenerator = LabelGenerator(labelLexicon)
 
-    log.info("Reading training examples")
+    log.info("Reading training examples...")
 
-    trainDatasetReader = TokenLabelPerLineReader(args.train, labelTknSep='\t')
-    trainReader = SyncBatchIterator(trainDatasetReader, inputGenerators, [outputGenerator], batchSize, shuffle=shuffle)
+    trainIterator = SyncBatchIterator(TokenLabelPerLineReader(args.train, labelTknSep='\t'), inputGenerators,
+                                      [outputGenerator], batchSize, shuffle=shuffle)
 
     # Build neural network
     wordWindow = T.lmatrix("word_window")
@@ -232,12 +235,11 @@ def mainWnnNer(args):
     prediction = ArgmaxPrediction(1).predict(actSoftmax.getOutput())
 
     # Get dev inputs and (golden) outputs.
+    devIterator = None
     if args.dev is not None:
         log.info("Reading development examples")
-        devDatasetReader = TokenLabelPerLineReader(args.dev, labelTknSep='\t')
-        devReader = SyncBatchIterator(devDatasetReader, inputGenerators, [outputGenerator], sys.maxint, shuffle=False)
-    else:
-        devReader = None
+        devIterator = SyncBatchIterator(TokenLabelPerLineReader(args.dev, labelTknSep='\t'), inputGenerators,
+                                        [outputGenerator], sys.maxint, shuffle=False)
 
     # Output symbolic tensor variable.
     y = T.lvector("y")
@@ -266,19 +268,23 @@ def mainWnnNer(args):
         AccuracyMetric("AccTrain", y, prediction),
     ]
 
-    evalMetrics = [
-        LossMetric("LossDev", loss, True),
-        AccuracyMetric("AccDev", y, prediction),
-        FMetric("FMetricDev", y, prediction),
-        CustomMetric("CustomMetricDev", y, prediction),
-    ]
+    evalMetrics = None
+    if args.dev:
+        evalMetrics = [
+            LossMetric("LossDev", loss, True),
+            AccuracyMetric("AccDev", y, prediction),
+            FMetric("FMetricDev", y, prediction),
+            CustomMetric("CustomMetricDev", y, prediction),
+        ]
 
-    testMetrics = [
-        LossMetric("LossTest", loss, True),
-        AccuracyMetric("AccTest", y, prediction),
-        FMetric("FMetricTest", y, prediction),
-        CustomMetric("CustomMetricTest", y, prediction),
-    ]
+    testMetrics = None
+    if args.test:
+        testMetrics = [
+            LossMetric("LossTest", loss, True),
+            AccuracyMetric("AccTest", y, prediction),
+            FMetric("FMetricTest", y, prediction),
+            CustomMetric("CustomMetricTest", y, prediction),
+        ]
 
     log.info("Compiling the network...")
     # # TODO: debug
@@ -288,18 +294,19 @@ def mainWnnNer(args):
                           evalMetrics=evalMetrics, testMetrics=testMetrics, mode=mode)
 
     log.info("Training...")
-    wnnModel.train(trainReader, numEpochs, devReader)
+    wnnModel.train(trainIterator, numEpochs, devIterator)
 
     # Testing.
     if args.test:
         log.info("Reading test dataset...")
-        testDatasetReader = TokenLabelPerLineReader(args.test, labelTknSep='\t')
-        testReader = SyncBatchIterator(testDatasetReader, inputGenerators, [outputGenerator], sys.maxint, shuffle=False)
+        testIterator = SyncBatchIterator(TokenLabelPerLineReader(args.test, labelTknSep='\t'), inputGenerators,
+                                         [outputGenerator], sys.maxint, shuffle=False)
 
         log.info("Testing...")
-        wnnModel.test(testReader)
+        wnnModel.test(testIterator)
 
     log.info("Done!")
+
 
 def getFilters(param, log):
     filters = []

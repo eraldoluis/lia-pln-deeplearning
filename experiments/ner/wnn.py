@@ -70,6 +70,8 @@ WNN_PARAMETERS = {
               "desc": "Set the learning rate update strategy. NORMAL and DIVIDE_EPOCH are the options available"},
     "num_epochs": {"desc": "Number of epochs: how many iterations over the training set."},
     "shuffle": {"default": True, "desc": "enable the shuffle of training examples."},
+    "struct_grad": {"default": True, "desc": "Structured gradient for the word embedding layer."},
+    "char_struct_grad": {"default": True, "desc": "Structured gradient for the character embedding layer."},
 
     # Word embedding.
     "normalization": {"desc": "Choose the normalize method to be applied on word embeddings. "
@@ -122,6 +124,8 @@ def mainWnnNer(args):
     hiddenActFunctionName = args.hidden_activation_function
     embeddingSize = args.word_emb_size
     batchSize = args.batch_size
+    structGrad = args.struct_grad
+    charStructGrad = args.char_struct_grad
 
     charEmbeddingSize = args.char_emb_size
     charWindowSize = args.char_window_size
@@ -200,8 +204,8 @@ def mainWnnNer(args):
     wordWindow = T.lmatrix("word_window")
     inputModel = [wordWindow]
 
-    wordEmbeddingLayer = EmbeddingLayer(wordWindow, wordEmbedding.getEmbeddingMatrix(), trainable=True,
-                                        name="word_embedding_layer")
+    wordEmbeddingLayer = EmbeddingLayer(wordWindow, wordEmbedding.getEmbeddingMatrix(), structGrad=structGrad,
+                                        trainable=True, name="word_embedding_layer")
     flatWordEmbedding = FlattenLayer(wordEmbeddingLayer)
 
     charWindowIdxs = T.ltensor4(name="char_window_idx")
@@ -215,7 +219,7 @@ def mainWnnNer(args):
 
     charEmbeddingConvLayer = EmbeddingConvolutionalLayer(charWindowIdxs, charEmbedding.getEmbeddingMatrix(), 20,
                                                          charConvSize, charWindowSize, charEmbeddingSize, tanh,
-                                                         name="char_convolution_layer")
+                                                         structGrad=charStructGrad, name="char_convolution_layer")
 
     layerBeforeLinear = ConcatenateLayer([flatWordEmbedding, charEmbeddingConvLayer])
     sizeLayerBeforeLinear = wordWindowSize * (wordEmbedding.getEmbeddingSize() + charConvSize)

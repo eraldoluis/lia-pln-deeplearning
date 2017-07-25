@@ -72,6 +72,7 @@ WNN_PARAMETERS = {
     "shuffle": {"default": True, "desc": "enable the shuffle of training examples."},
     "struct_grad": {"default": True, "desc": "Structured gradient for the word embedding layer."},
     "char_struct_grad": {"default": True, "desc": "Structured gradient for the character embedding layer."},
+    "l2": {"desc": "L2 regularization parameter (multiplier)."},
 
     # Word embedding.
     "normalization": {"desc": "Choose the normalize method to be applied on word embeddings. "
@@ -263,6 +264,10 @@ def mainWnnNer(args):
     # Training loss function.
     loss = NegativeLogLikelihood().calculateError(actSoftmax.getOutput(), prediction, y)
 
+    # L2 regularization.
+    if args.l2:
+        loss += args.l2 * (T.sum(T.square(linearHidden.getParameters()[0])))
+
     # # TODO: debug
     # opt.lr.tag.test_value = 0.02
 
@@ -277,17 +282,13 @@ def mainWnnNer(args):
         evalMetrics = [
             LossMetric("LossDev", loss, True),
             AccuracyMetric("AccDev", y, prediction),
-            FMetric("FMetricDev", y, prediction),
             CustomMetric("CustomMetricDev", y, prediction),
         ]
 
     testMetrics = None
     if args.test:
         testMetrics = [
-            LossMetric("LossTest", loss, True),
-            AccuracyMetric("AccTest", y, prediction),
-            FMetric("FMetricTest", y, prediction),
-            CustomMetric("CustomMetricTest", y, prediction),
+            CustomMetric("CustomMetricTest", y, prediction)
         ]
 
     log.info("Compiling the network...")

@@ -137,5 +137,5 @@ class Layer(PersistentObject):
     def getAttributes(self):
         return None
 
-    def load(self,attributes):
+    def load(self, attributes):
         pass

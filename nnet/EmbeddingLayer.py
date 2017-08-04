@@ -20,7 +20,7 @@ class EmbeddingLayer(Layer):
     These vectors comprise the learnable parameters of this layer.
     """
 
-    def __init__(self, _input, embedding, structGrad=True, trainable=True, name=None):
+    def __init__(self, _input, embedding, borrow=True, structGrad=True, trainable=True, name=None):
         """
         :param _input: _input need be a matrix with 2 dimensions
 
@@ -31,6 +31,8 @@ class EmbeddingLayer(Layer):
             Each row corresponds to a weight vector that represents a feature
             value (this feature embedding). For instance, when using word
             embeddings, each row stores a word vector.
+
+        :param borrow: borrow attribute when creating the shared variable for the given embedding matrix.
         
         :param structGrad: whether to use structured gradients or not.
             When using small batches (online gradient descent, in the limit),
@@ -71,7 +73,7 @@ class EmbeddingLayer(Layer):
             if isinstance(embedding, list):
                 embedding = numpy.asarray(embedding, dtype=theano.config.floatX)
 
-            self.__embedding = theano.shared(value=embedding, name='embedding', borrow=True)
+            self.__embedding = theano.shared(value=embedding, name='embedding', borrow=borrow)
         else:
             self.__embedding = embedding
 

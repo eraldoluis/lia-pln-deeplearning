@@ -34,27 +34,32 @@ class LinearLayer(Layer):
         super(LinearLayer, self).__init__(_input, trainable, name)
 
         if not isinstance(W, TensorSharedVariable):
-            if isinstance(W, (numpy.ndarray, list)):
-                W_values = numpy.asarray(W, dtype=theano.config.floatX)
+            if W is None:
+                # Initialize according to the given initialization method.
+                W = numpy.asarray(weightInitialization.generateWeight((lenIn, lenOut)), dtype=theano.config.floatX)
+            elif isinstance(W, (numpy.ndarray, list)):
+                # Initialize with the given values (numpy array or list of values).
+                W = numpy.asarray(W, dtype=theano.config.floatX)
             else:
-                W_values = numpy.asarray(
-                    weightInitialization.generateWeight((lenIn, lenOut)),
-                    dtype=theano.config.floatX
-                )
+                # Unknown value provided.
+                raise Exception("Provided 'W' value is not from a supported type!")
 
-            W = theano.shared(value=W_values, name='W_hiddenLayer', borrow=True)
+            W = theano.shared(value=W, name='W_hiddenLayer', borrow=True)
 
         if not isinstance(b, TensorSharedVariable):
-            if isinstance(b, (numpy.ndarray, list)):
-                b_values = numpy.asarray(b, dtype=theano.config.floatX)
+            if b is None:
+                b = numpy.zeros(lenOut, dtype=theano.config.floatX)
+            elif isinstance(b, (numpy.ndarray, list)):
+                b = numpy.asarray(b, dtype=theano.config.floatX)
             else:
-                b_values = numpy.zeros(lenOut, dtype=theano.config.floatX)
+                raise Exception("Provided 'b' value is not from a supported type!")
 
-            b = theano.shared(value=b_values, name='b_hiddenLayer', borrow=True)
+            b = theano.shared(value=b, name='b_hiddenLayer', borrow=True)
 
         self.W = W
         self.b = b
 
+        # Output variable.
         self.__output = T.dot(self.getInput(), self.W) + self.b
 
         # parameters of the model
@@ -75,7 +80,6 @@ class LinearLayer(Layer):
     def getUpdates(self, cost, lr, sumSqGrads=None):
         return []
 
-
     @staticmethod
     def getParametersFromPersistenceManager(persistenceManager, name):
         """
@@ -89,8 +93,7 @@ class LinearLayer(Layer):
         :return:  a tuple with  W e b values
         """
         attrs = persistenceManager.getObjAttributesByObjName(name)
-
-        return (numpy.array(attrs["w"]), numpy.array(attrs["b"]))
+        return numpy.array(attrs["w"]), numpy.array(attrs["b"])
 
     def getAttributes(self):
         return {

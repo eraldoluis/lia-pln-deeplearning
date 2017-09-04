@@ -20,7 +20,7 @@ from data.FeatureGenerator import FeatureGenerator
 from data.Lexicon import Lexicon
 from data.WordWindowGenerator import WordWindowGenerator
 from model.BasicModel import BasicModel
-from model.Metric import LossMetric, AccuracyMetric, FMetric
+from model.Metric import LossMetric, AccuracyMetric, FMetric,PredictedProbabilities
 from model.Objective import NegativeLogLikelihoodOneExample
 from model.Prediction import ArgmaxPrediction
 from nnet.ActivationLayer import ActivationLayer, softmax, tanh
@@ -81,7 +81,12 @@ PARAMETERS = {
     "shuffle": {"default": True,
                 "desc": "Enable or disable shuffling of the training examples."},
     "label_weights": {"desc": "List of weights for each label. These weights are used in the loss function."},
-    "seed": {"desc": "Random number generator seed."}
+    "seed": {"desc": "Random number generator seed."},
+    "eval_probs": {
+        "desc": "Output class probabilities for dev instances.",
+        "default": False
+    }
+
 }
 
 
@@ -418,6 +423,9 @@ def main():
             AccuracyMetric("EvalAccuracy", outLabel, prediction),
             FMetric("EvalFMetric", outLabel, prediction, labels=labelLexicon.getLexiconDict().values())
         ]
+        if args.eval_probs:
+        # Append predicted probabilities for the test set.
+            evalMetrics.append(PredictedProbabilities("EvalProbs", softmaxAct.getOutput()))
 
     # Test metrics.
     testMetrics = None

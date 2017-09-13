@@ -250,12 +250,12 @@ class FMetric(Metric):
         numLabels = len(labels)
         macroP /= numLabels
         macroR /= numLabels
-        macroF = (1 + beta) * macroP * macroR / (beta * macroP + macroR) if (beta*macroP + macroR) > 0 else 0
+        macroF = (1 + beta) * macroP * macroR / (beta * macroP + macroR)
 
         # Micro-averaged metrics.
-        microP = tpAccum / (tpAccum + fpAccum) if (tpAccum + fpAccum) > 0 else 0
-        microR = tpAccum / (tpAccum + fnAccum) if (tpAccum + fnAccum) > 0 else 0
-        microF = (1 + beta) * microP * microR / (beta * microP + microR) if (beta*microP + microR) > 0 else 0
+        microP = tpAccum / (tpAccum + fpAccum)
+        microR = tpAccum / (tpAccum + fnAccum)
+        microF = (1 + beta) * microP * microR / (beta * microP + microR)
 
         return {
             "numExamples": self.numExamples,

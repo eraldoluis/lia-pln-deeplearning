@@ -150,6 +150,7 @@ class Embedding(object):
             word = splitLine[0]
 
             if len(word) == 0:
+                log.warning("Found an empty word in the embedding. Its vector will be ignored.")
                 log.warning("Insert in the embedding a empty string. This embeddings will be thrown out.")
                 nmEmptyWords += 1
                 continue
@@ -158,7 +159,7 @@ class Embedding(object):
 
             if word == unknownSymbol:
                 if len(vectors[0]) != 0:
-                    raise Exception("A unknown symbol was already inserted.")
+                    raise Exception("An unknown symbol was already inserted.")
 
                 vectors[0] = vec
             else:
@@ -168,7 +169,7 @@ class Embedding(object):
         if len(vectors[0]) == 0:
             vectors[0] = FeatureVectorsGenerator().generateVector(embeddingSize)
 
-        if int(nmWords) != lexicon.getLen() - 1 + nmEmptyWords:
+        if int(nmWords) != lexicon.getLen() + nmEmptyWords:
             raise Exception("The size of lexicon is different of number of vectors")
 
         fVec.close()

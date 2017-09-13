@@ -1,5 +1,6 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
+import sys
 from random import random
 from argparse import ArgumentParser
 
@@ -12,8 +13,8 @@ def split(filename, bias = 0.5):
 	:param filename: File to be split.
 	:param bias: Biasing value.
 	"""
-	selectfile = open(filename + "_train.txt", "w")
-	rejectfile = open(filename + "_dev.txt", "w")
+	selectfile = open(filename + "_selected.txt", "w")
+	rejectfile = open(filename + "_rejected.txt", "w")
 	targetfile = (selectfile, rejectfile)
 	counter = [0, 0]
 

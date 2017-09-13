@@ -288,6 +288,7 @@ class Model(object):
                     mOut.append(outputs.pop(0))
 
                 # Update metric values.
+                m.update(batchSize, *mOut)
                 r = m.update(batchSize, *mOut)
 
                 if r is not None:

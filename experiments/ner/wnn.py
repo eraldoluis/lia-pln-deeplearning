@@ -190,6 +190,7 @@ def mainWnnNer(args):
     wordEmbeddingLayer = EmbeddingLayer(wordWindow, wordEmbedding.getEmbeddingMatrix(), trainable=True,
                                         name="word_embedding_layer")
     flatWordEmbedding = FlattenLayer(wordEmbeddingLayer)
+    sizeLayerBeforeLinear = wordWindowSize * wordEmbedding.getEmbeddingSize()
 
     charWindowIdxs = T.ltensor4(name="char_window_idx")
     inputModel.append(charWindowIdxs)
@@ -210,7 +211,7 @@ def mainWnnNer(args):
     hiddenActFunction = method_name(hiddenActFunctionName)
     weightInit = SigmoidGlorot() if hiddenActFunction == sigmoid else GlorotUniform()
 
-    linearHidden = LinearLayer(layerBeforeLinear, sizeLayerBeforeLinear, hiddenLayerSize,
+    linearHidden = LinearLayer(flatWordEmbedding, sizeLayerBeforeLinear, hiddenLayerSize,
                                weightInitialization=weightInit,
                                name="linear1")
     actHidden = ActivationLayer(linearHidden, hiddenActFunction)
@@ -220,6 +221,15 @@ def mainWnnNer(args):
                                 name="linear_softmax")
     actSoftmax = ActivationLayer(linearSoftmax, softmax)
     prediction = ArgmaxPrediction(1).predict(actSoftmax.getOutput())
+
+    # Setup the input and (golden) output generators (readers).
+    inputGenerators = [WordWindowGenerator(wordWindowSize, wordLexicon, wordFilters, startSymbol, endSymbol)]
+    outputGenerator = LabelGenerator(labelLexicon)
+
+    log.info("Reading training examples")
+
+    trainDatasetReader = TokenLabelPerLineReader(args.train, labelTknSep='\t')
+    trainReader = SyncBatchIterator(trainDatasetReader, inputGenerators, [outputGenerator], batchSize, shuffle=shuffle)
 
     # Get dev inputs and (golden) outputs.
     if args.dev is not None:
@@ -275,7 +285,7 @@ def mainWnnNer(args):
     # mode = theano.compile.debugmode.DebugMode(optimizer=None)
     mode = None
     wnnModel = BasicModel(inputModel, [y], actSoftmax.getLayerSet(), opt, prediction, loss, trainMetrics=trainMetrics,
-                          evalMetrics=evalMetrics, testMetrics=testMetrics, mode=mode)
+                          evalMetrics=evalMetrics, testMetrics=testMetrics, mode=None)
 
     log.info("Training...")
     wnnModel.train(trainReader, numEpochs, devReader)

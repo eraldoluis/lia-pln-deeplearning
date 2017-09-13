@@ -29,13 +29,10 @@ class Embedding(object):
         """
         Creates a embedding object from lexicon and vectors.
         If vectors is none, so each word in the lexicon will be represented by a random vector with embeddingSize dimensions.
-
         :type lexicon: data.Lexicon.Lexicon
         :params lexicon: a Lexicon object
-
         :type vectors: [[int]] | numpy.array | None
         :params vectors: embedding list
-
         :params embeddingSize: the number of dimensions of vectors. This only will be used when the vectors is none
         """
         self.__lexicon = lexicon
@@ -126,10 +123,8 @@ class Embedding(object):
     def fromWord2Vec(w2vFile, unknownSymbol, lexiconName=None):
         """
         Creates  a lexicon and a embedding from word2vec file.
-
         :param w2vFile: path of file
         :param unknownSymbol: the string that represents the unknown words.
-
         :return: (data.Lexicon.Lexicon, Embedding)
         """
         log = logging.getLogger(__name__)
@@ -150,7 +145,6 @@ class Embedding(object):
             word = splitLine[0]
 
             if len(word) == 0:
-                log.warning("Found an empty word in the embedding. Its vector will be ignored.")
                 log.warning("Insert in the embedding a empty string. This embeddings will be thrown out.")
                 nmEmptyWords += 1
                 continue
@@ -159,7 +153,7 @@ class Embedding(object):
 
             if word == unknownSymbol:
                 if len(vectors[0]) != 0:
-                    raise Exception("An unknown symbol was already inserted.")
+                    raise Exception("A unknown symbol was already inserted.")
 
                 vectors[0] = vec
             else:
@@ -169,7 +163,7 @@ class Embedding(object):
         if len(vectors[0]) == 0:
             vectors[0] = FeatureVectorsGenerator().generateVector(embeddingSize)
 
-        if int(nmWords) != lexicon.getLen() + nmEmptyWords:
+        if int(nmWords) != lexicon.getLen() - 1 + nmEmptyWords:
             raise Exception("The size of lexicon is different of number of vectors")
 
         fVec.close()

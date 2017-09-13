@@ -60,6 +60,7 @@ PARAMETERS = {
     "trained_wb": {"desc": "pre trained word embedding File Path"},
     "trained_conv": {"desc": "pre trained convolution layer File Path"},
     "trained_hiddenLayer": {"desc": "pre trained hidden layer File Path"},
+    "trained_softmax": {"desc": "pre trained softmax layer File Path"},
     "normalization": {"desc": "Choose the normalization method to be applied on  word embeddings. " +
                               "The possible values are: 'minmax', 'mean', 'zscore'."},
     "fix_word_embedding": {
@@ -264,7 +265,11 @@ def main():
     # Lookup table for word features.
     embeddingLayer = EmbeddingLayer(inWords, wordEmbedding.getEmbeddingMatrix(), trainable=embLayerTrainable)
 
-    #embeddingLayer.loadFromArray(np.load(args.trained_wb))
+    if not args.train and args.trained_wb:
+        attrs = np.load(args.trained_wb)
+        embeddingLayer.load(attrs)
+        log.info("Loaded word embedding (shape %s) from file %s" % (
+            str(attrs[0].shape), args.trained_wb))
 
     # A saída da lookup table possui 3 dimensões (numTokens, szWindow, szEmbedding).
     # Esta camada dá um flat nas duas últimas dimensões, produzindo uma saída
@@ -278,11 +283,11 @@ def main():
     convW = None
     convb = None
 
-    if args.trained_conv:
+    if not args.train and args.trained_conv:
         convNPY = np.load(args.trained_conv)
         convW = convNPY[0]
         convb = convNPY[1]
-        print("Convolution layer pretrained!")
+        log.info("Loaded convolutional layer (shape %s) from file %s" % (str(convW.shape), args.trained_conv))
 
     convLinear = LinearLayer(flattenInput,
                              wordWindowSize * wordEmbedding.getEmbeddingSize(),
@@ -293,11 +298,11 @@ def main():
     maxPooling = MaxPoolingLayer(convLinear)
 
     # Hidden layer.
-    if args.trained_hiddenLayer:
+    if not args.train and args.trained_hiddenLayer:
         hiddenNPY = np.load(args.trained_hiddenLayer)
         W1 = hiddenNPY[0]
         b1 = hiddenNPY[1]
-        print("Hidden layer pretrained!")
+        log.info("Loaded hidden layer (shape %s) from file %s" % (str(W1.shape), args.trained_hiddenLayer))
 
     hiddenLinear = LinearLayer(maxPooling,
                                convSize,
@@ -308,11 +313,18 @@ def main():
     hiddenAct = ActivationLayer(hiddenLinear, tanh)
 
     # Entrada linear da camada softmax.
+    if not args.train and args.trained_softmax:
+        hiddenNPY = np.load(args.trained_softmax)
+        W2 = hiddenNPY[0]
+        b2 = hiddenNPY[1]
+        log.info("Loaded softmax layer (shape %s) from file %s" % (str(W2.shape), args.trained_softmax))
+
     sotmaxLinearInput = LinearLayer(hiddenAct,
                                     hiddenLayerSize,
                                     labelLexicon.getLen(),
                                     W=W2, b=b2,
                                     weightInitialization=ZeroWeightGenerator())
+
     # Softmax.
     # softmaxAct = ReshapeLayer(ActivationLayer(sotmaxLinearInput, softmax), (1, -1))
     softmaxAct = ActivationLayer(sotmaxLinearInput, softmax)
@@ -449,6 +461,7 @@ def main():
             AccuracyMetric("TestAccuracy", outLabel, prediction),
             FMetric("TestFMetric", outLabel, prediction, labels=labelLexicon.getLexiconDict().values())
         ]
+
     # TODO: debug
     # mode = theano.compile.debugmode.DebugMode(optimizer=None)
     mode = None
@@ -464,9 +477,19 @@ def main():
                        mode=mode)
 
     # Training
-    #if trainIterator:
-        #log.info("Training")
-        #model.train(trainIterator, numEpochs, devIterator, evalPerIteration=evalPerIteration)
+    if trainIterator:
+        log.info("Training")
+        model.train(trainIterator, numEpochs, devIterator, evalPerIteration=evalPerIteration)
+
+        if args.trained_wb:
+            wordLexicon.save(args.word_lexicon)
+            embeddingLayer.save(args.trained_wb)
+        if args.trained_conv:
+            convLinear.save(args.trained_conv)
+        if args.trained_hiddenLayer:
+            hiddenLinear.save(args.trained_hiddenLayer)
+        if args.trained_softmax:
+            sotmaxLinearInput.save(args.trained_softmax)
 
     # Testing
     if args.test:
@@ -480,11 +503,6 @@ def main():
 
         log.info("Testing")
         model.test(testIterator)
-
-        #wordLexicon.save("/home/igor/Desktop/LIA/testes/wordLexicon_15.txt")
-        #embeddingLayer.save("/home/igor/Desktop/LIA/testes/embeddingLayer_15.npy")
-        #convLinear.save("/home/igor/Desktop/LIA/testes/convLinear_15.npy")
-        #hiddenLinear.save("/home/igor/Desktop/LIA/testes/hiddenLinear_15.npy")
 
 
 if __name__ == '__main__':

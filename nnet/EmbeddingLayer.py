@@ -182,7 +182,7 @@ class EmbeddingLayer(Layer):
         }
 
     def load(self, attributes):
-        self.__embedding.set_value(numpy.array(attributes["emb"]))
+        self.__embedding.set_value(numpy.array(attributes[0]))
 
     @staticmethod
     def getEmbeddingFromPersistenceManager(persistenceManager, name):

@@ -8,6 +8,7 @@ from abc import abstractmethod
 
 from persistence.PersistentObject import PersistentObject
 
+import numpy as np
 
 class Layer(PersistentObject):
     """
@@ -139,3 +140,11 @@ class Layer(PersistentObject):
 
     def load(self,attributes):
         pass
+
+    def save(self, filepath):
+        npArrs = []
+        for p in self.getParameters():
+            npArrs.append(p.get_value())
+        np.save(filepath, npArrs)
+
+

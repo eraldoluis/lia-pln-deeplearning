@@ -1,8 +1,10 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
-import sys
 from random import random
 from argparse import ArgumentParser
+
+# Plotar LossTrain e CustomDev F value para epoca
+# Plotar para 15 épocas primeiro
 
 def split(filename, bias = 0.5):
 	"""
@@ -10,8 +12,8 @@ def split(filename, bias = 0.5):
 	:param filename: File to be split.
 	:param bias: Biasing value.
 	"""
-	selectfile = open(filename + "_selected.txt", "w")
-	rejectfile = open(filename + "_rejected.txt", "w")
+	selectfile = open(filename + "_train.txt", "w")
+	rejectfile = open(filename + "_dev.txt", "w")
 	targetfile = (selectfile, rejectfile)
 	counter = [0, 0]
 

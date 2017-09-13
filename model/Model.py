@@ -5,7 +5,7 @@ import time
 
 import theano
 
-
+import numpy as np
 def resetAllMetrics(metrics):
     """
     Reset all metrics in the given list.
@@ -279,6 +279,7 @@ class Model(object):
             outputs = evalFunction(*inputs)
 
             # Update each metric with the computed outputs.
+
             for m in evalMetrics:
                 # Build list of required variables.
                 numOuputs = len(m.getRequiredVariables())
@@ -287,7 +288,14 @@ class Model(object):
                     mOut.append(outputs.pop(0))
 
                 # Update metric values.
-                m.update(batchSize, *mOut)
+                r = m.update(batchSize, *mOut)
+
+                if r is not None:
+                    with open('./epoch{0}.txt'.format(epoch), 'a') as f:
+                        for v in r:
+                            f.write('{0},'.format(v))
+        
+                        f.write("\n")
 
         duration = stopWatch.lap()
 

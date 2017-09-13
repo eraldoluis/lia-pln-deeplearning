@@ -6,6 +6,7 @@ from theano.tensor.sharedvar import TensorSharedVariable
 
 from nnet.Layer import Layer
 
+import numpy as np
 
 class EmbeddingLayer(Layer):
     """

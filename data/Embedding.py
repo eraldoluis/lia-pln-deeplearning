@@ -57,6 +57,10 @@ class Embedding(object):
 
         lexicon.stopAdd()
 
+        if not lexicon.isReadOnly():
+            raise Exception(
+                "It's possible to insert in the lexicon. Please, transform the lexicon to only read.")
+
     def exist(self, obj):
         return self.__lexicon.exist(obj)
 
@@ -146,7 +150,7 @@ class Embedding(object):
             word = splitLine[0]
 
             if len(word) == 0:
-                log.warning("Found an empty word in the embedding. Its vector will be ignored.")
+                log.warning("Insert in the embedding a empty string. This embeddings will be thrown out.")
                 nmEmptyWords += 1
                 continue
 
@@ -154,7 +158,7 @@ class Embedding(object):
 
             if word == unknownSymbol:
                 if len(vectors[0]) != 0:
-                    raise Exception("An unknown symbol was already inserted.")
+                    raise Exception("A unknown symbol was already inserted.")
 
                 vectors[0] = vec
             else:
@@ -164,7 +168,7 @@ class Embedding(object):
         if len(vectors[0]) == 0:
             vectors[0] = FeatureVectorsGenerator().generateVector(embeddingSize)
 
-        if int(nmWords) != lexicon.getLen() + nmEmptyWords:
+        if int(nmWords) != lexicon.getLen() - 1 + nmEmptyWords:
             raise Exception("The size of lexicon is different of number of vectors")
 
         fVec.close()

@@ -213,6 +213,34 @@ class Lexicon(PersistentObject):
 
         return lexicon
 
+    @staticmethod
+    def fromList(labels, hasUnknowSymbol, lexiconName=None):
+        """
+        Create lexicon object from a list of labels.
+
+        :param labels: list of labels
+        :param hasUnknowSymbol: if this parameter is true, so the first word of the file will be consider as the unknown
+            symbol. However, if this parameter is false, so the unknown symbol will be undefined.
+        :param lexiconName: name of lexicon
+
+        :return: Lexicon
+        """
+        idx = 0
+        if hasUnknowSymbol:
+            unknownSym = labels[idx]
+            idx += 1
+        else:
+            unknownSym = None
+
+        lexicon = Lexicon(unknownSym, lexiconName)
+
+        for l in labels[idx:]:
+            lexicon.put(l)
+
+        lexicon.stopAdd()
+
+        return lexicon
+
     def save(self, filePath):
         """
         Save a lexicon in a text file
@@ -271,6 +299,17 @@ class Lexicon(PersistentObject):
 
         self.__readOnly = True
 
+    def save(self, filePath):
+        """
+        Save a lexicon in a text file
+
+        :return: None
+        """
+        f = codecs.open(filePath, "w", encoding="utf-8")
+
+        for word in self.__lexicon:
+            f.write(word)
+            f.write("\n")
 
 class HashLexicon(object):
     """

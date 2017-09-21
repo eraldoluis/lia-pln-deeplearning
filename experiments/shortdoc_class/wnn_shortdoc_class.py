@@ -57,10 +57,6 @@ PARAMETERS = {
     "word_emb_size": {"default": 100,
                       "desc": "size of word embedding"},
     "word_embedding": {"desc": "word embedding File Path"},
-    "trained_wb": {"desc": "pre trained word embedding File Path"},
-    "trained_conv": {"desc": "pre trained convolution layer File Path"},
-    "trained_hiddenLayer": {"desc": "pre trained hidden layer File Path"},
-    "trained_softmax": {"desc": "pre trained softmax layer File Path"},
     "normalization": {"desc": "Choose the normalization method to be applied on  word embeddings. " +
                               "The possible values are: 'minmax', 'mean', 'zscore'."},
     "fix_word_embedding": {
@@ -86,7 +82,19 @@ PARAMETERS = {
     "shuffle": {"default": True,
                 "desc": "Enable or disable shuffling of the training examples."},
     "label_weights": {"desc": "List of weights for each label. These weights are used in the loss function."},
-    "seed": {"desc": "Random number generator seed."}
+    "seed": {"desc": "Random number generator seed."},
+
+    #Load pre trained model
+    "load_wordEmbedding": {"desc": "pre trained word embedding File Path"},
+    "load_conv": {"desc": "pre trained convolution layer File Path"},
+    "load_hiddenLayer": {"desc": "pre trained hidden layer File Path"},
+    "load_softmax": {"desc": "pre trained softmax layer File Path"},
+
+    #Save model after train
+    "save_wordEmbedding": {"desc": "save trained word embedding to File Path"},
+    "save_conv": {"desc": "save trained convolution layer to File Path"},
+    "save_hiddenLayer": {"desc": "save trained hidden layer to File Path"},
+    "save_softmax": {"desc": "save trained softmax to File Path"}
 }
 
 
@@ -265,11 +273,11 @@ def main():
     # Lookup table for word features.
     embeddingLayer = EmbeddingLayer(inWords, wordEmbedding.getEmbeddingMatrix(), trainable=embLayerTrainable)
 
-    if not args.train and args.trained_wb:
-        attrs = np.load(args.trained_wb)
+    if not args.train and args.load_wordEmbedding:
+        attrs = np.load(args.load_wordEmbedding)
         embeddingLayer.load(attrs)
         log.info("Loaded word embedding (shape %s) from file %s" % (
-            str(attrs[0].shape), args.trained_wb))
+            str(attrs[0].shape), args.load_wordEmbedding))
 
     # A saída da lookup table possui 3 dimensões (numTokens, szWindow, szEmbedding).
     # Esta camada dá um flat nas duas últimas dimensões, produzindo uma saída
@@ -283,11 +291,11 @@ def main():
     convW = None
     convb = None
 
-    if not args.train and args.trained_conv:
-        convNPY = np.load(args.trained_conv)
+    if not args.train and args.load_conv:
+        convNPY = np.load(args.load_conv)
         convW = convNPY[0]
         convb = convNPY[1]
-        log.info("Loaded convolutional layer (shape %s) from file %s" % (str(convW.shape), args.trained_conv))
+        log.info("Loaded convolutional layer (shape %s) from file %s" % (str(convW.shape), args.load_conv))
 
     convLinear = LinearLayer(flattenInput,
                              wordWindowSize * wordEmbedding.getEmbeddingSize(),
@@ -298,11 +306,11 @@ def main():
     maxPooling = MaxPoolingLayer(convLinear)
 
     # Hidden layer.
-    if not args.train and args.trained_hiddenLayer:
-        hiddenNPY = np.load(args.trained_hiddenLayer)
+    if not args.train and args.load_hiddenLayer:
+        hiddenNPY = np.load(args.load_hiddenLayer)
         W1 = hiddenNPY[0]
         b1 = hiddenNPY[1]
-        log.info("Loaded hidden layer (shape %s) from file %s" % (str(W1.shape), args.trained_hiddenLayer))
+        log.info("Loaded hidden layer (shape %s) from file %s" % (str(W1.shape), args.load_hiddenLayer))
 
     hiddenLinear = LinearLayer(maxPooling,
                                convSize,
@@ -313,11 +321,11 @@ def main():
     hiddenAct = ActivationLayer(hiddenLinear, tanh)
 
     # Entrada linear da camada softmax.
-    if not args.train and args.trained_softmax:
-        hiddenNPY = np.load(args.trained_softmax)
+    if not args.train and args.load_softmax:
+        hiddenNPY = np.load(args.load_softmax)
         W2 = hiddenNPY[0]
         b2 = hiddenNPY[1]
-        log.info("Loaded softmax layer (shape %s) from file %s" % (str(W2.shape), args.trained_softmax))
+        log.info("Loaded softmax layer (shape %s) from file %s" % (str(W2.shape), args.load_softmax))
 
     sotmaxLinearInput = LinearLayer(hiddenAct,
                                     hiddenLayerSize,
@@ -481,15 +489,15 @@ def main():
         log.info("Training")
         model.train(trainIterator, numEpochs, devIterator, evalPerIteration=evalPerIteration)
 
-        if args.trained_wb:
-            wordLexicon.save(args.word_lexicon)
-            embeddingLayer.save(args.trained_wb)
-        if args.trained_conv:
-            convLinear.save(args.trained_conv)
-        if args.trained_hiddenLayer:
-            hiddenLinear.save(args.trained_hiddenLayer)
-        if args.trained_softmax:
-            sotmaxLinearInput.save(args.trained_softmax)
+    # Saving model after training
+        if args.save_wordEmbedding:
+            embeddingLayer.saveAsW2V(args.save_wordEmbedding, lexicon=wordLexicon)
+        if args.save_conv:
+            convLinear.save(args.save_conv)
+        if args.save_hiddenLayer:
+            hiddenLinear.save(args.save_hiddenLayer)
+        if args.save_softmax:
+            sotmaxLinearInput.save(args.save_softmax)
 
     # Testing
     if args.test:

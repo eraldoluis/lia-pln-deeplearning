@@ -1,0 +1,37 @@
+#!/usr/bin/python
+# -*- coding: utf-8 -*-
+import sys
+from codecs import open
+from sys import stdout
+	
+Positivos = ['\xF0\x9F\x98\x81','\xF0\x9F\x98\x82','\xF0\x9F\x98\x83','\xF0\x9F\x98\x84','\xF0\x9F\x98\x85','\xF0\x9F\x98\x86','\xF0\x9F\x98\x89','\xF0\x9F\x98\x8A','\xF0\x9F\x98\x8B','\xF0\x9F\x98\x8C','\xF0\x9F\x98\x8D','\xF0\x9F\x98\x98','\xF0\x9F\x98\x9A','\xF0\x9F\x98\x9C','\xF0\x9F\x98\x9D','\xF0\x9F\x98\xB8', '\xF0\x9F\x98\xB9', '\xF0\x9F\x98\xBA','\xF0\x9F\x98\xBB','\xF0\x9F\x98\x80','\xF0\x9F\x98\x9B','\xE2\x99\xA5','\xE2\x9D\xA4','\xF0\x9F\x92\x98','\xF0\x9F\x92\x9A','\xF0\x9F\x92\x9B',":)",":-)",":)",":D","=)"]
+Negativos = ['\xF0\x9F\x98\x92','\xF0\x9F\x98\x93','\xF0\x9F\x98\x94','\xF0\x9F\x98\x9E','\xF0\x9F\x98\xA0','\xF0\x9F\x98\xA1','\xF0\x9F\x98\xA2','\xF0\x9F\x98\xA3','\xF0\x9F\x98\xA4','\xF0\x9F\x98\xA5','\xF0\x9F\x98\xAD','\xF0\x9F\x98\xB0','\xF0\x9F\x98\xBE','\xF0\x9F\x98\xBF','\xF0\x9F\x92\x94','\xF0\x9F\x98\xAB',":(",":-(","=("]	
+if __name__ == "__main__":
+	if len(sys.argv) != 2:
+		print "Missing Argument: <input file>."
+		exit(1)
+	infile = open(sys.argv[1], 'r')
+	outfileP = open("outP.txt", 'w')
+	outfileN = open("outN.txt", 'w')
+	outfile0 = open("out0.txt", 'w')
+	for line in infile :
+		P = False
+		N = False
+		for emoticon in Positivos:
+			if(line.find(emoticon)!=-1):
+				P = True
+				break
+		for emoticon in Negativos:
+			if(line.find(emoticon)!=-1):
+				N = True
+				break
+		if P != N:
+			if P:
+				line = line.replace('\n','')
+				outfileP.write(line+"\tP\n")
+			else:
+				line = line.replace('\n','')
+				outfileN.write(line+"\tN\n")
+		else:
+			outfile0.write(line)
+

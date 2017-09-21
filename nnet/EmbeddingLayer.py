@@ -211,7 +211,7 @@ class EmbeddingLayer(Layer):
         mergedArr = np.column_stack((lexicon.getLexiconList(), self.__embedding.get_value()))
 
         if ignoreUnknownSymbol:
-            mergedArr = np.delete(mergedArr, 0, axis=0)
+            mergedArr = np.delete(mergedArr, lexicon.getUnknownIndex(), axis=0)
 
         outFile = open(filepath, "wt", "utf8")
 

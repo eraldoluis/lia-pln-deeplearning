@@ -140,6 +140,8 @@ class Embedding(object):
         vectors = [[]]
         nmEmptyWords = 0
 
+        unknownInsered = False
+
         for line in fVec:
             splitLine = line.rstrip().split(u' ')
             word = splitLine[0]
@@ -151,11 +153,13 @@ class Embedding(object):
 
             vec = [float(num) for num in splitLine[1:]]
 
+
             if word == unknownSymbol:
                 if len(vectors[0]) != 0:
                     raise Exception("A unknown symbol was already inserted.")
 
                 vectors[0] = vec
+                unknownInsered = True
             else:
                 lexicon.put(word)
                 vectors.append(vec)
@@ -163,7 +167,15 @@ class Embedding(object):
         if len(vectors[0]) == 0:
             vectors[0] = FeatureVectorsGenerator().generateVector(embeddingSize)
 
-        if int(nmWords) != lexicon.getLen() - 1 + nmEmptyWords:
+        expected_size = lexicon.getLen() - 1 + nmEmptyWords
+
+        if(unknownInsered):
+            expected_size += 1
+
+        if int(nmWords) != expected_size:
+            print int(nmWords)
+            print expected_size
+            print unknownInsered
             raise Exception("The size of lexicon is different of number of vectors")
 
         fVec.close()

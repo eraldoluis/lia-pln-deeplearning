@@ -492,12 +492,16 @@ def main():
     # Saving model after training
         if args.save_wordEmbedding:
             embeddingLayer.saveAsW2V(args.save_wordEmbedding, lexicon=wordLexicon)
+            log.info("Saved word to vector to file: %s" % (args.save_wordEmbedding))
         if args.save_conv:
             convLinear.save(args.save_conv)
+            log.info("Saved convolution layer to file: %s" % (args.save_conv))
         if args.save_hiddenLayer:
             hiddenLinear.save(args.save_hiddenLayer)
+            log.info("Saved hidden layer to file: %s" % (args.save_hiddenLayer))
         if args.save_softmax:
             sotmaxLinearInput.save(args.save_softmax)
+            log.info("Saved softmax to file: %s" % (args.save_softmax))
 
     # Testing
     if args.test:

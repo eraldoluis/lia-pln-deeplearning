@@ -203,7 +203,11 @@ class EmbeddingLayer(Layer):
         return attrs["emb"]
 
 
-    def saveAsW2V(self, filepath, lexicon, ignoreUnknownSymbol=True):
+    def saveAsW2V(self, filepath, lexicon, ignoreUnknownSymbol=False):
+        """
+            This method saves the embeddinglayer as a w2v document
+            :param ignoreUnknownSymbol if set, unknown symbol won't be saved    
+        """
         mergedArr = np.column_stack((lexicon.getLexiconList(), self.__embedding.get_value()))
 
         if ignoreUnknownSymbol:

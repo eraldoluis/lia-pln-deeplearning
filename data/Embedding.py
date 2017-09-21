@@ -173,9 +173,6 @@ class Embedding(object):
             expected_size += 1
 
         if int(nmWords) != expected_size:
-            print int(nmWords)
-            print expected_size
-            print unknownInsered
             raise Exception("The size of lexicon is different of number of vectors")
 
         fVec.close()

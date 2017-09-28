@@ -21,7 +21,7 @@ from data.FeatureGenerator import FeatureGenerator
 from data.Lexicon import Lexicon
 from data.WordWindowGenerator import WordWindowGenerator
 from model.BasicModel import BasicModel
-from model.Metric import LossMetric, AccuracyMetric, FMetric
+from model.Metric import LossMetric, AccuracyMetric, FMetric, PredictedProbabilities
 from model.Objective import NegativeLogLikelihoodOneExample
 from model.Prediction import ArgmaxPrediction
 from nnet.ActivationLayer import ActivationLayer, softmax, tanh
@@ -84,13 +84,12 @@ PARAMETERS = {
     "label_weights": {"desc": "List of weights for each label. These weights are used in the loss function."},
     "seed": {"desc": "Random number generator seed."},
 
-    #Load pre trained model
-    "load_wordEmbedding": {"desc": "pre trained word embedding File Path"},
+    # Load pre trained model.
     "load_conv": {"desc": "pre trained convolution layer File Path"},
     "load_hiddenLayer": {"desc": "pre trained hidden layer File Path"},
     "load_softmax": {"desc": "pre trained softmax layer File Path"},
 
-    #Save model after train
+    # Save model after train.
     "save_wordEmbedding": {"desc": "save trained word embedding to File Path"},
     "save_conv": {"desc": "save trained convolution layer to File Path"},
     "save_hiddenLayer": {"desc": "save trained hidden layer to File Path"},
@@ -273,11 +272,11 @@ def main():
     # Lookup table for word features.
     embeddingLayer = EmbeddingLayer(inWords, wordEmbedding.getEmbeddingMatrix(), trainable=embLayerTrainable)
 
-    if not args.train and args.load_wordEmbedding:
-        attrs = np.load(args.load_wordEmbedding)
-        embeddingLayer.load(attrs)
-        log.info("Loaded word embedding (shape %s) from file %s" % (
-            str(attrs[0].shape), args.load_wordEmbedding))
+    # if not args.train and args.load_wordEmbedding:
+    #     attrs = np.load(args.load_wordEmbedding)
+    #     embeddingLayer.load(attrs)
+    #     log.info("Loaded word embedding (shape %s) from file %s" % (
+    #         str(attrs[0].shape), args.load_wordEmbedding))
 
     # A saída da lookup table possui 3 dimensões (numTokens, szWindow, szEmbedding).
     # Esta camada dá um flat nas duas últimas dimensões, produzindo uma saída

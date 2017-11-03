@@ -207,6 +207,22 @@ def mainWnnNer(args):
     layerBeforeLinear = ConcatenateLayer([flatWordEmbedding, charEmbeddingConvLayer])
     sizeLayerBeforeLinear = wordWindowSize * (wordEmbedding.getEmbeddingSize() + charConvSize)
 
+    charWindowIdxs = T.ltensor4(name="char_window_idx")
+    inputModel.append(charWindowIdxs)
+
+    # # TODO: debug
+    # theano.config.compute_test_value = 'warn'
+    # ex = trainIterator.next()
+    # inWords.tag.test_value = ex[0][0]
+    # outLabel.tag.test_value = ex[1][0]
+
+    charEmbeddingConvLayer = EmbeddingConvolutionalLayer(charWindowIdxs, charEmbedding.getEmbeddingMatrix(), 20,
+                                                         charConvSize, charWindowSize, charEmbeddingSize, tanh,
+                                                         name="char_convolution_layer")
+    
+    layerBeforeLinear = ConcatenateLayer([flatWordEmbedding, charEmbeddingConvLayer])
+    sizeLayerBeforeLinear = wordWindowSize * (wordEmbedding.getEmbeddingSize() + charConvSize)
+
     hiddenActFunction = method_name(hiddenActFunctionName)
     weightInit = SigmoidGlorot() if hiddenActFunction == sigmoid else GlorotUniform()
 

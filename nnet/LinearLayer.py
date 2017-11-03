@@ -101,3 +101,4 @@ class LinearLayer(Layer):
     def load(self, attributes):
         self.W.set_value(numpy.array(attributes["w"]))
         self.b.set_value(numpy.array(attributes["b"]))
+

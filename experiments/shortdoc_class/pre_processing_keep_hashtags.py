@@ -18,7 +18,9 @@ aplica os passos abaixo e salva em outro arquivo.
     - Substitui sequências de pontos por ...
     - Substitui sequências de exclamações por !!!
 
-    Nota: Esse script ignora a primeira linha (head) do arquivo "input"
+    Nota: Esse script ignora a primeira linha (head) do arquivo "input" 
+    
+    Nota: Script modificado para manter hashtags
 """
 import re
 import sys
@@ -68,11 +70,11 @@ if __name__ == "__main__":
         procTokens = []
         for token in tokens:
             if token.startswith('http:') or token.startswith('https:') or token.startswith('www.'):
-                token = "##LINK##"
-            elif token.startswith("#"):
-                token = "##HASHTAG##"
+                token = "__LINK__"
+            #elif token.startswith("#"):
+            #    token = "##HASHTAG##"
             elif token.startswith("@"):
-                token = "##REF##"
+                token = "__REF__"
             elif token.startswith(".."):
                 token = "..."
             elif token.startswith("!!"):
@@ -85,7 +87,7 @@ if __name__ == "__main__":
             procTokens.append(token)
 
         # If there isn't any token, line won't be written on the new file
-        if(len(tokens) != 0):
+        if (len(tokens) != 0):
             ftrs[0] = " ".join(procTokens)
             outFile.write("\t".join(ftrs) + "\n")
             numExs += 1

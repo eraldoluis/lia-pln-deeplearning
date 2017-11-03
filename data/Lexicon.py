@@ -299,6 +299,17 @@ class Lexicon(PersistentObject):
 
         self.__readOnly = True
 
+    def save(self, filePath):
+        """
+        Save a lexicon in a text file
+
+        :return: None
+        """
+        f = codecs.open(filePath, "w", encoding="utf-8")
+
+        for word in self.__lexicon:
+            f.write(word)
+            f.write("\n")
 
 class HashLexicon(object):
     """

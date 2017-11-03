@@ -6,6 +6,9 @@ from theano.tensor.sharedvar import TensorSharedVariable
 
 from nnet.Layer import Layer
 
+import numpy as np
+import sys
+from codecs import open
 
 class EmbeddingLayer(Layer):
     """
@@ -181,7 +184,7 @@ class EmbeddingLayer(Layer):
         }
 
     def load(self, attributes):
-        self.__embedding.set_value(numpy.array(attributes["emb"]))
+        self.__embedding.set_value(numpy.array(attributes[0]))
 
     @staticmethod
     def getEmbeddingFromPersistenceManager(persistenceManager, name):
@@ -198,3 +201,24 @@ class EmbeddingLayer(Layer):
         attrs = persistenceManager.getObjAttributesByObjName(name)
 
         return attrs["emb"]
+
+
+    def saveAsW2V(self, filepath, lexicon, ignoreUnknownSymbol=False):
+        """
+            This method saves the embeddinglayer as a w2v document
+            :param ignoreUnknownSymbol if set, unknown symbol won't be saved    
+        """
+        mergedArr = np.column_stack((lexicon.getLexiconList(), self.__embedding.get_value()))
+
+        if ignoreUnknownSymbol:
+            mergedArr = np.delete(mergedArr, lexicon.getUnknownIndex(), axis=0)
+
+        outFile = open(filepath, "wt", "utf8")
+
+        outFile.write(str(len(mergedArr)) + " " + str(len(self.__embedding.get_value()[0])) + "\n")
+
+        for index in mergedArr:
+            newLine = ""
+            for value in index:
+                newLine += value + " "
+            outFile.write(newLine + "\n")

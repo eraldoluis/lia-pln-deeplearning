@@ -483,10 +483,7 @@ def main():
     # TODO: debug
     # mode = theano.compile.debugmode.DebugMode(optimizer=None)
     mode = None
-<<<<<<< HEAD
 
-=======
->>>>>>> shortdoc_igor
     model = BasicModel(x=inputTensors,
                        y=[outLabel],
                        allLayers=softmaxAct.getLayerSet(),

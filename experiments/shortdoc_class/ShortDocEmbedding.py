@@ -45,6 +45,7 @@ PARAMETERS = {
                        "The index used for each label will be given by the order in this list."},
     # Datasets.
     "train": {"desc": "Training File Path"},
+    "test": {"desc": "Test set file path"},
     "load_method": {"default": "sync",
                     "desc": "Method for loading the training dataset (sync or async)."},
     "eval_per_iteration": {"default": 0,
@@ -96,7 +97,7 @@ PARAMETERS = {
 }
 
 class EmbeddingGraph:
-    def __init__(self, inputs, outputs, wordWindow):
+    def __init__(self, inputs, outputs, wordWindow, mode=None):
         self.__net = theano.function(inputs=inputs, outputs=outputs)
         self.__wordWindow = wordWindow
 
@@ -424,11 +425,11 @@ def main():
     # GETS HIDDEN LAYER:
     # graph = EmbeddingGraph([inWords], [hiddenAct.getOutput()], wordWindow)
 
+    # GRAPH FOR PREDICTION LAYER
+    graph = EmbeddingGraph(inputTensors, prediction, wordWindow, mode)
 
-    # GETS PREDICTION LAYER
-    graph = EmbeddingGraph([inWords], [prediction.getOutput()], wordWindow)
-
-    #print graph.getResultsFor(****INPUT****)
+    print graph.getResultsFor("Aproveite este dia para desfrutar das coisas boas que fazem você feliz. Feliz Aniversário. ##HASHTAG##	#umrei ")
+    print graph.getResultsFor("N consigo entrar pelo iphone pq n lembro a senha e n queroperder esse fc, e por esse cel é ruim n tenho paciência ##HASHTAG##	#justin4mmva ")
 
 
 if __name__ == '__main__':

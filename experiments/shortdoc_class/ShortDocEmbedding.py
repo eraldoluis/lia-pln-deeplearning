@@ -428,8 +428,20 @@ def main():
     # GRAPH FOR PREDICTION LAYER
     graph = EmbeddingGraph(inputTensors, prediction, wordWindow, mode)
 
-    print graph.getResultsFor("Aproveite este dia para desfrutar das coisas boas que fazem você feliz. Feliz Aniversário. ##HASHTAG##	#umrei ")
-    print graph.getResultsFor("N consigo entrar pelo iphone pq n lembro a senha e n queroperder esse fc, e por esse cel é ruim n tenho paciência ##HASHTAG##	#justin4mmva ")
+    lblTxt = ["Negativo", "Positivo"]
+
+    tweets = []
+
+    tweets.append("Aproveite este dia para desfrutar das coisas boas que fazem você feliz. Feliz Aniversário. ##HASHTAG##	#umrei ")
+    tweets.append("N consigo entrar pelo iphone pq n lembro a senha e n queroperder esse fc, e por esse cel é ruim n tenho paciência ##HASHTAG##	#justin4mmva ")
+    tweets.append("Gosto do novo iPhone 7")
+    tweets.append("Odeio o novo iPhone 7")
+    tweets.append("Quebrei meu novo iPhone 7")
+    tweets.append("Comprei o novo iPhone 7")
+
+    # graph.getResultsFor(t) retorna a predição para dado Tweet t
+    for t in tweets:
+        print lblTxt[graph.getResultsFor(t)] + ": " + t
 
 
 if __name__ == '__main__':

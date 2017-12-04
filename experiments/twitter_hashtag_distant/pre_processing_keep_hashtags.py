@@ -26,7 +26,7 @@ import re
 import sys
 from codecs import open
 
-from tokenizer import getTokenizer
+from experiments.shortdoc_class.tokenizer import getTokenizer
 
 if __name__ == "__main__":
     if len(sys.argv) != 3:
@@ -71,8 +71,6 @@ if __name__ == "__main__":
         for token in tokens:
             if token.startswith('http:') or token.startswith('https:') or token.startswith('www.'):
                 token = "__LINK__"
-            #elif token.startswith("#"):
-            #    token = "##HASHTAG##"
             elif token.startswith("@"):
                 token = "__REF__"
             elif token.startswith(".."):

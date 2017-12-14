@@ -17,8 +17,6 @@ aplica os passos abaixo e salva em outro arquivo.
     - Substitui repetições de sinais de pontuação por um único sinal.
     - Substitui sequências de pontos por ...
     - Substitui sequências de exclamações por !!!
-    
-    Nota: Esse script ignora a primeira linha (head) do arquivo "input" 
 """
 import re
 import sys

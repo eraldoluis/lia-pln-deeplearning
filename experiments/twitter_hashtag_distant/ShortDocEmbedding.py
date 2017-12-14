@@ -188,8 +188,8 @@ def main():
     logging.config.fileConfig(os.path.join(path, 'logging.conf'), defaults={})
     log = logging.getLogger(__name__)
 
-    if len(sys.argv) != 2:
-        log.error("Missing argument: <JSON config file>")
+    if len(sys.argv) != 3:
+        log.error("Missing argument: <JSON config file> or/and <Input file>")
         exit(1)
 
     argsDict = JsonArgParser(PARAMETERS).parse(sys.argv[1])
@@ -428,20 +428,26 @@ def main():
     # GRAPH FOR PREDICTION LAYER
     graph = EmbeddingGraph(inputTensors, prediction, wordWindow, mode)
 
-    lblTxt = ["Negativo", "Positivo"]
+    lblTxt = ["Sim", "Nao"]
 
     tweets = []
-
-    tweets.append("Aproveite este dia para desfrutar das coisas boas que fazem você feliz. Feliz Aniversário. ##HASHTAG##	#umrei ")
-    tweets.append("N consigo entrar pelo iphone pq n lembro a senha e n queroperder esse fc, e por esse cel é ruim n tenho paciência ##HASHTAG##	#justin4mmva ")
-    tweets.append("Gosto do novo iPhone 7")
-    tweets.append("Odeio o novo iPhone 7")
-    tweets.append("Quebrei meu novo iPhone 7")
-    tweets.append("Comprei o novo iPhone 7")
-
+    with open(sys.argv[2]) as inputFile:
+        content = inputFile.readlines()
+    for line in content:
+        tweets.append(line.decode('utf-8').encode('utf-8'))
+    #print tweets
     # graph.getResultsFor(t) retorna a predição para dado Tweet t
-    for t in tweets:
-        print lblTxt[graph.getResultsFor(t)] + ": " + t
+    try:
+        output_file = open("Output.txt", "w")
+    except:
+        print "Falha em criar o arquivo de saida\n"
+    try:    
+	for t in tweets:
+            output_file.write(t.replace('\n','').replace('\t','') + "\t "+ lblTxt[graph.getResultsFor(t)] +"\n")
+        print "Resultados gerados com sucesso!\n"
+    except:
+        print "Erro na geração de resultados\n"
+        
 
 
 if __name__ == '__main__':

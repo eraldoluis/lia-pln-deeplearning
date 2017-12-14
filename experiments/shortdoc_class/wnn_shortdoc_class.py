@@ -72,6 +72,9 @@ PARAMETERS = {
     # Layer: hidden.
     "hidden_size": {"default": 300,
                     "desc": "The number of neurons in the hidden layer"},
+    "hidden": {"default": True,
+               "desc": "Whether to use a hidden layer after the max pooling or not."},
+
     # Learning algorithm.
     "alg": {"default": "sgd",
             "desc": "Optimization algorithm to be used. Options are: 'sgd', 'adagrad'."},
@@ -304,30 +307,39 @@ def main():
     # Max pooling layer.
     maxPooling = MaxPoolingLayer(convLinear)
 
-    # Hidden layer.
-    if not args.train and args.load_hiddenLayer:
-        hiddenNPY = np.load(args.load_hiddenLayer)
-        W1 = hiddenNPY[0]
-        b1 = hiddenNPY[1]
-        log.info("Loaded hidden layer (shape %s) from file %s" % (str(W1.shape), args.load_hiddenLayer))
+    softmaxInput = None
+    softmaxInputLen = -1
+    if args.hidden:
+        # Hidden layer.
+        if not args.train and args.load_hiddenLayer:
+            hiddenNPY = np.load(args.load_hiddenLayer)
+            W1 = hiddenNPY[0]
+            b1 = hiddenNPY[1]
+            log.info("Loaded hidden layer (shape %s) from file %s" % (str(W1.shape), args.load_hiddenLayer))
 
-    hiddenLinear = LinearLayer(maxPooling,
-                               convSize,
-                               hiddenLayerSize,
-                               W=W1, b=b1,
-                               weightInitialization=weightInit)
+        hiddenLinear = LinearLayer(maxPooling,
+                                   convSize,
+                                   hiddenLayerSize,
+                                   W=W1, b=b1,
+                                   weightInitialization=weightInit)
 
-    hiddenAct = ActivationLayer(hiddenLinear, tanh)
+        hiddenAct = ActivationLayer(hiddenLinear, tanh)
 
-    # Entrada linear da camada softmax.
-    if not args.train and args.load_softmax:
-        hiddenNPY = np.load(args.load_softmax)
-        W2 = hiddenNPY[0]
-        b2 = hiddenNPY[1]
-        log.info("Loaded softmax layer (shape %s) from file %s" % (str(W2.shape), args.load_softmax))
+        # Entrada linear da camada softmax.
+        if not args.train and args.load_softmax:
+            hiddenNPY = np.load(args.load_softmax)
+            W2 = hiddenNPY[0]
+            b2 = hiddenNPY[1]
+            log.info("Loaded softmax layer (shape %s) from file %s" % (str(W2.shape), args.load_softmax))
 
-    sotmaxLinearInput = LinearLayer(hiddenAct,
-                                    hiddenLayerSize,
+        softmaxInput = hiddenAct
+        softmaxInputLen = hiddenLayerSize
+    else:
+        softmaxInput = maxPooling
+        softmaxInputLen = convSize
+
+    sotmaxLinearInput = LinearLayer(softmaxInput,
+                                    softmaxInputLen,
                                     labelLexicon.getLen(),
                                     W=W2, b=b2,
                                     weightInitialization=ZeroWeightGenerator())

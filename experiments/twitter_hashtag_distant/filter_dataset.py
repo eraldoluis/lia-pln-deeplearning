@@ -2,18 +2,21 @@
 # encoding=utf8
 import sys
 import re
+import json
+import numpy as np
 
-#   Given an array of words (hashtags), this script will search through a dataset and keep the lines
-#   in which at least one of the words in the array was found, in the following format:
-#   <line>\t<words found separeted by space>
-#   maxNum refers to the maximum number of written tweets with using the same hashtag
+def keepIfFound(inFile, outFile, hashtags, maxNum = None, skip1stLine = False, tweetSplitIndex = 1, replaceBy = "__HASHTAG__"):
+    """
+    Given an array of hashtags to be found, this script will search through a dataset of tweets
+    and keep tweets containing at least one of these hashtags as well as using these hashtags
+    as classes for the tweets
+    """
 
-def keepIfFound(inFile, outFile, hashtags, maxNum = None, skip1stLine = False, tweetSplitIndex = 1):
     with open(inFile) as fileSource, open(outFile, 'w+') as fileResult:
         countLines = 0
         countLinesKept = 0
 
-        hashtags = [tag.lower().encode('utf-8') for tag in hashtags]
+        hashtags = [tag[0].lower().encode('utf-8') for tag in hashtags]
 
         countWrites = {}
 
@@ -35,12 +38,14 @@ def keepIfFound(inFile, outFile, hashtags, maxNum = None, skip1stLine = False, t
                     token = token.lower()
                     for tag in hashtags:
                         if(token == tag):
-                            resultLine = re.compile(token, re.IGNORECASE).sub("##HASHTAG##", resultLine)
+                            resultLine = re.compile(token, re.IGNORECASE).sub(replaceBy, resultLine)
                             if(token not in tagsFound):
                                 tagsFound.append(tag)
+
             for tag in tagsFound:
                 if maxNum is None or (tag not in countWrites or countWrites[tag] < maxNum):
                     allowWrite = True
+
             if (len(tagsFound) > 0 and allowWrite):
                 tagsText = ""
                 for tag in tagsFound:
@@ -55,143 +60,39 @@ def keepIfFound(inFile, outFile, hashtags, maxNum = None, skip1stLine = False, t
 
     print "Result: " + str(countLinesKept) + " out of " + str(countLines) + " tweets were kept\nResult file: " + str(sys.argv[2])
 
+    # Prints number of tweets kept by hashtag
     for i in hashtags:
         if i in countWrites:
             print i + " = " + str(countWrites[i])
+
+def loadHashtags(frequencyJsonFile, leastFrequency = None, upToPosition = None):
+    with open(frequencyJsonFile) as file:
+        objs = json.load(file)
+
+    if(upToPosition is not None):
+        tags = np.asarray(objs["mostFreq"])[:upToPosition, :]
+    else:
+        tags = np.asarray(objs["mostFreq"])
+
+    if(leastFrequency is not None):
+        temp = []
+
+        for t in tags:
+            if(int(t[1]) >= leastFrequency):
+                temp.append(t)
+            else:
+                break
+        tags = np.asarray(temp)
+
+    return tags
 
 if __name__ == '__main__':
     reload(sys)
     sys.setdefaultencoding('utf8')
 
-    keepIfFound(sys.argv[1],
-                sys.argv[2],
-                [
-                    "#1",
-                    "#umrei",
-                    "#justin4mmva",
-                    "#shawn4mmva",
-                    "#nate:",
-                    "#skype:",
-                    "#onelovemanchester",
-                    "#mtvawardsstar",
-                    "#timbeta",
-                    "#nowplaying",
-                    "#premiosmtvmiaw",
-                    "#masterchefbr",
-                    "#네이버일반아이디판매",
-                    "#네이버생성아이디판매",
-                    "#트위터아이디판매",
-                    "#구글아이디판매",
-                    "#betaajudabeta",
-                    "#peitudas",
-                    "#bancodeseries",
-                    "#sdv",
-                    "#aforçadoquerer",
-                    "#bomdia",
-                    "#인스타그램아이디판매",
-                    "#네이버휴먼아이디판매",
-                    "#페이스북아이디판매",
-                    "#skoob",
-                    "#powercouplebrasil",
-                    "#arianagrandenobrfebreteen",
-                    "#rt",
-                    "#sextadetremurasdv",
-                    "#",
-                    "#limeira",
-                    "#sabadodetremurasdv",
-                    "#edsheerannofebreteen",
-                    "#2017btsfesta",
-                    "#btsforvmas",
-                    "#missaobeta",
-                    "#veranomtv2017",
-                    "#mtvexpopcd9",
-                    "#mtvchallengecd9",
-                    "#domingodetremurasdv",
-                    "#pas",
-                    "#2",
-                    "#fjuamericana",
-                    "#repost",
-                    "#betalab",
-                    "#harrystylesnanovela",
-                    "#betaseguebeta",
-                    "#teenchoice",
-                    "#youngawardsmx17",
-                    "#네이버아이디쪽지용판매",
-                    "#페이스북아이디판매…",
-                    "#네이버열심회원판매",
-                    "#다음해킹아이디판매…",
-                    "#페이스북해킹아이디판매",
-                    "#구글생성아이디판매",
-                    "#페이스북생성아이디판매",
-                    "#검빛경마아이디판…",
-                    "#다음해킹아이디판매",
-                    "#보배드림아이디판매",
-                    "#다음생성아이디판매",
-                    "#일베아이디판매",
-                    "#foratemer",
-                    "#nbafinals",
-                    "#hoytieneanittaparadinha",
-                    "#quartadetremurasdv",
-                    "#segundadetremurasdv",
-                    "#quintadetremurasdv",
-                    "#produce101final",
-                    "#somostodosdilma",
-                    "#np",
-                    "#operacaobetalab",
-                    "#queronotvz",
-                    "#4yearswithbts",
-                    "#malhação",
-                    "#dança",
-                    "#3",
-                    "#forró",
-                    "#xote",
-                    "#forrozim",
-                    "#pédeserra",
-                    "#kpwww",
-                    "#weathercloud",
-                    "#raynniere",
-                    "#lulanacadeia",
-                    "#fabricadecasamentos",
-                    "#brasil",
-                    "#nbanaespn",
-                    "#btshomeparty",
-                    "#terçadetremurasdv",
-                    "#e32017",
-                    "#paz",
-                    "#dancingbrasil",
-                    "#bdsp",
-                    "#diadosnamorados",
-                    "#beta",
-                    "#nãovounegar",
-                    "#btsweek",
-                    "#newtwitter",
-                    "#5hdown",
-                    "#4",
-                    "#feriadodetremurasdv",
-                    "#poramornoviva",
-                    "#witness",
-                    "#maislidas",
-                    "#tercadetremurasdv",
-                    "#noticias",
-                    "#canaldaharu",
-                    "#programadoporchat",
-                    "#rockstory",
-                    "#niall4mmva",
-                    "#timbetaajudatimbeta",
-                    "#soundcloud",
-                    "#maisshow",
-                    "#askbelieber",
-                    "#rpsp",
-                    "#emprego",
-                    "#portugal",
-                    "#photography",
-                    "#sense8",
-                    "#love",
-                    "#mtvinstaglcabello",
-                    "#5",
-                    "#novomundo",
-                    "#etsfs",
-                ],
-                1000,
-                True
+    keepIfFound(inFile=sys.argv[1],
+                outFile=sys.argv[2],
+                hashtags=loadHashtags(sys.argv[3], leastFrequency=1000),
+                maxNum=1000,
+                skip1stLine=True
     )

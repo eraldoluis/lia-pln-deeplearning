@@ -28,6 +28,17 @@ from codecs import open
 
 from experiments.shortdoc_class.tokenizer import getTokenizer
 
+import unicodedata
+
+from datetime import datetime
+def normalize(word):
+    normalizedWord = unicodedata.normalize('NFKD', word).encode('ASCII', 'ignore')
+
+    if(len(normalizedWord) != 0):
+        return normalizedWord
+    else:
+        return word
+
 if __name__ == "__main__":
     if len(sys.argv) != 3:
         print "Syntax error!"
@@ -51,7 +62,7 @@ if __name__ == "__main__":
     # Skip header line.
     inFile.readline()
     numExs = 0
-    print("Reading input examples...")
+    print(str(datetime.now().time()) + "- Reading input examples...")
     # Recognize digits.
     patDig = re.compile('[0-9]')
     # Recognize sequence of punctuations.
@@ -64,7 +75,8 @@ if __name__ == "__main__":
         ftrs[-1] = ftrs[-1].strip()
 
         # Tokenize the text.
-        tokens = tokenizer.tokenize(ftrs[0])
+        textIndex = 1
+        tokens = tokenizer.tokenize(ftrs[textIndex])
 
         # Apply filters.
         procTokens = []
@@ -78,15 +90,21 @@ if __name__ == "__main__":
             elif token.startswith("!!"):
                 token = "!!!"
             else:
-                token = re.sub(patDig, '0', token)
+                if not token.startswith("#"):
+                    token = re.sub(patDig, '0', token)
                 token = token.lower()
                 token = re.sub(patPunc, r'\1', token)
+
+            normalizedToken = normalize(unicode(token))
+
+            if(len(normalizedToken) > 0 and normalizedToken != "#"):
+                token = normalizedToken
 
             procTokens.append(token)
 
         # If there isn't any token, line won't be written on the new file
         if (len(tokens) != 0):
-            ftrs[0] = " ".join(procTokens)
+            ftrs[1] = " ".join(procTokens)
             outFile.write("\t".join(ftrs) + "\n")
             numExs += 1
 
@@ -95,4 +113,4 @@ if __name__ == "__main__":
 
     sys.stderr.write('\n')
     sys.stderr.write('# examples: %d\n' % numExs)
-    sys.stderr.write('Done!\n')
+    sys.stderr.write(str(datetime.now().time()) + ' - Done!\n')

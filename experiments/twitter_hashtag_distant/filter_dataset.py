@@ -5,7 +5,7 @@ import re
 import json
 import numpy as np
 
-def keepIfFound(inFile, outFile, hashtags, maxNum = None, skip1stLine = False, tweetSplitIndex = 1, replaceBy = "__HASHTAG__"):
+def keepIfFound(inFile, outFile, hashtags, averageNum = None, skip1stLine = False, tweetSplitIndex = 1, replaceBy = "__HASHTAG__"):
     """
     Given an array of hashtags to be found, this script will search through a dataset of tweets
     and keep tweets containing at least one of these hashtags as well as using these hashtags
@@ -43,7 +43,7 @@ def keepIfFound(inFile, outFile, hashtags, maxNum = None, skip1stLine = False, t
                                 tagsFound.append(tag)
 
             for tag in tagsFound:
-                if maxNum is None or (tag not in countWrites or countWrites[tag] < maxNum):
+                if averageNum is None or (tag not in countWrites or countWrites[tag] < averageNum):
                     allowWrite = True
 
             if (len(tagsFound) > 0 and allowWrite):
@@ -93,6 +93,6 @@ if __name__ == '__main__':
     keepIfFound(inFile=sys.argv[1],
                 outFile=sys.argv[2],
                 hashtags=loadHashtags(sys.argv[3], leastFrequency=1000),
-                maxNum=1000,
+                averageNum=1000,
                 skip1stLine=True
     )

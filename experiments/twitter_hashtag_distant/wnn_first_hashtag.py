@@ -69,6 +69,8 @@ PARAMETERS = {
     # Layer: convolution.
     "conv_size": {"required": True,
                   "desc": "Size of the convolution layer (number of filters)."},
+    "conv_act": {"default": False,
+               "desc": "Whether to use an activation function after the convolution layer."},
     # Layer: hidden.
     "hidden_size": {"default": 300,
                     "desc": "The number of neurons in the hidden layer"},
@@ -305,8 +307,13 @@ def main():
                              convSize, W=convW, b=convb,
                              weightInitialization=weightInit)
 
+    if args.conv_act:
+        convOut = ActivationLayer(convLinear, tanh)
+    else:
+        convOut = convLinear
+
     # Max pooling layer.
-    maxPooling = MaxPoolingLayer(convLinear)
+    maxPooling = MaxPoolingLayer(convOut)
 
     softmaxInput = None
     softmaxInputLen = -1

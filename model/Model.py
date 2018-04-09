@@ -85,9 +85,11 @@ class Model(object):
         if prediction:
             self.__predictionFunction = theano.function(inputs=predictionInput, outputs=prediction, mode=self.mode)
 
-
     def getEvaluationFunction(self):
         return self.__evaluateFunction
+
+    def getEvalMetrics(self):
+        return self.__evalMetrics
 
     def getTestFunction(self):
         return self.__testFunction

@@ -117,6 +117,6 @@ class BasicModel(Model):
             # Development per-iteration evaluation
             if devIterator and evalPerIteration and (iteration % evalPerIteration) == 0:
                 # Perform evaluation.
-                self._evaluate(devIterator, self.getEvaluationFunction(), self.__evalMetrics, epoch, iteration)
+                self._evaluate(devIterator, self.getEvaluationFunction(), self.getEvalMetrics(), epoch, iteration)
 
         return iteration

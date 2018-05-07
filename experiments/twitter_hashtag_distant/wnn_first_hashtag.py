@@ -296,16 +296,19 @@ def main():
     convW = None
     convb = None
 
-    if not args.train and args.load_conv:
-        convNPY = np.load(args.load_conv)
-        convW = convNPY[0]
-        convb = convNPY[1]
-        log.info("Loaded convolutional layer (shape %s) from file %s" % (str(convW.shape), args.load_conv))
-
     convLinear = LinearLayer(flattenInput,
                              wordWindowSize * wordEmbedding.getEmbeddingSize(),
                              convSize, W=convW, b=convb,
                              weightInitialization=weightInit)
+
+    # TODO Igor, verificar
+    if args.load_conv:
+        convLinear.load(args.load_conv)
+        # convNPY = np.load(args.load_conv)
+        # convW = convNPY[0]
+        # convb = convNPY[1]
+        (W, b) = convLinear.getParameters()
+        log.info("Loaded convolutional layer (shapes W=%s B=%s) from file %s" % (str(W.shape), str(b.shape), args.load_conv))
 
     if args.conv_act:
         convOut = ActivationLayer(convLinear, tanh)

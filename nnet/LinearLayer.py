@@ -98,7 +98,8 @@ class LinearLayer(Layer):
             "b": self.b.get_value()
         }
 
-    def load(self, attributes):
-        self.W.set_value(numpy.array(attributes["w"]))
-        self.b.set_value(numpy.array(attributes["b"]))
+    # TODO Igor, verificar
+    # def load(self, attributes):
+    #     self.W.set_value(numpy.array(attributes["w"]))
+    #     self.b.set_value(numpy.array(attributes["b"]))
 

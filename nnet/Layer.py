@@ -140,13 +140,15 @@ class Layer(PersistentObject):
 
     def load(self, filepath):
         # TODO Igor, verificar
-        npArrs = np.load(filepath)
-        for (arr, var) in zip(npArrs, self.getParameters()):
-            var.set_value(arr)
+        with np.load(filepath) as npz:
+            files = list(npz.files)
+            files.sort()
+            for (f, var) in zip(files, self.getParameters()):
+                var.set_value(npz[f])
 
     def save(self, filepath):
         # TODO Igor, verificar
         npArrs = []
         for p in self.getParameters():
             npArrs.append(p.get_value())
-        np.savez(filepath, npArrs)
+        np.savez(filepath, *npArrs)

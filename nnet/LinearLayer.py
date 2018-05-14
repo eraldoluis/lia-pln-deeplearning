@@ -75,7 +75,6 @@ class LinearLayer(Layer):
     def getUpdates(self, cost, lr, sumSqGrads=None):
         return []
 
-
     @staticmethod
     def getParametersFromPersistenceManager(persistenceManager, name):
         """
@@ -90,7 +89,7 @@ class LinearLayer(Layer):
         """
         attrs = persistenceManager.getObjAttributesByObjName(name)
 
-        return (numpy.array(attrs["w"]), numpy.array(attrs["b"]))
+        return numpy.array(attrs["w"]), numpy.array(attrs["b"])
 
     def getAttributes(self):
         return {

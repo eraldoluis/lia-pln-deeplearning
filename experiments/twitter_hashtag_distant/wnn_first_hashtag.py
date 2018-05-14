@@ -70,7 +70,7 @@ PARAMETERS = {
     "conv_size": {"required": True,
                   "desc": "Size of the convolution layer (number of filters)."},
     "conv_act": {"default": False,
-               "desc": "Whether to use an activation function after the convolution layer."},
+                 "desc": "Whether to use an activation function after the convolution layer."},
     # Layer: hidden.
     "hidden_size": {"default": 300,
                     "desc": "The number of neurons in the hidden layer"},
@@ -308,7 +308,8 @@ def main():
         # convW = convNPY[0]
         # convb = convNPY[1]
         (W, b) = convLinear.getParameters()
-        log.info("Loaded convolutional layer (shapes W=%s B=%s) from file %s" % (str(W.shape), str(b.shape), args.load_conv))
+        log.info(
+            "Loaded convolutional layer (shapes W=%s B=%s) from file %s" % (str(W.shape), str(b.shape), args.load_conv))
 
     if args.conv_act:
         convOut = ActivationLayer(convLinear, tanh)
@@ -318,30 +319,21 @@ def main():
     # Max pooling layer.
     maxPooling = MaxPoolingLayer(convOut)
 
-    softmaxInput = None
-    softmaxInputLen = -1
     if args.hidden:
         # Hidden layer.
-        if not args.train and args.load_hiddenLayer:
-            hiddenNPY = np.load(args.load_hiddenLayer)
-            W1 = hiddenNPY[0]
-            b1 = hiddenNPY[1]
-            log.info("Loaded hidden layer (shape %s) from file %s" % (str(W1.shape), args.load_hiddenLayer))
-
         hiddenLinear = LinearLayer(maxPooling,
                                    convSize,
                                    hiddenLayerSize,
                                    W=W1, b=b1,
                                    weightInitialization=weightInit)
 
-        hiddenAct = ActivationLayer(hiddenLinear, tanh)
+        if not args.train and args.load_hiddenLayer:
+            hiddenLinear.load(args.load_hiddenLayer)
+            (W, b) = hiddenLinear.getParameters()
+            log.info("Loaded hidden layer (shapes W=%s B=%s) from file %s" % (
+            str(W.shape), str(b.shape), args.load_hiddenLayer))
 
-        # Entrada linear da camada softmax.
-        if not args.train and args.load_softmax:
-            hiddenNPY = np.load(args.load_softmax)
-            W2 = hiddenNPY[0]
-            b2 = hiddenNPY[1]
-            log.info("Loaded softmax layer (shape %s) from file %s" % (str(W2.shape), args.load_softmax))
+        hiddenAct = ActivationLayer(hiddenLinear, tanh)
 
         softmaxInput = hiddenAct
         softmaxInputLen = hiddenLayerSize
@@ -349,15 +341,22 @@ def main():
         softmaxInput = maxPooling
         softmaxInputLen = convSize
 
-    sotmaxLinearInput = LinearLayer(softmaxInput,
-                                    softmaxInputLen,
-                                    labelLexicon.getLen(),
-                                    W=W2, b=b2,
-                                    weightInitialization=ZeroWeightGenerator())
+    softmaxLinearInput = LinearLayer(softmaxInput,
+                                     softmaxInputLen,
+                                     labelLexicon.getLen(),
+                                     W=W2, b=b2,
+                                     weightInitialization=ZeroWeightGenerator())
+
+    if not args.train and args.load_softmax:
+        softmaxLinearInput.load(args.load_softmax)
+        (W, b) = softmaxLinearInput.getParameters()
+        log.info(
+            "Loaded softmax layer (shapes W=%s B=%s) from file %s" % (
+            str(W.shape), str(b.shape), args.load_softmax))
 
     # Softmax.
     # softmaxAct = ReshapeLayer(ActivationLayer(sotmaxLinearInput, softmax), (1, -1))
-    softmaxAct = ActivationLayer(sotmaxLinearInput, softmax)
+    softmaxAct = ActivationLayer(softmaxLinearInput, softmax)
 
     # Prediction layer (argmax).
     prediction = ArgmaxPrediction(None).predict(softmaxAct.getOutput())
@@ -511,7 +510,7 @@ def main():
         log.info("Training")
         model.train(trainIterator, numEpochs, devIterator, evalPerIteration=evalPerIteration)
 
-    # Saving model after training
+        # Saving model after training
         if args.save_wordEmbedding:
             embeddingLayer.saveAsW2V(args.save_wordEmbedding, lexicon=wordLexicon)
             log.info("Saved word to vector to file: %s" % (args.save_wordEmbedding))
@@ -522,7 +521,7 @@ def main():
             hiddenLinear.save(args.save_hiddenLayer)
             log.info("Saved hidden layer to file: %s" % (args.save_hiddenLayer))
         if args.save_softmax:
-            sotmaxLinearInput.save(args.save_softmax)
+            softmaxLinearInput.save(args.save_softmax)
             log.info("Saved softmax to file: %s" % (args.save_softmax))
 
     # Testing

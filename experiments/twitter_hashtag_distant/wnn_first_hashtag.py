@@ -70,10 +70,13 @@ PARAMETERS = {
     "conv_size": {"required": True,
                   "desc": "Size of the convolution layer (number of filters)."},
     "conv_act": {"default": False,
-                    "desc": "Whether to use an activation function after the convolution layer."},
+                 "desc": "Whether to use an activation function after the convolution layer."},
     # Layer: hidden.
     "hidden_size": {"default": 300,
                     "desc": "The number of neurons in the hidden layer"},
+    "hidden": {"default": True,
+               "desc": "Whether to use a hidden layer after the max pooling or not."},
+
     # Learning algorithm.
     "alg": {"default": "sgd",
             "desc": "Optimization algorithm to be used. Options are: 'sgd', 'adagrad'."},
@@ -168,7 +171,8 @@ class TextLabelGenerator(FeatureGenerator):
         :return: li
         """
 
-        y = self.__labelLexicon.put(label)
+        # This has been changed to it gets only the first class/label
+        y = self.__labelLexicon.put(label.split(' ')[0])
 
         if y == -1:
             raise Exception("Label doesn't exist: %s" % label)
@@ -292,16 +296,20 @@ def main():
     convW = None
     convb = None
 
-    if not args.train and args.load_conv:
-        convNPY = np.load(args.load_conv)
-        convW = convNPY[0]
-        convb = convNPY[1]
-        log.info("Loaded convolutional layer (shape %s) from file %s" % (str(convW.shape), args.load_conv))
-
     convLinear = LinearLayer(flattenInput,
                              wordWindowSize * wordEmbedding.getEmbeddingSize(),
                              convSize, W=convW, b=convb,
                              weightInitialization=weightInit)
+
+    # TODO Igor, verificar
+    if args.load_conv:
+        convLinear.load(args.load_conv)
+        # convNPY = np.load(args.load_conv)
+        # convW = convNPY[0]
+        # convb = convNPY[1]
+        (W, b) = convLinear.getParameters()
+        log.info(
+            "Loaded convolutional layer (shapes W=%s B=%s) from file %s" % (str(W.shape), str(b.shape), args.load_conv))
 
     if args.conv_act:
         convOut = ActivationLayer(convLinear, tanh)
@@ -311,37 +319,44 @@ def main():
     # Max pooling layer.
     maxPooling = MaxPoolingLayer(convOut)
 
-    # Hidden layer.
-    if not args.train and args.load_hiddenLayer:
-        hiddenNPY = np.load(args.load_hiddenLayer)
-        W1 = hiddenNPY[0]
-        b1 = hiddenNPY[1]
-        log.info("Loaded hidden layer (shape %s) from file %s" % (str(W1.shape), args.load_hiddenLayer))
+    if args.hidden:
+        # Hidden layer.
+        hiddenLinear = LinearLayer(maxPooling,
+                                   convSize,
+                                   hiddenLayerSize,
+                                   W=W1, b=b1,
+                                   weightInitialization=weightInit)
 
-    hiddenLinear = LinearLayer(maxPooling,
-                               convSize,
-                               hiddenLayerSize,
-                               W=W1, b=b1,
-                               weightInitialization=weightInit)
+        if not args.train and args.load_hiddenLayer:
+            hiddenLinear.load(args.load_hiddenLayer)
+            (W, b) = hiddenLinear.getParameters()
+            log.info("Loaded hidden layer (shapes W=%s B=%s) from file %s" % (
+            str(W.shape), str(b.shape), args.load_hiddenLayer))
 
-    hiddenAct = ActivationLayer(hiddenLinear, tanh)
+        hiddenAct = ActivationLayer(hiddenLinear, tanh)
 
-    # Entrada linear da camada softmax.
+        softmaxInput = hiddenAct
+        softmaxInputLen = hiddenLayerSize
+    else:
+        softmaxInput = maxPooling
+        softmaxInputLen = convSize
+
+    softmaxLinearInput = LinearLayer(softmaxInput,
+                                     softmaxInputLen,
+                                     labelLexicon.getLen(),
+                                     W=W2, b=b2,
+                                     weightInitialization=ZeroWeightGenerator())
+
     if not args.train and args.load_softmax:
-        hiddenNPY = np.load(args.load_softmax)
-        W2 = hiddenNPY[0]
-        b2 = hiddenNPY[1]
-        log.info("Loaded softmax layer (shape %s) from file %s" % (str(W2.shape), args.load_softmax))
-
-    sotmaxLinearInput = LinearLayer(hiddenAct,
-                                    hiddenLayerSize,
-                                    labelLexicon.getLen(),
-                                    W=W2, b=b2,
-                                    weightInitialization=ZeroWeightGenerator())
+        softmaxLinearInput.load(args.load_softmax)
+        (W, b) = softmaxLinearInput.getParameters()
+        log.info(
+            "Loaded softmax layer (shapes W=%s B=%s) from file %s" % (
+            str(W.shape), str(b.shape), args.load_softmax))
 
     # Softmax.
     # softmaxAct = ReshapeLayer(ActivationLayer(sotmaxLinearInput, softmax), (1, -1))
-    softmaxAct = ActivationLayer(sotmaxLinearInput, softmax)
+    softmaxAct = ActivationLayer(softmaxLinearInput, softmax)
 
     # Prediction layer (argmax).
     prediction = ArgmaxPrediction(None).predict(softmaxAct.getOutput())
@@ -495,7 +510,7 @@ def main():
         log.info("Training")
         model.train(trainIterator, numEpochs, devIterator, evalPerIteration=evalPerIteration)
 
-    # Saving model after training
+        # Saving model after training
         if args.save_wordEmbedding:
             embeddingLayer.saveAsW2V(args.save_wordEmbedding, lexicon=wordLexicon)
             log.info("Saved word to vector to file: %s" % (args.save_wordEmbedding))
@@ -506,7 +521,7 @@ def main():
             hiddenLinear.save(args.save_hiddenLayer)
             log.info("Saved hidden layer to file: %s" % (args.save_hiddenLayer))
         if args.save_softmax:
-            sotmaxLinearInput.save(args.save_softmax)
+            softmaxLinearInput.save(args.save_softmax)
             log.info("Saved softmax to file: %s" % (args.save_softmax))
 
     # Testing

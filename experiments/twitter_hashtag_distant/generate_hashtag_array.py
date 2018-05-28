@@ -6,17 +6,18 @@ import json
 
 
 if __name__ == '__main__':
-    dataset = 'frequencia_1000xOrMore.json'
-    filepath = '/home/igor/Desktop/LIA/top125/' + dataset
+    dataset = '2.twitter_all-frequency-1kOrMore.txt'
+    filepath = '/home/igor/Documents/LIA/Experimentos/twitter_sentiment_distant/' + dataset
 
     with open(filepath) as file:
         objs = json.load(file)
 
     print "["
-    tags = np.asarray(objs["mostFreq"])[:, 0]
+    tags = np.asarray(objs["mostFreq"])[:50, :]
     for t in tags:
-        print "\"" + t + "\","
+        print "\"" + t[2] + "\","
     print "]"
+
 
     #result = 0
     #for t in tags:

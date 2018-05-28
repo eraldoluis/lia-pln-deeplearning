@@ -138,13 +138,17 @@ class Layer(PersistentObject):
     def getAttributes(self):
         return None
 
-    def load(self, attributes):
-        pass
+    def load(self, filepath):
+        # TODO Igor, verificar
+        with np.load(filepath) as npz:
+            files = list(npz.files)
+            files.sort()
+            for (f, var) in zip(files, self.getParameters()):
+                var.set_value(npz[f])
 
     def save(self, filepath):
+        # TODO Igor, verificar
         npArrs = []
         for p in self.getParameters():
             npArrs.append(p.get_value())
-        np.save(filepath, npArrs)
-
-
+        np.savez(filepath, *npArrs)

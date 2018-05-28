@@ -250,12 +250,14 @@ class FMetric(Metric):
         numLabels = len(labels)
         macroP /= numLabels
         macroR /= numLabels
-        macroF = (1 + beta) * macroP * macroR / (beta * macroP + macroR)
+        den = beta * macroP + macroR
+        macroF = (1 + beta) * macroP * macroR / den if den > 0 else 0
 
         # Micro-averaged metrics.
         microP = tpAccum / (tpAccum + fpAccum)
         microR = tpAccum / (tpAccum + fnAccum)
-        microF = (1 + beta) * microP * microR / (beta * microP + microR)
+        den = beta * microP + microR
+        microF = (1 + beta) * microP * microR / den if den > 0 else 0
 
         return {
             "numExamples": self.numExamples,
@@ -389,7 +391,7 @@ class CustomMetric(Metric):
             self.numExamples += fp
             
         return prediction
-            
+
     def reset(self):
         self.__reset()
 

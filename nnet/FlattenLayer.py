@@ -6,11 +6,10 @@ from nnet.Layer import Layer
 
 
 class FlattenLayer(Layer):
-
-    def __init__(self,_input):
+    def __init__(self, _input):
         super(FlattenLayer, self).__init__(_input)
 
-        # We flat to two dimension, because of the mini-batch
+        # We flat to two dimensions, because of the mini-batch
         self.__output = T.flatten(self.getInput(), 2)
 
     def getOutput(self):

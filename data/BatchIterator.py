@@ -99,12 +99,23 @@ class BatchAssembler:
         return inputs, outputs
 
 
+def batchGenerator(batches):
+    """
+    Generate batch from the given list of batches.
+
+    :param batches:
+    :return:
+    """
+    for batch in batches:
+        yield batch
+
+
 class SyncBatchIterator(object):
     """
     Reads all data from data set and generates the training input at once.
     """
 
-    def __init__(self, reader, inputGenerators, outputGenerator, batchSize, shuffle=True):
+    def __init__(self, reader, inputGenerators, outputGenerator, batchSize, shuffle=True, numCVFolds=None):
         """
         :type reader: data.DatasetReader.DatasetReader
         :param reader:
@@ -118,22 +129,23 @@ class SyncBatchIterator(object):
         :param batchSize: If this parameter has a negative or zero value,
             so this algorithm will consider that the training has variable batch.
             Thus each TrainingInputGenerator has to pass the batch through the generate method.
-            If this parameter has a value bigger than zero, so will treat treat each output of generate method as a normal example.
+            If this parameter has a value bigger than zero, so will treat treat each output of generate method as a
+            normal example.
 
-        :param shuffle: is to shufle or not the batches
+        :param shuffle: is to shuffle or not the batches
+
+        :param numCVFolds: if not None, then split the underlying mini-batches in numCVFolds folds and create a pair
+            (train, dev) of generators for each fold.
         """
         self.__batches = []
-        self.__batchIdxs = []
         self.__shuffle = shuffle
         self.__current = 0
         self.__log = logging.getLogger(__name__)
         self.__batchSize = batchSize
 
-        idx = 0
         for batch in BatchAssembler(reader, inputGenerators, outputGenerator, batchSize).getGeneratorObject():
             self.__batches.append(batch)
-            self.__batchIdxs.append(idx)
-            idx += 1
+        self.__batchIdxs = range(len(self.__batches))
 
         self.__size = len(self.__batchIdxs)
         self.__log.info("Number of batches: %d" % self.__size)
@@ -141,6 +153,31 @@ class SyncBatchIterator(object):
 
         if self.__shuffle:
             random.shuffle(self.__batchIdxs)
+
+        if numCVFolds is not None and numCVFolds > 1:
+            # Split the list of batches in numCVFolds parts with equal size (the last one may be smaller).
+            folds = []
+            lenFold = self.__size / numCVFolds
+            for i in xrange(numCVFolds - 1):
+                folds.append(self.__batches[i * lenFold:(i + 1) * lenFold])
+            # The last one may be smaller.
+            folds.append(self.__batches[(numCVFolds - 1) * lenFold:self.__size])
+
+            # Create a pair (train, dev) of generators for each fold.
+            self.__cvGenerators = []
+            for i in xrange(numCVFolds):
+                trainFolds = list(folds)
+                # The i-th fold is the dev fold for this iteration.
+                devBatches = trainFolds.pop(i)
+                # Group all train folds in one list of batches.
+                trainBatches = []
+                for f in trainFolds:
+                    trainBatches += f
+                # Create a pair (train, dev) of generators.
+                self.__cvGenerators.append((batchGenerator(trainBatches), batchGenerator(devBatches)))
+
+    def getCVGenerators(self):
+        return self.__cvGenerators
 
     def __iter__(self):
         return self

@@ -86,7 +86,7 @@ class Embedding(object):
         """
         return self.__lexicon
 
-    def zscoreNormalization(self, norm_coef=1.0):
+    def zscoreNormalization(self, norm_coef=1):
         """
         Normalize all the embeddings using the following equation:
         x = (x − mean(x)) / stddev(x)
@@ -97,7 +97,7 @@ class Embedding(object):
         self.__vectors -= np.mean(self.__vectors, axis=0)
         self.__vectors *= (norm_coef / np.std(self.__vectors, axis=0))
 
-    def minMaxNormalization(self, norm_coef=1.0):
+    def minMaxNormalization(self, norm_coef=1):
         """
         Normalize all the embeddings to a range [0,1].
         x = (x − min(x)) / (max(x) − min(x))
@@ -108,7 +108,7 @@ class Embedding(object):
         self.__vectors -= np.min(self.__vectors, axis=0)
         self.__vectors *= (norm_coef / np.ptp(self.__vectors, axis=0))
 
-    def meanNormalization(self, norm_coef=1.0):
+    def meanNormalization(self, norm_coef=1):
         """
         Normalize all the embeddings to a range [-1,1].
         x = (x − mean(x)) / (max(x) − min(x))

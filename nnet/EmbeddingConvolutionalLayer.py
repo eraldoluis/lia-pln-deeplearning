@@ -37,7 +37,7 @@ class EmbeddingConvolutionalLayer(Layer):
     """
 
     def __init__(self, input, charEmbedding, numMaxCh, convSize, charWindowSize, charEmbSize, charAct=tanh,
-                 structGrad=True, trainable=True, name=None):
+                 structGrad=True, trainable=True, name=None, borrow=True):
         """
 
         :param input: a layer or theano variable
@@ -68,6 +68,8 @@ class EmbeddingConvolutionalLayer(Layer):
         :param trainable: set if the layer is trainable or not
 
         :param name:unique name of the layer. This is use to save the attributes of this object.
+
+        :param borrow: whether the shared variable of this layer will activate the borrow setting.
         """
 
         # Input variable for this layer. Its shape is (numExs, szWrdWin, numMaxCh, szChWin)
@@ -98,7 +100,7 @@ class EmbeddingConvolutionalLayer(Layer):
         szChWin = shape[3]
 
         # Character embedding layer.
-        self.__embedLayer = EmbeddingLayer(self.input.flatten(2), charEmbedding, structGrad=structGrad,
+        self.__embedLayer = EmbeddingLayer(self.input.flatten(2), charEmbedding, borrow=borrow, structGrad=structGrad,
                                            trainable=self.isTrainable())
 
         # It chooses, based in the activation function, the way that the weights of liner layer will be initialized.

@@ -391,7 +391,7 @@ class CustomMetric(Metric):
             self.numExamples += fp
             
         return prediction
-            
+
     def reset(self):
         self.__reset()
 

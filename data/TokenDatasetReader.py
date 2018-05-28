@@ -54,7 +54,7 @@ In this example, token separator is space and token/label separator is underline
 """
 class TokenLabelReader(DatasetReader):
 
-    def __init__(self, filePath, labelTknSep, sep=None, oneTokenPerLine=False):
+    def __init__(self, filePath, labelTknSep, sep=None, oneTokenPerLine=True):
         """
         :type filePath: String
         :param filePath: dataset path
@@ -164,6 +164,10 @@ class TokenLabelPerLineReader(DatasetReader):
                 continue
 
             tknLabel = line.split(sep)
+            
+            if(len(tknLabel) < 2):
+                continue
+            
             tkns.append(tknLabel[0])
             labels.append(tknLabel[1])
 

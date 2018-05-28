@@ -23,7 +23,7 @@ class EmbeddingLayer(Layer):
     These vectors comprise the learnable parameters of this layer.
     """
 
-    def __init__(self, _input, embedding, structGrad=True, trainable=True, name=None):
+    def __init__(self, _input, embedding, borrow=True, structGrad=True, trainable=True, name=None):
         """
         :param _input: _input need be a matrix with 2 dimensions
 
@@ -34,6 +34,8 @@ class EmbeddingLayer(Layer):
             Each row corresponds to a weight vector that represents a feature
             value (this feature embedding). For instance, when using word
             embeddings, each row stores a word vector.
+
+        :param borrow: borrow attribute when creating the shared variable for the given embedding matrix.
         
         :param structGrad: whether to use structured gradients or not.
             When using small batches (online gradient descent, in the limit),
@@ -74,7 +76,7 @@ class EmbeddingLayer(Layer):
             if isinstance(embedding, list):
                 embedding = numpy.asarray(embedding, dtype=theano.config.floatX)
 
-            self.__embedding = theano.shared(value=embedding, name='embedding', borrow=True)
+            self.__embedding = theano.shared(value=embedding, name='embedding', borrow=borrow)
         else:
             self.__embedding = embedding
 
@@ -83,28 +85,27 @@ class EmbeddingLayer(Layer):
 
         # Matrix of the active parameters for the given examples.
         # Its shape is (numExs * szEx, szEmb).
-        input = self.getInput()
-        flat = T.flatten(input, 1)
+        flat = T.flatten(_input, 1)
         self.__activeVectors = self.__embedding[flat]
 
         #
         # Output of the layer for the given examples.
-        # Its shape is (numExs, szEx * szEmb).
+        # Its shape is (numExs, szEx, szEmb).
         #
         # This variable holds the same information as self.__activeVectors,
         # but with a different shape.
         #
-        self.__output = self.__embedding[input]
+        self.__output = self.__activeVectors.reshape((_input.shape[0], _input.shape[1], -1))
 
     def getUpdates(self, cost, learningRate, sumSqGrads=None):
         if self.__structGrad:
             # shape = (numExs, szEx * szEmb)
-            grad = T.grad(cost, self.__output)
+            grad = T.grad(cost, self.__activeVectors)
 
             # Reshape the gradient vector as self.__activeVectors, since these 
             # are the parameters to be updated, which follow the shape of the
             # embedding itself (in fact, a subtensor of the embedding).
-            grad = grad.reshape(self.__activeVectors.shape)
+            # grad = grad.reshape(self.__activeVectors.shape)
 
             # List of updates.
             updates = []

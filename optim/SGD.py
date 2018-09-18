@@ -34,19 +34,20 @@ class SGD(Optimizer):
 
     def getUpdates(self, cost, layers):
         updates = []
-        defaultGradParams = []
 
         for l in layers:
+            # Multiply the default LR by the LR factor of this layer.
+            lr = self.lr
+            lrFactor = l.getLRFactor()
+            if lrFactor is not None:
+                lr = lr * lrFactor
+
             # Structured updates (embeddings, basically).
-            updates += l.getUpdates(cost, self.lr)
+            updates += l.getUpdates(cost, lr)
+
             # Default gradient parameters (all the remaining).
-            defaultGradParams += l.getDefaultGradParameters()
-
-        # Add updates for default-gradient parameters.
-        # Compute gradient of the cost function w.r.t. each parameter.
-        grads = self.defaultGradParam(cost, defaultGradParams)
-
-        updates += [(param, param - self.lr * grad)
-                   for param, grad in zip(defaultGradParams, grads)]
+            for param in l.getDefaultGradParameters():
+                grad = T.grad(cost, param)
+                updates.append((param, param - lr * grad))
 
         return updates

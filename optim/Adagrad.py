@@ -58,10 +58,7 @@ class Adagrad(Optimizer):
                                     name='sumSqGrads_' + param.name,
                                     borrow=True)
                 ssgs.append(ssg)
-            # For default gradient parameters, we do not need to store
-            # parameters or historical gradients separated by layer. We
-            # just store a list of parameters and historical gradients.
-            sumsSqDefGrads += ssgs
+            sumsSqDefGrads.append(ssgs)
         self.__sumsSqDefGrads = sumsSqDefGrads
 
         sumsSqStructGrads = []
@@ -77,9 +74,6 @@ class Adagrad(Optimizer):
                                     name='sumSqGrads_' + param.name,
                                     borrow=True)
                 ssgs.append(ssg)
-            # For structured parameters, we need to store the historical
-            # gradients separated by layer, since the updates of these
-            # variables are performed by each layer.
             sumsSqStructGrads.append(ssgs)
         self.__sumsSqStructGrads = sumsSqStructGrads
 
@@ -87,26 +81,31 @@ class Adagrad(Optimizer):
         updates = []
         defaultGradParams = []
 
-        # Get structured updates and default-gradient parameters from all layers.
-        for (idx, l) in enumerate(layers):
-            # Structured updates (embeddings, basically).
-            ssgs = self.__sumsSqStructGrads[idx]
-            updates += l.getUpdates(cost, self.lr, ssgs)
-            # Default gradient parameters (all the remaining).
-            defaultGradParams += l.getDefaultGradParameters()
-
-        # Add updates for default-gradient parameters.
-        grads = self.defaultGradParam(cost, defaultGradParams)
-
         # For numerical stability.
         fudgeFactor = 1e-10
 
-        for param, grad, ssg in zip(defaultGradParams, grads, self.__sumsSqDefGrads):
-            # Update of the sum of squared gradient.
-            newSsg = ssg + grad * grad
-            updates.append((ssg, newSsg))
-            # Update of the parameter.
-            newParam = param - self.lr * (grad / (fudgeFactor + T.sqrt(newSsg)))
-            updates.append((param, newParam))
+        # Get structured updates and default-gradient parameters from all layers.
+        for l, defSsgs, structSsgs in zip(layers, self.__sumsSqDefGrads, self.__sumsSqStructGrads):
+            # Multiply the default LR by the LR factor of this layer.
+            lr = self.lr
+            lrFactor = l.getLRFactor()
+            if lrFactor is not None:
+                lr = lr * lrFactor
+
+            # Structured updates (embeddings, basically).
+            updates += l.getUpdates(cost, lr, structSsgs)
+
+            # Default gradient parameters (all the remaining).
+            for param, ssg in zip(l.getDefaultGradParameters(), defSsgs):
+                # Compute gradient for this param.
+                grad = T.grad(cost, param)
+
+                # Update of the sum of squared gradient.
+                newSsg = ssg + grad * grad
+                updates.append((ssg, newSsg))
+
+                # Update of the parameter.
+                newParam = param - lr * (grad / (fudgeFactor + T.sqrt(newSsg)))
+                updates.append((param, newParam))
 
         return updates

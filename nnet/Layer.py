@@ -31,7 +31,7 @@ class Layer(PersistentObject):
     However, these methods don't do nothing and it isn't possible to save a subclasse Layer that doesn't overwrite them.
     Besides that, it's important give a unique name to the layer with want to save it.
     """
-    def __init__(self, _input, trainable=True, name=None):
+    def __init__(self, _input, trainable=True, name=None, lrFactor=None):
         """
         Constructor
         """
@@ -54,6 +54,12 @@ class Layer(PersistentObject):
         #     self.log.debug("The layer object doesn't have a name. It won't be possible to save this object.")
 
         self.__name = name
+
+        # Factor multiplying the learning rate when updating this layer parameters.
+        self.__lrFactor = lrFactor
+
+    def getLRFactor(self):
+        return self.__lrFactor
 
     def isTrainable(self):
         return self.__trainable

@@ -23,7 +23,7 @@ class EmbeddingLayer(Layer):
     These vectors comprise the learnable parameters of this layer.
     """
 
-    def __init__(self, _input, embedding, borrow=True, structGrad=True, trainable=True, name=None):
+    def __init__(self, _input, embedding, borrow=True, structGrad=True, trainable=True, name=None, lrFactor=None):
         """
         :param _input: _input need be a matrix with 2 dimensions
 
@@ -70,7 +70,7 @@ class EmbeddingLayer(Layer):
             embedding.shape = (numVectors, szEmb)
 
         """
-        super(EmbeddingLayer, self).__init__(_input, trainable, name)
+        super(EmbeddingLayer, self).__init__(_input, trainable, name, lrFactor)
 
         if not isinstance(embedding, TensorSharedVariable):
             if isinstance(embedding, list):

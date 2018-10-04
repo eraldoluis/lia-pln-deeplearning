@@ -62,6 +62,19 @@ PARAMETERS = {
     "fix_word_embedding": {
         "default": False,
         "desc": "Fix the word embedding (do not update it during training)."},
+    "fix_convolutional_layer": {
+        "default":False,
+        "desc":"Fix the convolutional layer (it won't update during training)."},
+    "lrFactorEmbedding":{
+        "default": None,
+        "desc": "Factor that multiplies the embedding layer learning rate in order to increase or decrease it"},
+    "lrFactorConvolutional":{
+        "default": None,
+        "desc": "Factor that multiplies the convolutional layer learning rate in order to increase or decrease it"},
+    "lrFactorSoftMax":{
+        "default":None,
+        "desc": "Factor that multiplies the softmax learning rate in order to increase or decrease it"
+    },
     "start_symbol": {"default": "</s>",
                      "desc": "Object that will be place when the initial limit of list is exceeded"},
     "end_symbol": {"default": "</s>",
@@ -274,8 +287,10 @@ def main():
     if not embLayerTrainable:
         log.info("Not updating the word embedding!")
 
+
     # Lookup table for word features.
-    embeddingLayer = EmbeddingLayer(inWords, wordEmbedding.getEmbeddingMatrix(), trainable=embLayerTrainable)
+    embeddingLayer = EmbeddingLayer(inWords, wordEmbedding.getEmbeddingMatrix(), trainable=embLayerTrainable,
+                                    lrFactor=args.lrFactorEmbedding)
 
     # if not args.train and args.load_wordEmbedding:
     #     attrs = np.load(args.load_wordEmbedding)
@@ -301,10 +316,17 @@ def main():
         convb = convNPY[1]
         log.info("Loaded convolutional layer (shape %s) from file %s" % (str(convW.shape), args.load_conv))
 
+    convLayerTrainable = not args.fix_convolutional_layer
+
+        
+    if not convLayerTrainable: 
+        log.info("Not updating the convolutional layer!")
     convLinear = LinearLayer(flattenInput,
                              wordWindowSize * wordEmbedding.getEmbeddingSize(),
                              convSize, W=convW, b=convb,
-                             weightInitialization=weightInit)
+                             weightInitialization=weightInit,
+                             trainable=convLayerTrainable,
+                             lrFactor=args.lrFactorConvolutional)
 
     if args.conv_act:
         convOut = ActivationLayer(convLinear, tanh)
@@ -349,7 +371,8 @@ def main():
                                     softmaxInputLen,
                                     labelLexicon.getLen(),
                                     W=W2, b=b2,
-                                    weightInitialization=ZeroWeightGenerator())
+                                    weightInitialization=ZeroWeightGenerator(),
+                                    lrFactor=args.lrFactorSoftMax)
 
     # Softmax.
     # softmaxAct = ReshapeLayer(ActivationLayer(sotmaxLinearInput, softmax), (1, -1))

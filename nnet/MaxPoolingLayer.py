@@ -8,7 +8,7 @@ from nnet.Layer import Layer
 class MaxPoolingLayer(Layer):
 
     def __init__(self,_input):
-        super(MaxPoolingLayer, self).__init__(_input)
+        super(MaxPoolingLayer, self).__init__(_input, trainable=False)
 
         # We apply a max operator along the first dimension.
         self.__output = T.max(self.getInput(), axis=0)

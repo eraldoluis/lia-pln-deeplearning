@@ -24,18 +24,14 @@ def hard_sigmoid(x):
     return T.nnet.hard_sigmoid(x)
 
 
-# Activation Layer
-
 class ActivationLayer(Layer):
-
-    def __init__(self,_input, actFunction):
+    def __init__(self, _input, actFunction):
         """
         :param actFunction: activation function
         """
-        super(ActivationLayer, self).__init__(_input)
+        super(ActivationLayer, self).__init__(_input, trainable=False)
 
-        self.__output =  actFunction(self.getInput())
-
+        self.__output = actFunction(self.getInput())
 
     def getOutput(self):
         return self.__output
@@ -51,7 +47,3 @@ class ActivationLayer(Layer):
 
     def getUpdates(self, cost, learningRate, sumSqGrads=None):
         return []
-
-
-
-

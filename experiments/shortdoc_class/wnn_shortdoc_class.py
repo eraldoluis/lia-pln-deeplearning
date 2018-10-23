@@ -5,13 +5,12 @@ import codecs
 import importlib
 import logging
 import logging.config
-import numpy as np
 import os
 import random
 import sys
 
+import numpy as np
 from theano import tensor
-from theano.scalar import float64
 
 from args.JsonArgParser import JsonArgParser
 from data.BatchIterator import SyncBatchIterator, AsyncBatchIterator
@@ -21,7 +20,7 @@ from data.FeatureGenerator import FeatureGenerator
 from data.Lexicon import Lexicon
 from data.WordWindowGenerator import WordWindowGenerator
 from model.BasicModel import BasicModel
-from model.Metric import LossMetric, AccuracyMetric, FMetric, PredictedProbabilities
+from model.Metric import LossMetric, AccuracyMetric, FMetric
 from model.Objective import NegativeLogLikelihoodOneExample
 from model.Prediction import ArgmaxPrediction
 from nnet.ActivationLayer import ActivationLayer, softmax, tanh
@@ -63,16 +62,16 @@ PARAMETERS = {
         "default": False,
         "desc": "Fix the word embedding (do not update it during training)."},
     "fix_convolutional_layer": {
-        "default":False,
-        "desc":"Fix the convolutional layer (it won't update during training)."},
-    "lrFactorEmbedding":{
+        "default": False,
+        "desc": "Fix the convolutional layer (it won't update during training)."},
+    "lrFactorEmbedding": {
         "default": None,
         "desc": "Factor that multiplies the embedding layer learning rate in order to increase or decrease it"},
-    "lrFactorConvolutional":{
+    "lrFactorConvolutional": {
         "default": None,
         "desc": "Factor that multiplies the convolutional layer learning rate in order to increase or decrease it"},
-    "lrFactorSoftMax":{
-        "default":None,
+    "lrFactorSoftMax": {
+        "default": None,
         "desc": "Factor that multiplies the softmax learning rate in order to increase or decrease it"
     },
     "start_symbol": {"default": "</s>",
@@ -83,7 +82,7 @@ PARAMETERS = {
     "conv_size": {"required": True,
                   "desc": "Size of the convolution layer (number of filters)."},
     "conv_act": {"default": False,
-                    "desc": "Whether to use an activation function after the convolution layer."},
+                 "desc": "Whether to use an activation function after the convolution layer."},
     # Layer: hidden.
     "hidden_size": {"default": 300,
                     "desc": "The number of neurons in the hidden layer"},
@@ -229,16 +228,12 @@ def main():
         module_ = importlib.import_module(moduleName)
         filters.append(getattr(module_, className)())
 
-    W1 = None
-    b1 = None
-    W2 = None
-    b2 = None
-
     wordEmbedding = None
     if args.word_embedding:
         log.info("Reading W2v File")
         (wordLexicon, wordEmbedding) = Embedding.fromWord2Vec(args.word_embedding, unknownSymbol="__UNKNOWN__")
         wordLexicon.stopAdd()
+        log.info("Loaded word embedding from %s" % args.word_embedding)
     elif args.word_lexicon and args.word_emb_size:
         wordLexicon = Lexicon.fromTextFile(args.word_lexicon, hasUnknowSymbol=False)
         wordEmbedding = Embedding(wordLexicon, embeddingSize=args.word_emb_size)
@@ -287,16 +282,9 @@ def main():
     if not embLayerTrainable:
         log.info("Not updating the word embedding!")
 
-
     # Lookup table for word features.
     embeddingLayer = EmbeddingLayer(inWords, wordEmbedding.getEmbeddingMatrix(), trainable=embLayerTrainable,
                                     lrFactor=args.lrFactorEmbedding)
-
-    # if not args.train and args.load_wordEmbedding:
-    #     attrs = np.load(args.load_wordEmbedding)
-    #     embeddingLayer.load(attrs)
-    #     log.info("Loaded word embedding (shape %s) from file %s" % (
-    #         str(attrs[0].shape), args.load_wordEmbedding))
 
     # A saída da lookup table possui 3 dimensões (numTokens, szWindow, szEmbedding).
     # Esta camada dá um flat nas duas últimas dimensões, produzindo uma saída
@@ -306,27 +294,21 @@ def main():
     # Random weight initialization procedure.
     weightInit = GlorotUniform()
 
-    # Convolution layer. Convolução no texto de uma oferta.
-    convW = None
-    convb = None
-
-    if not args.train and args.load_conv:
-        convNPY = np.load(args.load_conv)
-        convW = convNPY[0]
-        convb = convNPY[1]
-        log.info("Loaded convolutional layer (shape %s) from file %s" % (str(convW.shape), args.load_conv))
-
+    # Convolution layer.
     convLayerTrainable = not args.fix_convolutional_layer
-
-        
-    if not convLayerTrainable: 
+    if not convLayerTrainable:
         log.info("Not updating the convolutional layer!")
+
     convLinear = LinearLayer(flattenInput,
                              wordWindowSize * wordEmbedding.getEmbeddingSize(),
-                             convSize, W=convW, b=convb,
+                             convSize,
                              weightInitialization=weightInit,
                              trainable=convLayerTrainable,
                              lrFactor=args.lrFactorConvolutional)
+
+    if args.load_conv:
+        convLinear.load(args.load_conv)
+        log.info("Loaded convolutional layer from %s" % args.load_conv)
 
     if args.conv_act:
         convOut = ActivationLayer(convLinear, tanh)
@@ -336,47 +318,38 @@ def main():
     # Max pooling layer.
     maxPooling = MaxPoolingLayer(convOut)
 
-    softmaxInput = None
-    softmaxInputLen = -1
     if args.hidden:
         # Hidden layer.
-        if not args.train and args.load_hiddenLayer:
-            hiddenNPY = np.load(args.load_hiddenLayer)
-            W1 = hiddenNPY[0]
-            b1 = hiddenNPY[1]
-            log.info("Loaded hidden layer (shape %s) from file %s" % (str(W1.shape), args.load_hiddenLayer))
-
         hiddenLinear = LinearLayer(maxPooling,
                                    convSize,
                                    hiddenLayerSize,
-                                   W=W1, b=b1,
                                    weightInitialization=weightInit)
+
+        if args.load_hiddenLayer:
+            hiddenLinear.load(args.load_hiddenLayer)
+            log.info("Loaded hidden layer from %s" % args.load_hiddenLayer)
 
         hiddenAct = ActivationLayer(hiddenLinear, tanh)
 
         # Entrada linear da camada softmax.
-        if not args.train and args.load_softmax:
-            hiddenNPY = np.load(args.load_softmax)
-            W2 = hiddenNPY[0]
-            b2 = hiddenNPY[1]
-            log.info("Loaded softmax layer (shape %s) from file %s" % (str(W2.shape), args.load_softmax))
-
         softmaxInput = hiddenAct
         softmaxInputLen = hiddenLayerSize
     else:
         softmaxInput = maxPooling
         softmaxInputLen = convSize
 
-    sotmaxLinearInput = LinearLayer(softmaxInput,
-                                    softmaxInputLen,
-                                    labelLexicon.getLen(),
-                                    W=W2, b=b2,
-                                    weightInitialization=ZeroWeightGenerator(),
-                                    lrFactor=args.lrFactorSoftMax)
+    # Output layer (softmax).
+    softmaxLinearInput = LinearLayer(softmaxInput,
+                                     softmaxInputLen,
+                                     labelLexicon.getLen(),
+                                     weightInitialization=ZeroWeightGenerator(),
+                                     lrFactor=args.lrFactorSoftMax)
 
-    # Softmax.
-    # softmaxAct = ReshapeLayer(ActivationLayer(sotmaxLinearInput, softmax), (1, -1))
-    softmaxAct = ActivationLayer(sotmaxLinearInput, softmax)
+    if args.load_softmax:
+        softmaxLinearInput.load(args.load_softmax)
+        log.info("Loaded softmax layer from %s" % args.load_softmax)
+
+    softmaxAct = ActivationLayer(softmaxLinearInput, softmax)
 
     # Prediction layer (argmax).
     prediction = ArgmaxPrediction(None).predict(softmaxAct.getOutput())
@@ -525,24 +498,24 @@ def main():
                        testMetrics=testMetrics,
                        mode=mode)
 
-    # Training
+    # Training.
     if trainIterator:
         log.info("Training")
         model.train(trainIterator, numEpochs, devIterator, evalPerIteration=evalPerIteration)
 
-    # Saving model after training
+        # Saving model after training.
         if args.save_wordEmbedding:
             embeddingLayer.saveAsW2V(args.save_wordEmbedding, lexicon=wordLexicon)
-            log.info("Saved word to vector to file: %s" % (args.save_wordEmbedding))
+            log.info("Saved word to vector to file: %s" % args.save_wordEmbedding)
         if args.save_conv:
             convLinear.save(args.save_conv)
-            log.info("Saved convolution layer to file: %s" % (args.save_conv))
+            log.info("Saved convolution layer to file: %s" % args.save_conv)
         if args.save_hiddenLayer:
             hiddenLinear.save(args.save_hiddenLayer)
-            log.info("Saved hidden layer to file: %s" % (args.save_hiddenLayer))
+            log.info("Saved hidden layer to file: %s" % args.save_hiddenLayer)
         if args.save_softmax:
-            sotmaxLinearInput.save(args.save_softmax)
-            log.info("Saved softmax to file: %s" % (args.save_softmax))
+            softmaxLinearInput.save(args.save_softmax)
+            log.info("Saved softmax to file: %s" % args.save_softmax)
 
     # Testing
     if args.test:
@@ -551,7 +524,7 @@ def main():
         testIterator = SyncBatchIterator(testReader,
                                          inputGenerators,
                                          outputGenerators,
-                                         - 1,
+                                         -1,
                                          shuffle=False)
 
         log.info("Testing")

@@ -1,11 +1,17 @@
-# NLP Deep Learning Framework
+# NLP Deep Learning Framework using Theano
 
-Theano-based framework for natural language processing.
+Designed by: Eraldo R. Fernandes
 
-## Team
+This reposity includes a Deep Learning Framework for Natural Language Processing problems using Theano.
 
-The main developers are:
+## Features
 
-- Eraldo R. Fernandes (eraldo@facom.ufms.br)
-- Irving M. Rodrigues (irving.muller@tecsinapse.com.br)
-- Shih Ju (shih.ju@tecsinapse.com.br)
+* Automatic metric logging
+* Training loop with callbacks (using observer design pattern)
+* Early stopping
+* Two SGD-based algorithms: vanilla SGD and AdaGrad
+
+If you want to have a better idea of the most important features,
+  you can have a look at the entry point for
+    [document classification](https://github.com/eraldoluis/lia-pln-deeplearning/blob/master/experiments/doc_classification/wnn.py)
+    and [NER](https://github.com/eraldoluis/lia-pln-deeplearning/blob/master/experiments/ner/wnn.py).

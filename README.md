@@ -11,7 +11,12 @@ This reposity includes a Deep Learning Framework for Natural Language Processing
 * Early stopping
 * Two SGD-based algorithms: vanilla SGD and AdaGrad
 
-If you want to have a better idea of the most important features,
-  you can have a look at the entry point for
-    [document classification](https://github.com/eraldoluis/lia-pln-deeplearning/blob/master/experiments/doc_classification/wnn.py)
-    and [NER](https://github.com/eraldoluis/lia-pln-deeplearning/blob/master/experiments/ner/wnn.py).
+
+## Available Instantiations
+
+All available instantiations can be found in the package [`experiments`](https://github.com/eraldoluis/lia-pln-deeplearning/tree/master/experiments).
+
+There are instantiations for the following NLP problems:
+* [Document Classification](https://github.com/eraldoluis/lia-pln-deeplearning/blob/master/experiments/doc_classification/wnn.py)
+* [Named Entity Recognition](https://github.com/eraldoluis/lia-pln-deeplearning/blob/master/experiments/ner/wnn.py)
+* [Part-of-Speech Tagging](https://github.com/eraldoluis/lia-pln-deeplearning/blob/master/experiments/postag/wnn.py)

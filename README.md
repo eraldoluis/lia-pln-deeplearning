@@ -10,6 +10,7 @@ This reposity includes a Deep Learning Framework for Natural Language Processing
 * Training loop with callbacks (using observer design pattern)
 * Early stopping
 * Two SGD-based algorithms: vanilla SGD and AdaGrad
+* Layer stacking with automatic parameter update
 
 
 ## Available Instantiations
